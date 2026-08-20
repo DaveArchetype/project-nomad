@@ -41,6 +41,8 @@ export default function Chat({
   const [isStreamingResponse, setIsStreamingResponse] = useState(false)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const streamAbortRef = useRef<AbortController | null>(null)
+  const isSendingRef = useRef(false)
+  const streamingSessionIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!isMobileSidebarOpen) return
@@ -148,6 +150,13 @@ export default function Chat({
     mutationFn: () => api.deleteAllChatSessions(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
+      if (streamAbortRef.current) {
+        streamAbortRef.current.abort()
+        streamAbortRef.current = null
+      }
+      setIsStreamingResponse(false)
+      isSendingRef.current = false
+      streamingSessionIdRef.current = null
       setActiveSessionId(null)
       setMessages([])
       closeAllModals()
@@ -159,6 +168,13 @@ export default function Chat({
     onSuccess: (_data, sessionId) => {
       queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
       if (activeSessionId === sessionId) {
+        if (streamAbortRef.current) {
+          streamAbortRef.current.abort()
+          streamAbortRef.current = null
+        }
+        setIsStreamingResponse(false)
+        isSendingRef.current = false
+        streamingSessionIdRef.current = null
         setActiveSessionId(null)
         setMessages([])
       }
@@ -267,6 +283,13 @@ export default function Chat({
     api.unloadChatModels(newModel).catch((err) => {
       console.warn('Failed to unload previous chat model:', err)
     })
+    if (streamAbortRef.current) {
+      streamAbortRef.current.abort()
+      streamAbortRef.current = null
+    }
+    setIsStreamingResponse(false)
+    isSendingRef.current = false
+    streamingSessionIdRef.current = null
     setSelectedModel(newModel)
     setPendingModelSwitch(null)
     // Clear the active session and messages — the next user message will
@@ -281,7 +304,13 @@ export default function Chat({
   }, [])
 
   const handleNewChat = useCallback(() => {
-    // Just clear the active session and messages - don't create a session yet
+    if (streamAbortRef.current) {
+      streamAbortRef.current.abort()
+      streamAbortRef.current = null
+    }
+    setIsStreamingResponse(false)
+    isSendingRef.current = false
+    streamingSessionIdRef.current = null
     setActiveSessionId(null)
     setMessages([])
   }, [])
@@ -331,8 +360,15 @@ export default function Chat({
 
   const handleSessionSelect = useCallback(
     async (sessionId: string) => {
-      // Cancel any ongoing suggestions fetch
       queryClient.cancelQueries({ queryKey: ['chatSuggestions'] })
+
+      if (streamAbortRef.current) {
+        streamAbortRef.current.abort()
+        streamAbortRef.current = null
+      }
+      setIsStreamingResponse(false)
+      isSendingRef.current = false
+      streamingSessionIdRef.current = null
 
       setActiveSessionId(sessionId)
       // Load messages for this session
@@ -371,9 +407,11 @@ export default function Chat({
 
   const handleSendMessage = useCallback(
     async (content: string) => {
+      if (isSendingRef.current) return
+      isSendingRef.current = true
+
       let sessionId = activeSessionId
 
-      // Create a new session if none exists
       if (!sessionId) {
         const newSession = await api.createChatSession('New Chat', selectedModel)
         if (newSession) {
@@ -381,6 +419,7 @@ export default function Chat({
           setActiveSessionId(sessionId)
           queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
         } else {
+          isSendingRef.current = false
           return
         }
       }
@@ -404,6 +443,7 @@ export default function Chat({
         // Streaming path
         const abortController = new AbortController()
         streamAbortRef.current = abortController
+        streamingSessionIdRef.current = sessionId
 
         setIsStreamingResponse(true)
 
@@ -426,6 +466,7 @@ export default function Chat({
               collection: collectionFilter || undefined,
             },
             (chunkContent, chunkThinking, done) => {
+              if (streamingSessionIdRef.current !== sessionId) return
               if (chunkThinking.length > 0 && thinkingStartTime === null) {
                 thinkingStartTime = Date.now()
               }
@@ -476,7 +517,11 @@ export default function Chat({
             abortController.signal
           )
         } catch (error: any) {
-          if (error?.name !== 'AbortError') {
+          const isAbort =
+            error?.name === 'AbortError' ||
+            abortController.signal.aborted ||
+            (error instanceof TypeError && error.message.includes('fetch'))
+          if (!isAbort) {
             setMessages((prev) => {
               const hasAssistantMsg = prev.some((m) => m.id === assistantMsgId)
               if (hasAssistantMsg) {
@@ -496,6 +541,8 @@ export default function Chat({
         } finally {
           setIsStreamingResponse(false)
           streamAbortRef.current = null
+          isSendingRef.current = false
+          streamingSessionIdRef.current = null
         }
 
         if (fullContent && sessionId) {
@@ -517,6 +564,7 @@ export default function Chat({
           think: effectiveThinking(selectedModel),
           collection: collectionFilter || undefined,
         })
+        isSendingRef.current = false
       }
     },
     [
