@@ -134,14 +134,14 @@ export default function Home(props: {
 
   // Add installed services (non-dependency services only)
   props.system.services
-    .filter((service) => service.installed && (service.ui_location || service.custom_url))
+    .filter((service) => service.installed && (service.ui_path || service.ui_location || service.custom_url))
     .forEach((service) => {
       items.push({
         // Inject custom AI Assistant name if this is the chat service
         label: service.service_name === SERVICE_NAMES.OLLAMA && aiAssistantName ? aiAssistantName : (service.friendly_name || service.service_name),
         to:
-          service.ui_location || service.custom_url
-            ? getServiceLink(service.ui_location || '', service.custom_url)
+          service.ui_path || service.ui_location || service.custom_url
+            ? getServiceLink(service.ui_location || '', service.custom_url, service.ui_path)
             : '#',
         target: '_blank',
         description:

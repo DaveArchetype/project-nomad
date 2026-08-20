@@ -1027,9 +1027,9 @@ function AppCard({
         {service.installed ? (
           <>
             {/* Open button — shown when the app has a default location or a user-set custom URL */}
-            {(service.ui_location || service.custom_url) && (
+            {(service.ui_path || service.ui_location || service.custom_url) && (
               <a
-                href={getServiceLink(service.ui_location || "", service.custom_url)}
+                href={getServiceLink(service.ui_location || "", service.custom_url, service.ui_path)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1"

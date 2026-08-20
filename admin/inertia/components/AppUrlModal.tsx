@@ -34,7 +34,7 @@ export default function AppUrlModal({ open, service, onClose, onSaved, showError
   const normalized = normalizeCustomUrl(value)
   const isInvalid = trimmed.length > 0 && !normalized
   // What clicking "Open" will actually resolve to once saved.
-  const previewLink = service ? getServiceLink(service.ui_location || '', value) : ''
+  const previewLink = service ? getServiceLink(service.ui_location || '', value, service.ui_path) : ''
   const usingDefault = !normalized
 
   async function handleSave() {

@@ -59,6 +59,13 @@ export default class Service extends BaseModel {
   @column()
   declare ui_location: string | null
 
+  // Path-based reverse-proxy route (e.g. "/calibre-web"). When set, the home page and app
+  // management links use this path instead of the raw host:port from ui_location. A user-set
+  // custom_url still takes top priority. Only affects user-facing links — never internal
+  // service-to-service URLs (those use ui_location / getServiceURL).
+  @column()
+  declare ui_path: string | null
+
   // User-set override for the launch ("Open") link (e.g. a reverse-proxy/local-DNS host like
   // https://jellyfin.myhomelab.net). When null, the default host + port link derived from
   // ui_location is used. Only affects user-facing links — never internal service-to-service URLs.

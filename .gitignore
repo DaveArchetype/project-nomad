@@ -24,7 +24,7 @@ tmp
 
 # macOS Metafiles
 .DS_Store
-
+Caddyfile
 # Fonts
 .ttf
 

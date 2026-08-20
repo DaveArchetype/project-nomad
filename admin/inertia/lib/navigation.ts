@@ -19,12 +19,18 @@ export function normalizeCustomUrl(input: string | null | undefined): string | n
     }
 }
 
-export function getServiceLink(ui_location: string, customUrl?: string | null): string {
+export function getServiceLink(ui_location: string, customUrl?: string | null, uiPath?: string | null): string {
     // A user-set custom URL (reverse proxy / local DNS) overrides the computed default. Only
     // accepted when it normalizes to a valid http(s) URL — otherwise fall through to the default.
     const normalizedCustom = normalizeCustomUrl(customUrl);
     if (normalizedCustom) {
         return normalizedCustom;
+    }
+
+    // A catalog-defined path (e.g. "/calibre-web") takes next priority — used when an external
+    // reverse proxy routes path-based URLs to each service's backend port.
+    if (uiPath) {
+        return uiPath;
     }
 
     // "https:8480" / "http:8480" — an explicit scheme + port served on the current host. Checked
