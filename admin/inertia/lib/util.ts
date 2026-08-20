@@ -1,4 +1,4 @@
-import { Notification } from "~/context/NotificationContext"
+import { Notification } from '~/context/NotificationContext'
 
 // Global notification callback that can be set by the NotificationProvider
 let globalNotificationCallback: ((notification: Notification) => void) | null = null
@@ -70,19 +70,31 @@ export const extractFileName = (path: string) => {
  * @param fn The asynchronous function to be wrapped.
  * @returns A new function that executes the original function and logs any errors. Returns undefined in case of an error.
  */
-export function catchInternal<Fn extends (...args: any[]) => any>(fn: Fn): (...args: Parameters<Fn>) => Promise<ReturnType<Fn> | undefined> {
+export function catchInternal<Fn extends (...args: any[]) => any>(
+  fn: Fn
+): (...args: Parameters<Fn>) => Promise<ReturnType<Fn> | undefined> {
   return async (...args: any[]) => {
     try {
       return await fn(...args)
     } catch (error) {
+      if (
+        error?.name === 'CanceledError' ||
+        error?.name === 'AbortError' ||
+        error?.code === 'ERR_CANCELED'
+      ) {
+        throw error
+      }
+
       console.error('Internal error caught:', error)
 
       if (globalNotificationCallback) {
-        const errorMessage = 'An internal error occurred. Please try again or check the console for details. ' + (error instanceof Error ? String(error.message).slice(0, 50) : '')
+        const errorMessage =
+          'An internal error occurred. Please try again or check the console for details. ' +
+          (error instanceof Error ? String(error.message).slice(0, 50) : '')
         globalNotificationCallback({
           message: errorMessage,
           type: 'error',
-          duration: 5000
+          duration: 5000,
         })
       }
 
