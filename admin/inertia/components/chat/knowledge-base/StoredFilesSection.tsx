@@ -45,7 +45,7 @@ export default function StoredFilesSection({
   return (
     <section className="rounded-lg border border-border-subtle bg-surface-primary p-4 md:p-6 space-y-4 md:space-y-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-        <StyledSectionHeader title="Stored Knowledge Base Files" className="!mb-0" />
+        <StyledSectionHeader title="Stored Knowledge Base Files" className="mb-0!" />
         <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full md:w-auto">
           <label className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 text-sm text-text-secondary w-full md:w-auto">
             <span className="shrink-0">Search in:</span>

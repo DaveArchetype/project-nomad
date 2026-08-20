@@ -2,11 +2,7 @@ import { useEffect, useState } from 'react'
 import useEmbedJobs from '~/hooks/useEmbedJobs'
 import HorizontalBarChart from './HorizontalBarChart'
 import StyledSectionHeader from './StyledSectionHeader'
-import {
-  JOB_HEALTH_DISPLAY,
-  computeJobHealth,
-  formatTimeAgo,
-} from '~/lib/kb_job_health_display'
+import { JOB_HEALTH_DISPLAY, computeJobHealth, formatTimeAgo } from '~/lib/kb_job_health_display'
 
 interface ActiveEmbedJobsProps {
   withHeader?: boolean
@@ -24,9 +20,7 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
 
   return (
     <>
-      {withHeader && (
-        <StyledSectionHeader title="Processing Queue" className="mt-12 mb-4" />
-      )}
+      {withHeader && <StyledSectionHeader title="Processing Queue" className="mt-12 mb-4" />}
 
       <div className="space-y-4">
         {jobs && jobs.length > 0 ? (
@@ -45,15 +39,13 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
                 key={job.jobId}
                 className="bg-desert-white rounded-lg p-4 border border-desert-stone-light shadow-sm hover:shadow-lg transition-shadow"
               >
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2 min-w-0">
                   <span
                     className={`inline-block w-2.5 h-2.5 rounded-full ${display.dot}`}
                     aria-label={display.ariaLabel}
                     title={display.ariaLabel}
                   />
-                  <span className="text-sm font-medium text-text-primary">
-                    {display.label}
-                  </span>
+                  <span className="text-sm font-medium text-text-primary">{display.label}</span>
                   {lastActivityMs !== undefined && (
                     <span className="text-xs text-text-muted">
                       · last activity {formatTimeAgo(lastActivityMs, tick)}

@@ -20,7 +20,7 @@ export default function ProcessingQueueSection({
   return (
     <section className="rounded-lg border border-border-subtle bg-surface-primary p-4 md:p-6 space-y-4">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-        <StyledSectionHeader title="Processing Queue" className="!mb-0" />
+        <StyledSectionHeader title="Processing Queue" className="mb-0!" />
         <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full md:w-auto">
           <StyledButton
             variant="danger"

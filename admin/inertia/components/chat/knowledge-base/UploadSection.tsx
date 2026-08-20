@@ -39,7 +39,7 @@ export default function UploadSection({
 }: UploadSectionProps) {
   return (
     <section className="rounded-lg border border-border-subtle bg-surface-primary p-4 md:p-6 space-y-4 md:space-y-6">
-      <StyledSectionHeader title="Upload Documents" className="!mb-0" />
+      <StyledSectionHeader title="Upload Documents" className="mb-0!" />
       <FileUploader
         ref={fileUploaderRef}
         minFiles={1}
@@ -74,12 +74,10 @@ export default function UploadSection({
       </div>
       <div className="flex flex-col md:flex-row md:flex-wrap items-stretch md:items-center justify-between gap-3 p-4 rounded-lg border border-border-subtle bg-surface-secondary">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-text-primary">
-            Auto-index new content for AI?
-          </p>
+          <p className="text-sm font-medium text-text-primary">Auto-index new content for AI?</p>
           <p className="text-xs text-text-muted mt-1">
-            Indexed content typically uses 5–10× the original file size on disk. Changes apply
-            to new content added after this setting changes.
+            Indexed content typically uses 5–10× the original file size on disk. Changes apply to
+            new content added after this setting changes.
           </p>
         </div>
         <div
@@ -124,12 +122,7 @@ export default function UploadSection({
             viewBox="0 0 24 24"
             aria-hidden="true"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 9l-7 7-7-7"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </summary>
         <div className="px-4 pb-4 space-y-3">
@@ -142,11 +135,10 @@ export default function UploadSection({
                 {aiAssistantName} Knowledge Base Integration
               </p>
               <p className="text-sm text-desert-stone">
-                When you upload documents to your Knowledge Base, NOMAD processes and embeds
-                the content, making it directly accessible to {aiAssistantName}. This allows{' '}
+                When you upload documents to your Knowledge Base, NOMAD processes and embeds the
+                content, making it directly accessible to {aiAssistantName}. This allows{' '}
                 {aiAssistantName} to reference your specific documents during conversations,
-                providing more accurate and personalized responses based on your uploaded
-                data.
+                providing more accurate and personalized responses based on your uploaded data.
               </p>
             </div>
           </div>
@@ -159,10 +151,10 @@ export default function UploadSection({
                 Enhanced Document Processing with OCR
               </p>
               <p className="text-sm text-desert-stone">
-                NOMAD includes built-in Optical Character Recognition (OCR) capabilities,
-                allowing it to extract text from image-based documents such as scanned PDFs or
-                photos. This means that even if your documents are not in a standard text
-                format, NOMAD can still process and embed their content for AI access.
+                NOMAD includes built-in Optical Character Recognition (OCR) capabilities, allowing
+                it to extract text from image-based documents such as scanned PDFs or photos. This
+                means that even if your documents are not in a standard text format, NOMAD can still
+                process and embed their content for AI access.
               </p>
             </div>
           </div>
@@ -171,9 +163,7 @@ export default function UploadSection({
               3
             </div>
             <div>
-              <p className="font-medium text-desert-stone-dark">
-                Information Library Integration
-              </p>
+              <p className="font-medium text-desert-stone-dark">Information Library Integration</p>
               <p className="text-sm text-desert-stone">
                 NOMAD will automatically discover and extract any content you save to your
                 Information Library (if installed), making it instantly available to{' '}

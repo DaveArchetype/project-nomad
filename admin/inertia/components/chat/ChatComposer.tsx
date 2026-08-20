@@ -78,7 +78,7 @@ export default function ChatComposer({
             placeholder={`Type your message to ${aiAssistantName}...${
               isMobile ? '' : ' (Shift+Enter for new line)'
             }`}
-            className="w-full resize-none rounded-lg border border-border-default px-4 py-3 focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent disabled:bg-surface-secondary disabled:text-text-muted"
+            className="block w-full resize-none rounded-lg border border-border-default px-4 py-3 leading-6 focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent disabled:bg-surface-secondary disabled:text-text-muted"
             rows={1}
             disabled={isLoading}
             style={{ minHeight: '50px', maxHeight: '200px' }}

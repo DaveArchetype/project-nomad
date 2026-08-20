@@ -62,16 +62,16 @@ export default function HorizontalBarChart({
     <div className="space-y-6">
       {items.map((item, index) => (
         <div key={index} className="space-y-2">
-          <div className="flex justify-between items-baseline">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-desert-green">{item.label}</span>
+          <div className="flex justify-between items-baseline gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <span className="font-semibold text-desert-green truncate">{item.label}</span>
               {item.type && (
-                <span className="text-xs px-2 py-0.5 rounded bg-desert-stone-lighter text-desert-stone-dark font-mono">
+                <span className="shrink-0 text-xs px-2 py-0.5 rounded bg-desert-stone-lighter text-desert-stone-dark font-mono">
                   {item.type}
                 </span>
               )}
             </div>
-            <div className="text-sm text-desert-stone-dark font-mono">
+            <div className="shrink-0 whitespace-nowrap text-sm text-desert-stone-dark font-mono">
               {item.used} / {item.total}
             </div>
           </div>
@@ -93,9 +93,7 @@ export default function HorizontalBarChart({
             <div
               className={classNames(
                 'absolute top-1/2 -translate-y-1/2 font-bold text-sm',
-                item.value > 15
-                  ? 'left-3 text-white drop-shadow-md'
-                  : 'right-3 text-desert-green'
+                item.value > 15 ? 'left-3 text-white drop-shadow-md' : 'right-3 text-desert-green'
               )}
             >
               {Math.round(item.value)}%
