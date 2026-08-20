@@ -34,6 +34,7 @@ export const KV_STORE_SCHEMA = {
   'contentAutoUpdate.windowResetAt':     'string',
   'ui.hasVisitedEasySetup':     'boolean',
   'ui.theme':                   'string',
+  'ui.reverseProxyBaseDomain':  'string',
   'ai.assistantCustomName':     'string',
   'gpu.type':                   'string',
   'ai.remoteOllamaUrl':         'string',

@@ -14,6 +14,7 @@ import { ServiceSlim } from '../../types/services'
 import DynamicIcon, { DynamicIconName } from '~/components/DynamicIcon'
 import { useUpdateAvailable } from '~/hooks/useUpdateAvailable'
 import { useSystemSetting } from '~/hooks/useSystemSetting'
+import { useReverseProxyBaseDomain } from '~/hooks/useReverseProxyBaseDomain'
 import {
   useBenchmarkRerunBanner,
   BENCHMARK_RERUN_BANNER_QUERY_KEY,
@@ -120,6 +121,7 @@ export default function Home(props: {
   const rerunBanner = useBenchmarkRerunBanner()
   const queryClient = useQueryClient()
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
+  const reverseProxyBaseDomain = useReverseProxyBaseDomain()
 
   const handleDismissRerunBanner = async () => {
     await api.updateSetting('benchmark.rerunBannerDismissed', true)
@@ -141,7 +143,7 @@ export default function Home(props: {
         label: service.service_name === SERVICE_NAMES.OLLAMA && aiAssistantName ? aiAssistantName : (service.friendly_name || service.service_name),
         to:
           service.ui_path || service.ui_location || service.custom_url
-            ? getServiceLink(service.ui_location || '', service.custom_url, service.ui_path)
+            ? getServiceLink(service.ui_location || '', service.custom_url, service.ui_path, reverseProxyBaseDomain)
             : '#',
         target: '_blank',
         description:

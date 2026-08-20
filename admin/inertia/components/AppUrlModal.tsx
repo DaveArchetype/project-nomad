@@ -5,6 +5,7 @@ import Input from './inputs/Input'
 import { getServiceLink, normalizeCustomUrl } from '~/lib/navigation'
 import { ServiceSlim } from '../../types/services'
 import api from '~/lib/api'
+import { useReverseProxyBaseDomain } from '~/hooks/useReverseProxyBaseDomain'
 
 interface AppUrlModalProps {
   open: boolean
@@ -24,6 +25,7 @@ interface AppUrlModalProps {
 export default function AppUrlModal({ open, service, onClose, onSaved, showError }: AppUrlModalProps) {
   const [value, setValue] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const reverseProxyBaseDomain = useReverseProxyBaseDomain()
 
   // Prefill from the app's stored override each time the modal opens for a service.
   useEffect(() => {
@@ -34,7 +36,7 @@ export default function AppUrlModal({ open, service, onClose, onSaved, showError
   const normalized = normalizeCustomUrl(value)
   const isInvalid = trimmed.length > 0 && !normalized
   // What clicking "Open" will actually resolve to once saved.
-  const previewLink = service ? getServiceLink(service.ui_location || '', value, service.ui_path) : ''
+  const previewLink = service ? getServiceLink(service.ui_location || '', value, service.ui_path, reverseProxyBaseDomain) : ''
   const usingDefault = !normalized
 
   async function handleSave() {

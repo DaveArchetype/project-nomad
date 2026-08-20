@@ -4,15 +4,20 @@ import SettingsLayout from '~/layouts/SettingsLayout'
 import { ServiceSlim } from '../../../types/services'
 import { getServiceLink } from '~/lib/navigation'
 import StyledButton from '~/components/StyledButton'
+import StyledSectionHeader from '~/components/StyledSectionHeader'
+import Input from '~/components/inputs/Input'
 import { useModals } from '~/context/ModalContext'
+import { useNotifications } from '~/context/NotificationContext'
 import StyledModal from '~/components/StyledModal'
 import api from '~/lib/api'
 import { useEffect, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import InstallActivityFeed from '~/components/InstallActivityFeed'
 import LoadingSpinner from '~/components/LoadingSpinner'
 import useErrorNotification from '~/hooks/useErrorNotification'
 import useInternetStatus from '~/hooks/useInternetStatus'
 import useServiceInstallationActivity from '~/hooks/useServiceInstallationActivity'
+import { useReverseProxyBaseDomain } from '~/hooks/useReverseProxyBaseDomain'
 import { useTransmit } from 'react-adonis-transmit'
 import { BROADCAST_CHANNELS } from '../../../constants/broadcast'
 import { IconArrowUp, IconCheck, IconDownload } from '@tabler/icons-react'
@@ -27,9 +32,12 @@ function extractTag(containerImage: string): string {
 export default function SettingsPage(props: { system: { services: ServiceSlim[] } }) {
   const { openModal, closeAllModals } = useModals()
   const { showError } = useErrorNotification()
+  const { addNotification } = useNotifications()
   const { isOnline } = useInternetStatus()
   const { subscribe } = useTransmit()
   const installActivity = useServiceInstallationActivity()
+  const reverseProxyBaseDomain = useReverseProxyBaseDomain()
+  const queryClient = useQueryClient()
 
   const [isInstalling, setIsInstalling] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -38,6 +46,51 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
   // instantly, and reconciled with the durable `installation_status` from the server so the
   // disabled state survives a page reload or a second open tab while the pull runs.
   const [updatingServices, setUpdatingServices] = useState<Set<string>>(new Set())
+
+  const [baseDomainDraft, setBaseDomainDraft] = useState(reverseProxyBaseDomain ?? '')
+  const [baseDomainError, setBaseDomainError] = useState<string | null>(null)
+  useEffect(() => {
+    setBaseDomainDraft(reverseProxyBaseDomain ?? '')
+    setBaseDomainError(null)
+  }, [reverseProxyBaseDomain])
+
+  function validateBaseDomain(value: string): string | null {
+    const trimmed = value.trim()
+    if (!trimmed) return null
+    if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(trimmed)) {
+      return 'Enter a valid hostname (e.g. "nomad.lan" or "example.com").'
+    }
+    return null
+  }
+
+  const updateBaseDomainMutation = useMutation({
+    mutationFn: async (value: string) => {
+      return await api.updateSetting('ui.reverseProxyBaseDomain', value)
+    },
+    onSuccess: () => {
+      setBaseDomainError(null)
+      queryClient.invalidateQueries({ queryKey: ['system-setting', 'ui.reverseProxyBaseDomain'] })
+      addNotification({ message: 'Reverse proxy base domain updated.', type: 'success' })
+    },
+    onError: (error: any) => {
+      const msg =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to update reverse proxy base domain.'
+      setBaseDomainError(msg)
+      addNotification({ message: msg, type: 'error' })
+    },
+  })
+
+  function handleSaveBaseDomain() {
+    const trimmed = baseDomainDraft.trim()
+    const validationError = validateBaseDomain(trimmed)
+    if (validationError) {
+      setBaseDomainError(validationError)
+      return
+    }
+    updateBaseDomainMutation.mutate(trimmed)
+  }
 
   useEffect(() => {
     if (installActivity.length === 0) return
@@ -266,7 +319,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
         <StyledButton
           icon={'IconExternalLink'}
           onClick={() => {
-            window.open(getServiceLink(record.ui_location || 'unknown', record.custom_url, record.ui_path), '_blank')
+            window.open(getServiceLink(record.ui_location || 'unknown', record.custom_url, record.ui_path, reverseProxyBaseDomain), '_blank')
           }}
         >
           Open
@@ -369,6 +422,47 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
               Check for Updates
             </StyledButton>
           </div>
+
+          <StyledSectionHeader title="Reverse Proxy" className="mt-8 mb-4" />
+          <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6 mb-8">
+            <p className="text-sm text-text-secondary mb-4">
+              When NOMAD sits behind a reverse proxy that routes one subdomain per service
+              (e.g. <span className="font-mono">kiwix.nomad.lan</span> → port 8090), set the base
+              domain here. Each app's "Open" link will then resolve to
+              <span className="font-mono"> https://&lt;app&gt;.&lt;base-domain&gt;</span> instead of
+              the raw host:port. Leave blank to use the default host + port links. A per-app custom
+              URL still overrides this.
+            </p>
+            <div className="flex items-end gap-3">
+              <div className="flex-1">
+                <Input
+                  name="reverseProxyBaseDomain"
+                  label="Reverse Proxy Base Domain"
+                  helpText="e.g. nomad.lan or grup.dasaroff.com. Wildcard DNS (*.base-domain) must point at the proxy host."
+                  placeholder="grup.dasaroff.com"
+                  value={baseDomainDraft}
+                  error={Boolean(baseDomainError)}
+                  onChange={(e) => {
+                    setBaseDomainDraft(e.target.value)
+                    setBaseDomainError(null)
+                  }}
+                />
+                {baseDomainError && (
+                  <p className="text-sm text-red-600 mt-1">{baseDomainError}</p>
+                )}
+              </div>
+              <StyledButton
+                variant="primary"
+                onClick={handleSaveBaseDomain}
+                loading={updateBaseDomainMutation.isPending}
+                disabled={updateBaseDomainMutation.isPending}
+                className="mb-0.5"
+              >
+                Save
+              </StyledButton>
+            </div>
+          </div>
+
           {loading && <LoadingSpinner fullscreen />}
           {!loading && (
             <StyledTable<ServiceSlim & { actions?: any }>
@@ -392,7 +486,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
                   title: 'Location',
                   render: (record) => (
                     <a
-                      href={getServiceLink(record.ui_location || 'unknown', record.custom_url, record.ui_path)}
+                      href={getServiceLink(record.ui_location || 'unknown', record.custom_url, record.ui_path, reverseProxyBaseDomain)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-desert-green hover:underline font-semibold"

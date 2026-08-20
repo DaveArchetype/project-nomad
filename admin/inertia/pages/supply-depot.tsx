@@ -38,6 +38,7 @@ import { useNotifications } from '~/context/NotificationContext'
 import useInternetStatus from '~/hooks/useInternetStatus'
 import { useAppAutoUpdateStatus } from '~/hooks/useAppAutoUpdateStatus'
 import useServiceInstallationActivity from '~/hooks/useServiceInstallationActivity'
+import { useReverseProxyBaseDomain } from '~/hooks/useReverseProxyBaseDomain'
 import { useTransmit } from 'react-adonis-transmit'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast'
 import { ServiceSlim } from '../../types/services'
@@ -96,6 +97,7 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
   const { isOnline } = useInternetStatus()
   const { subscribe } = useTransmit()
   const installActivity = useServiceInstallationActivity()
+  const reverseProxyBaseDomain = useReverseProxyBaseDomain()
   // Global master switch for app auto-updates (Settings → Updates). Per-app
   // toggles are inert until this is on, so the UI reflects that state.
   const { data: appAutoUpdateStatus } = useAppAutoUpdateStatus()
@@ -1029,7 +1031,7 @@ function AppCard({
             {/* Open button — shown when the app has a default location or a user-set custom URL */}
             {(service.ui_path || service.ui_location || service.custom_url) && (
               <a
-                href={getServiceLink(service.ui_location || "", service.custom_url, service.ui_path)}
+                href={getServiceLink(service.ui_location || "", service.custom_url, service.ui_path, reverseProxyBaseDomain)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1"

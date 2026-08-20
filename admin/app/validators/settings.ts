@@ -54,6 +54,19 @@ export function validateSettingValue(key: KVStoreKey, value: unknown): string | 
             }
             return null
         }
+        case 'ui.reverseProxyBaseDomain': {
+            if (value === '' || value === undefined || value === null) {
+                return null
+            }
+            if (typeof value !== 'string') {
+                return 'Reverse proxy base domain must be a string.'
+            }
+            const trimmed = value.trim()
+            if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(trimmed)) {
+                return 'Base domain must be a valid hostname (e.g. "nomad.lan" or "example.com").'
+            }
+            return null
+        }
         case 'contentAutoUpdate.maxBytesPerWindow': {
             // Per-window download budget in bytes. 0 = unlimited.
             const num = Number(value)
