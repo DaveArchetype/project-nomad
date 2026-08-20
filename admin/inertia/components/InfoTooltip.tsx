@@ -1,15 +1,10 @@
 import { IconInfoCircle } from '@tabler/icons-react'
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 
 interface InfoTooltipProps {
   text: string
   className?: string
-  // Which side of the icon the tooltip pops toward. Defaults to 'top' (existing behavior);
-  // use 'bottom' when the icon sits near the top of the viewport so it isn't clipped.
   position?: 'top' | 'bottom'
-  // Horizontal anchoring. 'center' (default) centers the bubble on the icon. Use 'right' when
-  // the icon sits near the right edge so the bubble expands leftward into open space instead of
-  // being squeezed against the viewport edge (which forces one-word-per-line wrapping).
   align?: 'center' | 'right'
 }
 
@@ -20,10 +15,46 @@ export default function InfoTooltip({
   align = 'center',
 }: InfoTooltipProps) {
   const [isVisible, setIsVisible] = useState(false)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const tooltipRef = useRef<HTMLDivElement>(null)
+  const [coords, setCoords] = useState({ top: 0, left: 0 })
+
+  useLayoutEffect(() => {
+    if (!isVisible || !buttonRef.current || !tooltipRef.current) return
+    const btnRect = buttonRef.current.getBoundingClientRect()
+    const tipRect = tooltipRef.current.getBoundingClientRect()
+    const margin = 8
+
+    let top: number
+    if (position === 'bottom') {
+      top = btnRect.bottom + margin
+    } else {
+      top = btnRect.top - tipRect.height - margin
+    }
+
+    let left: number
+    if (align === 'right') {
+      left = btnRect.right - tipRect.width
+    } else {
+      left = btnRect.left + btnRect.width / 2 - tipRect.width / 2
+    }
+
+    if (left < margin) left = margin
+    if (left + tipRect.width > window.innerWidth - margin) {
+      left = window.innerWidth - tipRect.width - margin
+    }
+    if (top < margin) top = btnRect.bottom + margin
+    if (top + tipRect.height > window.innerHeight - margin) {
+      top = btnRect.top - tipRect.height - margin
+    }
+
+    setCoords({ top, left })
+  }, [isVisible, position, align, text])
 
   return (
     <span className={`relative inline-flex items-center ${className}`}>
       <button
+        ref={buttonRef}
         type="button"
         className="text-desert-stone-dark hover:text-desert-green transition-colors p-0.5"
         onMouseEnter={() => setIsVisible(true)}
@@ -36,9 +67,9 @@ export default function InfoTooltip({
       </button>
       {isVisible && (
         <div
-          className={`absolute z-50 ${position === 'bottom' ? 'top-full mt-2' : 'bottom-full mb-2'} ${
-            align === 'right' ? 'right-0' : 'left-1/2 -translate-x-1/2'
-          }`}
+          ref={tooltipRef}
+          style={{ position: 'fixed', top: coords.top, left: coords.left }}
+          className="z-50"
         >
           <div
             className={`bg-desert-stone-dark text-white text-xs rounded-lg px-3 py-2 whitespace-normal shadow-lg ${
@@ -46,13 +77,6 @@ export default function InfoTooltip({
             }`}
           >
             {text}
-            <div
-              className={`absolute border-4 border-transparent ${
-                position === 'bottom'
-                  ? 'bottom-full border-b-desert-stone-dark'
-                  : 'top-full border-t-desert-stone-dark'
-              } ${align === 'right' ? 'right-3' : 'left-1/2 -translate-x-1/2'}`}
-            />
           </div>
         </div>
       )}

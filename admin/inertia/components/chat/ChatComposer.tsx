@@ -66,7 +66,7 @@ export default function ChatComposer({
 
   return (
     <div className="border-t border-border-subtle bg-surface-primary px-3 sm:px-6 py-3 sm:py-4 shrink-0">
-      <form onSubmit={handleSubmit} className="flex gap-3 items-center">
+      <form onSubmit={handleSubmit} className="flex gap-3 items-end">
         <div className="flex-1 relative min-w-0">
           <textarea
             ref={textareaRef}
@@ -86,7 +86,7 @@ export default function ChatComposer({
           type="submit"
           disabled={!input.trim() || isLoading}
           className={classNames(
-            'p-3 rounded-lg transition-all duration-200 shrink-0',
+            'flex items-center justify-center rounded-lg transition-all duration-200 shrink-0 h-12.5 w-12.5',
             !input.trim() || isLoading
               ? 'bg-border-default text-text-muted cursor-not-allowed'
               : 'bg-desert-green text-white hover:bg-desert-green/90 hover:scale-105'
