@@ -3,6 +3,7 @@ import { IconSend } from '@tabler/icons-react'
 import classNames from '~/lib/classNames'
 import { usePage } from '@inertiajs/react'
 import { useNotifications } from '~/context/NotificationContext'
+import { useIsMobileViewport } from '~/hooks/useIsMobileViewport'
 import StyledModal from '../StyledModal'
 import api from '~/lib/api'
 import { DEFAULT_QUERY_REWRITE_MODEL } from '../../../constants/ollama'
@@ -23,6 +24,7 @@ export default function ChatComposer({
   const [input, setInput] = useState('')
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
+  const isMobile = useIsMobileViewport()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const handleDownloadModel = async () => {
@@ -63,7 +65,7 @@ export default function ChatComposer({
   }
 
   return (
-    <div className="border-t border-border-subtle bg-surface-primary px-3 sm:px-6 py-3 sm:py-4 shrink-0 min-h-22.5">
+    <div className="border-t border-border-subtle bg-surface-primary px-3 sm:px-6 py-3 sm:py-4 shrink-0">
       <form onSubmit={handleSubmit} className="flex gap-3 items-end">
         <div className="flex-1 relative min-w-0">
           <textarea
@@ -71,8 +73,10 @@ export default function ChatComposer({
             value={input}
             onChange={handleInput}
             onKeyDown={handleKeyDown}
-            placeholder={`Type your message to ${aiAssistantName}... (Shift+Enter for new line)`}
-            className="w-full resize-none rounded-lg border border-border-default px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent disabled:bg-surface-secondary disabled:text-text-muted"
+            placeholder={`Type your message to ${aiAssistantName}...${
+              isMobile ? '' : ' (Shift+Enter for new line)'
+            }`}
+            className="w-full resize-none rounded-lg border border-border-default px-4 py-3 focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent disabled:bg-surface-secondary disabled:text-text-muted"
             rows={1}
             disabled={isLoading}
             style={{ maxHeight: '200px' }}
@@ -82,7 +86,7 @@ export default function ChatComposer({
           type="submit"
           disabled={!input.trim() || isLoading}
           className={classNames(
-            'p-3 rounded-lg transition-all duration-200 shrink-0 mb-2',
+            'p-3 rounded-lg transition-all duration-200 shrink-0',
             !input.trim() || isLoading
               ? 'bg-border-default text-text-muted cursor-not-allowed'
               : 'bg-desert-green text-white hover:bg-desert-green/90 hover:scale-105'

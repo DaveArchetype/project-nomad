@@ -48,7 +48,7 @@ export default function ChatMessageList({
                       <button
                         key={index}
                         onClick={() => onSuggestionClick(suggestion)}
-                        className="px-4 py-2 bg-surface-secondary hover:bg-surface-secondary rounded-lg text-sm text-text-primary transition-colors"
+                        className="px-4 py-2 bg-surface-secondary hover:bg-desert-green/10 cursor-pointer rounded-lg text-sm text-text-primary transition-colors"
                       >
                         {suggestion}
                       </button>

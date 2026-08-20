@@ -5,7 +5,9 @@ export default function Chat(props: { settings: { chatSuggestionsEnabled: boolea
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
   return (
     <div className="w-full h-full">
-      <Head title={aiAssistantName} />
+      <Head title={aiAssistantName}>
+        <style>{'body { overflow: hidden !important; }'}</style>
+      </Head>
       <ChatComponent enabled={true} suggestionsEnabled={props.settings.chatSuggestionsEnabled} />
     </div>
   )
