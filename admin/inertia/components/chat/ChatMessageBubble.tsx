@@ -11,8 +11,10 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
   return (
     <div
       className={classNames(
-        'max-w-[70%] rounded-lg px-4 py-3',
-        message.role === 'user' ? 'bg-desert-green text-white' : 'bg-surface-secondary text-text-primary'
+        'max-w-[85%] sm:max-w-[70%] min-w-0 overflow-hidden rounded-lg px-4 py-3',
+        message.role === 'user'
+          ? 'bg-desert-green text-white'
+          : 'bg-surface-secondary text-text-primary'
       )}
     >
       {message.isThinking && message.thinking && (
