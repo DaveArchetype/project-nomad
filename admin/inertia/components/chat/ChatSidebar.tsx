@@ -93,10 +93,10 @@ export default function ChatSidebar({
                   }}
                   className="w-full text-left pr-6"
                 >
-                  <div className="flex items-start gap-2">
+                  <div className="flex items-center gap-2">
                     <IconMessage
                       className={classNames(
-                        'h-5 w-5 mt-0.5 shrink-0',
+                        'h-5 w-5 shrink-0',
                         activeSessionId === session.id ? 'text-white' : 'text-text-muted'
                       )}
                     />

@@ -75,10 +75,11 @@ const StyledModal: React.FC<StyledModalProps> = ({
                 <div className="mt-2 !h-fit">{children}</div>
               </div>
             </div>
-            <div className="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
+            <div className="mt-5 sm:mt-6 grid grid-flow-row-dense grid-cols-2 gap-3">
               {cancelText && onCancel && (
                 <StyledButton
                   variant="outline"
+                  fullWidth
                   onClick={() => {
                     if (onCancel) onCancel()
                   }}
@@ -91,6 +92,7 @@ const StyledModal: React.FC<StyledModalProps> = ({
               {confirmText && onConfirm && (
                 <StyledButton
                   variant={confirmVariant}
+                  fullWidth
                   onClick={() => {
                     if (onConfirm) onConfirm()
                   }}
