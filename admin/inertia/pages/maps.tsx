@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Head, Link, router } from '@inertiajs/react'
-import { IconArrowLeft } from '@tabler/icons-react'
+import { IconArrowLeft, IconSettings } from '@tabler/icons-react'
 
 import MapsLayout from '~/layouts/MapsLayout'
 import MapComponent from '~/components/maps/MapComponent'
@@ -18,39 +18,45 @@ export default function Maps(props: {
   const alertMessage = !props.maps.baseAssetsExist
     ? 'The base map assets have not been installed. Please download them first to enable map functionality.'
     : !props.maps.worldBasemapExists
-    ? 'The world base map has not been downloaded yet, so the map may appear blank outside downloaded regions. Connect this NOMAD to the internet and download it (~15 MB) from Map Settings.'
-    : props.maps.regionFiles.length === 0
-    ? 'No map regions have been downloaded yet. Please download some regions to enable map functionality.'
-    : null
+      ? 'The world base map has not been downloaded yet, so the map may appear blank outside downloaded regions. Connect this NOMAD to the internet and download it (~15 MB) from Map Settings.'
+      : props.maps.regionFiles.length === 0
+        ? 'No map regions have been downloaded yet. Please download some regions to enable map functionality.'
+        : null
 
   return (
     <MapsLayout>
       <Head title="Maps" />
 
-      <div className="relative w-full h-screen overflow-hidden">
+      <div className="relative w-full h-full overflow-hidden">
         {/* Navbar */}
         <div
-          className="absolute top-0 left-0 right-0 z-50 flex justify-between p-4 bg-surface-secondary backdrop-blur-sm shadow-sm"
+          className="absolute top-0 left-0 right-0 z-50 flex justify-between items-center p-2 sm:p-4 bg-surface-secondary backdrop-blur-sm shadow-sm"
           onMouseEnter={() => setIsHoveringUI(true)}
           onMouseLeave={() => setIsHoveringUI(false)}
         >
           <Link href="/home" className="flex items-center">
-            <IconArrowLeft className="mr-2" size={24} />
-            <p className="text-lg text-text-secondary">Back to Home</p>
+            <IconArrowLeft className="sm:mr-2" size={24} />
+            <p className="text-lg text-text-secondary hidden sm:inline">Back to Home</p>
           </Link>
 
-          <div className="flex items-center gap-3 mr-4">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               type="button"
               onClick={() => setShowMapCoordinates((prev) => !prev)}
-              className="rounded px-3 py-2 text-sm bg-surface-primary text-text-secondary hover:opacity-80 transition"
+              className="rounded px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm bg-surface-primary text-text-secondary hover:opacity-80 transition"
             >
-              {showMapCoordinates ? 'Hide Coordinates' : 'Show Coordinates'}
+              <span className="sm:hidden">
+                {showMapCoordinates ? 'Hide Coords' : 'Show Coords'}
+              </span>
+              <span className="hidden sm:inline">
+                {showMapCoordinates ? 'Hide Coordinates' : 'Show Coordinates'}
+              </span>
             </button>
 
-            <Link href="/settings/maps">
-              <StyledButton variant="primary" icon="IconSettings">
-                Manage Map Regions
+            <Link href="/settings/maps" className="shrink-0">
+              <StyledButton variant="primary" size="sm" className="sm:px-3 sm:py-2 sm:text-sm">
+                <IconSettings className="h-3.5 w-3.5 sm:mr-1.5 shrink-0" />
+                <span className="hidden sm:inline">Manage Map Regions</span>
               </StyledButton>
             </Link>
           </div>
@@ -80,10 +86,7 @@ export default function Maps(props: {
 
         {/* Map */}
         <div className="absolute inset-0">
-          <MapComponent
-            isHoveringUI={isHoveringUI}
-            showCoordinatesEnabled={showMapCoordinates}
-          />
+          <MapComponent isHoveringUI={isHoveringUI} showCoordinatesEnabled={showMapCoordinates} />
         </div>
       </div>
     </MapsLayout>
