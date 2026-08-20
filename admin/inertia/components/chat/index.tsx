@@ -101,6 +101,7 @@ export default function Chat({
   // back to the global default (ai.autoThinking). Seeded from localStorage when models load.
   const [thinkingOverrides, setThinkingOverrides] = useState<Record<string, boolean>>({})
   useEffect(() => {
+    if (installedModels.length === 0) return
     const next: Record<string, boolean> = {}
     for (const m of installedModels) {
       try {
@@ -420,7 +421,8 @@ export default function Chat({
               model: selectedModel || 'llama3.2',
               messages: chatMessages,
               stream: true,
-              sessionId: sessionId ? Number(sessionId) : undefined, think: effectiveThinking(selectedModel),
+              sessionId: sessionId ? Number(sessionId) : undefined,
+              think: effectiveThinking(selectedModel),
               collection: collectionFilter || undefined,
             },
             (chunkContent, chunkThinking, done) => {
@@ -517,7 +519,16 @@ export default function Chat({
         })
       }
     },
-    [activeSessionId, messages, selectedModel, collectionFilter, chatMutation, queryClient, streamingEnabled, effectiveThinking]
+    [
+      activeSessionId,
+      messages,
+      selectedModel,
+      collectionFilter,
+      chatMutation,
+      queryClient,
+      streamingEnabled,
+      effectiveThinking,
+    ]
   )
 
   return (
@@ -595,22 +606,24 @@ export default function Chat({
                 </span>
               )}
               <div className="flex items-center gap-2">
-              <label htmlFor="collection-select" className="text-sm text-text-secondary">
-                Search in:
-              </label>
-              <select
-                id="collection-select"
-                value={collectionFilter}
-                onChange={(e) => setCollectionFilter(e.target.value)}
-                className="px-3 py-1.5 border border-border-default rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent bg-surface-primary"
-              >
-                <option value="">All</option>
-                {knownCollections.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-center gap-2 min-w-0">
+                <label htmlFor="collection-select" className="text-sm text-text-secondary">
+                  Search in:
+                </label>
+                <select
+                  id="collection-select"
+                  value={collectionFilter}
+                  onChange={(e) => setCollectionFilter(e.target.value)}
+                  className="px-3 py-1.5 border border-border-default rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent bg-surface-primary"
+                >
+                  <option value="">All</option>
+                  {knownCollections.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2 min-w-0">
                 <label htmlFor="model-select" className="text-sm text-text-secondary">
                   Model:
                 </label>
@@ -635,21 +648,21 @@ export default function Chat({
                 )}
               </div>
               {selectedModelSupportsThinking && (
-              <div className="flex items-center">
-                <span className="text-sm text-text-secondary select-none">Thinking:</span>
-                <InfoTooltip
-                  position="bottom"
-                  align="right"
-                  text="When on, this model works through its reasoning before answering. Slower, but often better on tricky questions. Your choice is remembered for this model; the default for other models is set in AI Assistant settings."
-                />
-                <Switch
-                  id="chat-thinking-toggle"
-                  checked={effectiveThinking(selectedModel)}
-                  onChange={(v) => setModelThinking(selectedModel, v)}
-                />
-              </div>
-            )}
-            {isInModal && (
+                <div className="flex items-center">
+                  <span className="text-sm text-text-secondary select-none">Thinking:</span>
+                  <InfoTooltip
+                    position="bottom"
+                    align="right"
+                    text="When on, this model works through its reasoning before answering. Slower, but often better on tricky questions. Your choice is remembered for this model; the default for other models is set in AI Assistant settings."
+                  />
+                  <Switch
+                    id="chat-thinking-toggle"
+                    checked={effectiveThinking(selectedModel)}
+                    onChange={(v) => setModelThinking(selectedModel, v)}
+                  />
+                </div>
+              )}
+              {isInModal && (
                 <button
                   type="button"
                   aria-label="Close chat"
