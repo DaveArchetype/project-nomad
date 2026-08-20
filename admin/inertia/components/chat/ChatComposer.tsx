@@ -66,7 +66,7 @@ export default function ChatComposer({
 
   return (
     <div className="border-t border-border-subtle bg-surface-primary px-3 sm:px-6 py-3 sm:py-4 shrink-0">
-      <form onSubmit={handleSubmit} className="flex gap-3 items-end">
+      <form onSubmit={handleSubmit} className="flex gap-3 items-center">
         <div className="flex-1 relative min-w-0">
           <textarea
             ref={textareaRef}
@@ -76,7 +76,7 @@ export default function ChatComposer({
             placeholder={`Type your message to ${aiAssistantName}...${
               isMobile ? '' : ' (Shift+Enter for new line)'
             }`}
-            className="w-full resize-none rounded-lg border border-border-default px-4 py-3 focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent disabled:bg-surface-secondary disabled:text-text-muted"
+            className="w-full resize-none min-h-12.5 rounded-lg border border-border-default px-4 py-3 focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent disabled:bg-surface-secondary disabled:text-text-muted"
             rows={1}
             disabled={isLoading}
             style={{ maxHeight: '200px' }}
