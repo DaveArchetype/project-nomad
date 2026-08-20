@@ -178,6 +178,7 @@ export default function Chat({
             isLoading={isLoading}
             onSendMessage={stream.handleSendMessage}
             rewriteModelAvailable={models.rewriteModelAvailable}
+            isCheckingModels={models.isLoadingModels}
           />
         </div>
       </div>

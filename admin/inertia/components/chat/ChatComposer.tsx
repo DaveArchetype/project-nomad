@@ -12,12 +12,14 @@ interface ChatComposerProps {
   isLoading: boolean
   onSendMessage: (message: string) => void
   rewriteModelAvailable: boolean
+  isCheckingModels: boolean
 }
 
 export default function ChatComposer({
   isLoading,
   onSendMessage,
   rewriteModelAvailable,
+  isCheckingModels,
 }: ChatComposerProps) {
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
   const { addNotification } = useNotifications()
@@ -99,7 +101,7 @@ export default function ChatComposer({
           )}
         </button>
       </form>
-      {!rewriteModelAvailable && (
+      {!isCheckingModels && !rewriteModelAvailable && (
         <div className="text-sm text-text-muted mt-2">
           The {DEFAULT_QUERY_REWRITE_MODEL} model is not installed. Consider{' '}
           <button
