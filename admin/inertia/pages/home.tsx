@@ -9,6 +9,8 @@ import {
   IconArrowUpRight,
 } from '@tabler/icons-react'
 import { Head, Link, router, usePage } from '@inertiajs/react'
+import { useLayoutEffect, useRef, useState } from 'react'
+import type { ReactNode, MouseEvent as ReactMouseEvent } from 'react'
 import AppLayout from '~/layouts/AppLayout'
 import { getServiceLink } from '~/lib/navigation'
 import { ServiceSlim } from '../../types/services'
@@ -102,10 +104,99 @@ interface DashboardItem {
   to: string
   target: string
   description: string
-  icon: React.ReactNode
+  icon: ReactNode
   installed: boolean
   displayOrder: number
   poweredBy: string | null
+}
+
+function DashboardTile({
+  item,
+  shouldHighlight,
+}: {
+  item: DashboardItem
+  shouldHighlight: boolean
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const [isClamped, setIsClamped] = useState(false)
+  const descRef = useRef<HTMLParagraphElement>(null)
+  const isExternal = item.target === '_blank'
+
+  useLayoutEffect(() => {
+    const el = descRef.current
+    if (!el) return
+    setIsClamped(el.scrollHeight > el.clientHeight + 1)
+  }, [item.description, expanded])
+
+  const toggleExpand = (e: ReactMouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setExpanded((v) => !v)
+  }
+
+  const tileContent = (
+    <div
+      className={`group relative rounded-xl border-2 p-5 bg-surface-primary shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-1 cursor-pointer flex flex-col min-h-44 ${
+        shouldHighlight
+          ? 'border-desert-orange-light'
+          : 'border-border-subtle hover:border-desert-green-light'
+      }`}
+    >
+      {shouldHighlight && (
+        <span className="absolute -top-2.5 left-4 flex items-center justify-center">
+          <span
+            className="animate-ping absolute inline-flex h-5 w-16 rounded-full bg-desert-orange-light opacity-75"
+            style={{ animationDuration: '1.5s' }}
+          ></span>
+          <span className="relative inline-flex items-center rounded-full px-2.5 py-0.5 bg-desert-orange-light text-xs font-semibold text-white shadow-sm">
+            Start here!
+          </span>
+        </span>
+      )}
+
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-desert-green-lighter text-desert-green shrink-0">
+          {item.icon}
+        </div>
+        {isExternal && (
+          <IconArrowUpRight
+            size={18}
+            className="text-text-muted opacity-0 group-hover:opacity-100 transition-opacity"
+          />
+        )}
+      </div>
+
+      <h3 className="font-semibold text-lg text-text-primary leading-tight mb-1">{item.label}</h3>
+      {item.poweredBy && (
+        <p className="text-xs text-desert-green font-medium mb-1">{item.poweredBy}</p>
+      )}
+      <p
+        ref={descRef}
+        className={`text-sm text-text-secondary flex-1 ${expanded ? '' : 'line-clamp-3'}`}
+      >
+        {item.description}
+      </p>
+      {isClamped && (
+        <button
+          type="button"
+          onClick={toggleExpand}
+          className="self-start mt-1 text-xs font-medium text-desert-green hover:text-desert-green-darker transition-colors cursor-pointer"
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      )}
+    </div>
+  )
+
+  return isExternal ? (
+    <a key={item.label} href={item.to} target="_blank" rel="noopener noreferrer">
+      {tileContent}
+    </a>
+  ) : (
+    <Link key={item.label} href={item.to}>
+      {tileContent}
+    </Link>
+  )
 }
 
 export default function Home(props: {
@@ -229,63 +320,11 @@ export default function Home(props: {
           />
         </div>
       )}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 p-4 max-w-[1600px] mx-auto">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 p-4 max-w-[1600px] mx-auto items-stretch">
         {items.map((item) => {
           const isEasySetup = item.label === 'Easy Setup'
           const shouldHighlight = isEasySetup && shouldHighlightEasySetup
-          const isExternal = item.target === '_blank'
-
-          const tileContent = (
-            <div
-              className={`group relative rounded-xl border-2 p-5 bg-surface-primary shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-1 cursor-pointer flex flex-col h-44 ${
-                shouldHighlight
-                  ? 'border-desert-orange-light'
-                  : 'border-border-subtle hover:border-desert-green-light'
-              }`}
-            >
-              {shouldHighlight && (
-                <span className="absolute -top-2.5 left-4 flex items-center justify-center">
-                  <span
-                    className="animate-ping absolute inline-flex h-5 w-16 rounded-full bg-desert-orange-light opacity-75"
-                    style={{ animationDuration: '1.5s' }}
-                  ></span>
-                  <span className="relative inline-flex items-center rounded-full px-2.5 py-0.5 bg-desert-orange-light text-xs font-semibold text-white shadow-sm">
-                    Start here!
-                  </span>
-                </span>
-              )}
-
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-desert-green-lighter text-desert-green shrink-0">
-                  {item.icon}
-                </div>
-                {isExternal && (
-                  <IconArrowUpRight
-                    size={18}
-                    className="text-text-muted opacity-0 group-hover:opacity-100 transition-opacity"
-                  />
-                )}
-              </div>
-
-              <h3 className="font-semibold text-lg text-text-primary leading-tight mb-1">
-                {item.label}
-              </h3>
-              {item.poweredBy && (
-                <p className="text-xs text-desert-green font-medium mb-1">{item.poweredBy}</p>
-              )}
-              <p className="text-sm text-text-secondary line-clamp-2 flex-1">{item.description}</p>
-            </div>
-          )
-
-          return isExternal ? (
-            <a key={item.label} href={item.to} target="_blank" rel="noopener noreferrer">
-              {tileContent}
-            </a>
-          ) : (
-            <Link key={item.label} href={item.to}>
-              {tileContent}
-            </Link>
-          )
+          return <DashboardTile key={item.label} item={item} shouldHighlight={shouldHighlight} />
         })}
       </div>
     </AppLayout>
