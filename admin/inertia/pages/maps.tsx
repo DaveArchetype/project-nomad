@@ -30,20 +30,22 @@ export default function Maps(props: {
       <div className="relative w-full h-full overflow-hidden">
         {/* Navbar */}
         <div
-          className="absolute top-0 left-0 right-0 z-50 flex justify-between items-center p-2 sm:p-4 bg-surface-secondary backdrop-blur-sm shadow-sm"
+          className="absolute top-0 left-0 right-0 z-50 flex justify-between items-center px-3 sm:px-6 py-2 sm:py-3 border-b border-border-subtle bg-surface-secondary backdrop-blur-sm"
           onMouseEnter={() => setIsHoveringUI(true)}
           onMouseLeave={() => setIsHoveringUI(false)}
         >
-          <Link href="/home" className="flex items-center">
-            <IconArrowLeft className="sm:mr-2" size={24} />
-            <p className="text-lg text-text-secondary hidden sm:inline">Back to Home</p>
+          <Link href="/home" className="flex items-center gap-2 min-w-0">
+            <IconArrowLeft className="h-6 w-6 shrink-0" />
+            <p className="text-base sm:text-lg font-semibold text-text-primary truncate hidden sm:inline">
+              Maps
+            </p>
           </Link>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-4">
             <button
               type="button"
               onClick={() => setShowMapCoordinates((prev) => !prev)}
-              className="rounded px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm bg-surface-primary text-text-secondary hover:opacity-80 transition"
+              className="rounded-lg px-2 sm:px-3 py-1.5 text-sm bg-surface-primary text-text-secondary border border-border-default hover:bg-surface-tertiary transition focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent"
             >
               <span className="sm:hidden">
                 {showMapCoordinates ? 'Hide Coords' : 'Show Coords'}
@@ -54,8 +56,8 @@ export default function Maps(props: {
             </button>
 
             <Link href="/settings/maps" className="shrink-0">
-              <StyledButton variant="primary" size="sm" className="sm:px-3 sm:py-2 sm:text-sm">
-                <IconSettings className="h-3.5 w-3.5 sm:mr-1.5 shrink-0" />
+              <StyledButton variant="primary" size="md">
+                <IconSettings className="h-4 w-4 mr-2 shrink-0" />
                 <span className="hidden sm:inline">Manage Map Regions</span>
               </StyledButton>
             </Link>

@@ -60,10 +60,7 @@ const getSavedMapView = (): SavedMapView | null => {
   return null
 }
 
-export default function MapComponent({
-  isHoveringUI,
-  showCoordinatesEnabled,
-}: MapComponentProps) {
+export default function MapComponent({ isHoveringUI, showCoordinatesEnabled }: MapComponentProps) {
   const mapRef = useRef<MapRef>(null)
   const animationFrameRef = useRef<number | null>(null)
 
@@ -193,7 +190,7 @@ export default function MapComponent({
   return (
     <MapProvider>
       <div
-        style={{ position: 'relative', width: '100%', height: '100vh' }}
+        style={{ position: 'relative', width: '100%', height: '100%' }}
         onMouseLeave={() => {
           setIsDraggingMap(false)
           hideCoordinates()
@@ -213,7 +210,7 @@ export default function MapComponent({
         <Map
           ref={mapRef}
           reuseMaps
-          style={{ width: '100%', height: '100vh' }}
+          style={{ width: '100%', height: '100%' }}
           cursor={isDraggingMap ? 'grabbing' : 'crosshair'}
           mapStyle={`${window.location.protocol}//${window.location.hostname}:${window.location.port}/api/maps/styles`}
           mapLib={maplibregl}
@@ -249,8 +246,14 @@ export default function MapComponent({
           onMouseMove={handleMouseMove}
           onMouseLeave={hideCoordinates}
         >
-          <NavigationControl style={{ marginTop: '110px', marginRight: '36px' }} />
-          <FullscreenControl style={{ marginTop: '30px', marginRight: '36px' }} />
+          <FullscreenControl
+            position="bottom-right"
+            style={{ marginBottom: '10px', marginRight: '10px' }}
+          />
+          <NavigationControl
+            position="bottom-right"
+            style={{ marginBottom: '10px', marginRight: '10px' }}
+          />
           <ScaleControl position="bottom-left" maxWidth={150} unit={scaleUnit} />
 
           {showCoordinates && cursorLngLat && (
@@ -324,7 +327,7 @@ export default function MapComponent({
                     if (e.key === 'Enter') handleSaveMarker()
                     if (e.key === 'Escape') setPlacingMarker(null)
                   }}
-                  className="block w-full rounded border border-gray-300 px-2 py-1 text-sm placeholder:text-gray-400 focus:outline-none focus:border-gray-500"
+                  className="block w-full rounded border border-border-default bg-surface-primary px-2 py-1 text-base placeholder:text-text-muted focus:outline-none focus:border-desert-green focus:ring-1 focus:ring-desert-green"
                 />
 
                 <textarea
@@ -335,7 +338,7 @@ export default function MapComponent({
                     if (e.key === 'Escape') setPlacingMarker(null)
                   }}
                   rows={2}
-                  className="mt-1.5 block w-full resize-y rounded border border-gray-300 px-2 py-1 text-sm placeholder:text-gray-400 focus:outline-none focus:border-gray-500"
+                  className="mt-1.5 block w-full resize-y rounded border border-border-default bg-surface-primary px-2 py-1 text-base placeholder:text-text-muted focus:outline-none focus:border-desert-green focus:ring-1 focus:ring-desert-green"
                 />
 
                 <div className="mt-1.5 flex gap-1 items-center">
@@ -361,7 +364,7 @@ export default function MapComponent({
                   <button
                     type="button"
                     onClick={() => setPlacingMarker(null)}
-                    className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded transition-colors"
+                    className="text-sm text-text-secondary hover:text-text-primary px-2 py-1 rounded transition-colors"
                   >
                     Cancel
                   </button>
@@ -370,7 +373,7 @@ export default function MapComponent({
                     type="button"
                     onClick={handleSaveMarker}
                     disabled={!markerName.trim()}
-                    className="text-xs bg-[#424420] text-white rounded px-2.5 py-1 hover:bg-[#525530] disabled:opacity-40 transition-colors"
+                    className="text-sm bg-desert-green text-white rounded px-2.5 py-1 hover:bg-btn-green-hover disabled:opacity-40 transition-colors"
                   >
                     Save
                   </button>

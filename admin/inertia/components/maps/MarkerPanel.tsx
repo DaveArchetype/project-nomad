@@ -24,7 +24,7 @@ export default function MarkerPanel({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="absolute left-4 top-[72px] z-40 flex items-center gap-1.5 rounded-lg bg-surface-primary/95 px-3 py-2 shadow-lg border border-border-subtle backdrop-blur-sm hover:bg-surface-secondary transition-colors"
+        className="absolute left-3 bottom-12 z-40 flex items-center gap-1.5 rounded-lg bg-surface-primary/95 px-3 py-2 shadow-lg border border-border-subtle backdrop-blur-sm hover:bg-surface-secondary transition-colors"
         title="Show saved locations"
       >
         <IconMapPin size={18} className="text-desert-orange" />
@@ -39,14 +39,12 @@ export default function MarkerPanel({
   }
 
   return (
-    <div className="absolute left-4 top-[72px] z-40 w-72 rounded-lg bg-surface-primary/95 shadow-lg border border-border-subtle backdrop-blur-sm">
+    <div className="absolute left-3 bottom-12 z-40 w-72 max-w-[calc(100vw-24px)] rounded-lg bg-surface-primary/95 shadow-lg border border-border-subtle backdrop-blur-sm">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-border-subtle">
         <div className="flex items-center gap-2">
           <IconMapPin size={18} className="text-desert-orange" />
-          <span className="text-sm font-semibold text-text-primary">
-            Saved Locations
-          </span>
+          <span className="text-sm font-semibold text-text-primary">Saved Locations</span>
           {markers.length > 0 && (
             <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-desert-orange text-[11px] font-bold text-white px-1">
               {markers.length}
@@ -63,13 +61,11 @@ export default function MarkerPanel({
       </div>
 
       {/* Marker list */}
-      <div className="max-h-[calc(100vh-180px)] overflow-y-auto">
+      <div className="max-h-[50vh] overflow-y-auto">
         {markers.length === 0 ? (
           <div className="px-3 py-6 text-center">
             <IconMapPinFilled size={24} className="mx-auto mb-2 text-text-muted" />
-            <p className="text-sm text-text-muted">
-              Click anywhere on the map to drop a pin
-            </p>
+            <p className="text-sm text-text-muted">Click anywhere on the map to drop a pin</p>
           </div>
         ) : (
           <ul>
@@ -95,9 +91,7 @@ export default function MarkerPanel({
                   className="flex-1 min-w-0 text-left"
                   title={marker.name}
                 >
-                  <p className="text-sm font-medium text-text-primary truncate">
-                    {marker.name}
-                  </p>
+                  <p className="text-sm font-medium text-text-primary truncate">{marker.name}</p>
                 </button>
                 <button
                   onClick={() => onDelete(marker.id)}

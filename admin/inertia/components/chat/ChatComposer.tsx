@@ -78,21 +78,22 @@ export default function ChatComposer({
             placeholder={`Type your message to ${aiAssistantName}...${
               isMobile ? '' : ' (Shift+Enter for new line)'
             }`}
-            className="w-full resize-none min-h-12.5 rounded-lg border border-border-default px-4 py-3 focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent disabled:bg-surface-secondary disabled:text-text-muted"
+            className="w-full resize-none rounded-lg border border-border-default px-4 py-3 focus:outline-none focus:ring-2 focus:ring-desert-green focus:border-transparent disabled:bg-surface-secondary disabled:text-text-muted"
             rows={1}
             disabled={isLoading}
-            style={{ maxHeight: '200px' }}
+            style={{ minHeight: '50px', maxHeight: '200px' }}
           />
         </div>
         <button
           type="submit"
           disabled={!input.trim() || isLoading}
           className={classNames(
-            'flex items-center justify-center rounded-lg transition-all duration-200 shrink-0 h-12.5 w-12.5',
+            'flex items-center justify-center rounded-lg transition-all duration-200 shrink-0',
             !input.trim() || isLoading
               ? 'bg-border-default text-text-muted cursor-not-allowed'
               : 'bg-desert-green text-white hover:bg-desert-green/90 hover:scale-105'
           )}
+          style={{ height: '50px', width: '50px' }}
         >
           {isLoading ? (
             <div className="h-6 w-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
