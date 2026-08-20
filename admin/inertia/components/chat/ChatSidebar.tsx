@@ -123,10 +123,10 @@ export default function ChatSidebar({
                     onDeleteSession(session)
                   }}
                   className={classNames(
-                    'absolute top-1.5 right-1.5 p-1 rounded transition-opacity focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-desert-green',
+                    'absolute top-1.5 right-1.5 p-1 rounded transition-opacity focus:outline-none focus:ring-2 focus:ring-desert-green',
                     activeSessionId === session.id
                       ? 'opacity-100 text-white hover:bg-white/20'
-                      : 'opacity-0 group-hover:opacity-100 text-text-muted hover:bg-surface-primary'
+                      : 'opacity-70 text-text-muted hover:opacity-100 hover:bg-surface-primary'
                   )}
                 >
                   <IconTrash className="h-4 w-4" />
