@@ -607,6 +607,7 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                           ? 'How to migrate content to Gen 2'
                           : 'How to migrate content from Gen 1'
                       }
+                      reverseProxyBaseDomain={reverseProxyBaseDomain}
                     />
                   ))}
                 </div>
@@ -637,6 +638,7 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                       onSetUrl={() => handleSetUrl(service)}
                       onUpdate={() => handleUpdate(service)}
                       onUpdateVersion={() => setModal({ type: 'update', service })}
+                      reverseProxyBaseDomain={reverseProxyBaseDomain}
                     />
                   ))}
                 </div>
@@ -977,6 +979,7 @@ interface AppCardProps {
   onToggleAutoUpdate?: (enabled: boolean) => void
   migrationInstructionsHref?: string
   migrationInstructionsText?: string
+  reverseProxyBaseDomain?: string | null
 }
 
 function AppCard({
@@ -1002,6 +1005,7 @@ function AppCard({
   onToggleAutoUpdate,
   migrationInstructionsHref,
   migrationInstructionsText,
+  reverseProxyBaseDomain,
 }: AppCardProps) {
   const isRunning = service.status === 'running'
   const isStopped = service.installed && !isRunning
