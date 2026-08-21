@@ -45,6 +45,8 @@ export interface UseKnowledgeBaseResult {
   ingestPolicy: 'Always' | 'Manual'
   inflightSources: Set<string>
   allEmbedJobsPaused: boolean
+  pollIntervalMs: number
+  setPollIntervalMs: (ms: number) => void
 
   uploadMutation: ReturnType<typeof useMutation<unknown, Error, File>>
   updateIngestPolicyMutation: ReturnType<typeof useMutation<unknown, Error, 'Always' | 'Manual'>>
@@ -90,6 +92,28 @@ export function useKnowledgeBase(): UseKnowledgeBaseResult {
 
   const [isStartingQdrant, setIsStartingQdrant] = useState(false)
 
+  const [pollIntervalMs, setPollIntervalMsState] = useState(() => {
+    try {
+      const stored = localStorage.getItem('kb.pollIntervalMs')
+      if (stored) {
+        const ms = Number.parseInt(stored, 10)
+        if (Number.isFinite(ms) && ms >= 1000) return ms
+      }
+    } catch {
+      // localStorage unavailable
+    }
+    return 60_000
+  })
+  const setPollIntervalMs = (ms: number) => {
+    const clamped = Math.max(1000, Math.round(ms))
+    setPollIntervalMsState(clamped)
+    try {
+      localStorage.setItem('kb.pollIntervalMs', String(clamped))
+    } catch {
+      // localStorage unavailable
+    }
+  }
+
   const { data: healthStatus } = useQuery({
     queryKey: ['qdrantHealth'],
     queryFn: () => api.checkRAGHealth(),
@@ -107,7 +131,7 @@ export function useKnowledgeBase(): UseKnowledgeBaseResult {
     select: (data) => data || [],
   })
 
-  const embedJobsQuery = useEmbedJobs()
+  const embedJobsQuery = useEmbedJobs({ pollIntervalMs })
   const inflightSources = useMemo(
     () => new Set((embedJobsQuery.data ?? []).map((j) => j.filePath)),
     [embedJobsQuery.data]
@@ -445,6 +469,8 @@ export function useKnowledgeBase(): UseKnowledgeBaseResult {
     ingestPolicy,
     inflightSources,
     allEmbedJobsPaused,
+    pollIntervalMs,
+    setPollIntervalMs,
 
     uploadMutation,
     updateIngestPolicyMutation,

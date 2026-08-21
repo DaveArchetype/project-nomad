@@ -72,6 +72,8 @@ export default function KnowledgeBaseModal({
             resumeAllPending={kb.resumeAllMutation.isPending}
             onResumeAll={() => kb.resumeAllMutation.mutate()}
             allPaused={kb.allEmbedJobsPaused}
+            pollIntervalMs={kb.pollIntervalMs}
+            onPollIntervalChange={kb.setPollIntervalMs}
           />
           <StoredFilesSection
             isMobile={isMobile}
