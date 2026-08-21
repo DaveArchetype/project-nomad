@@ -76,6 +76,7 @@ export type RemoteZimFileEntry = {
 export type StreamZIMContentOptions = {
   strategy?: ExtractZIMChunkingStrategy
   startOffset?: number
+  useWorkers?: boolean
 }
 
 export type StreamZIMArticleCallback = (

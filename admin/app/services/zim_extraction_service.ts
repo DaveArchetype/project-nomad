@@ -5,6 +5,7 @@ import {
   NON_CONTENT_HEADING_PATTERNS,
 } from '../../constants/zim_extraction.js'
 import { extractStructuredContent } from '../utils/zim_html.js'
+import { ZIMWorkerPool } from './zim_worker_pool.js'
 import logger from '@adonisjs/core/services/logger'
 import {
   ExtractZIMChunkingStrategy,
@@ -77,62 +78,177 @@ export class ZIMExtractionService {
       let articlesProcessed = 0
       let cancelled = false
 
-      for (const entry of archive.iterByPath()) {
-        if (!this.isArticleEntry(entry)) {
-          continue
+      const useWorkers = opts.useWorkers !== false
+      let pool: ZIMWorkerPool | null = null
+
+      if (useWorkers) {
+        try {
+          const numWorkers = ZIMWorkerPool.getDefaultWorkerCount()
+          pool = new ZIMWorkerPool(numWorkers, archiveMetadata)
+          logger.info(
+            `[ZIMExtractionService]: Using ${numWorkers} worker threads for parallel article extraction`
+          )
+        } catch (poolErr) {
+          logger.warn(
+            `[ZIMExtractionService]: Failed to create worker pool, falling back to inline processing: %s`,
+            poolErr instanceof Error ? poolErr.message : String(poolErr)
+          )
+          pool = null
         }
+      }
 
-        if (articlesSeen < startOffset) {
-          articlesSeen++
-          continue
-        }
-        articlesSeen++
+      try {
+        if (pool) {
+          const batchSize = pool.size * 2
+          let batch: Array<{
+            htmlBuffer: Buffer
+            articlePath: string
+            articleTitle: string
+            documentId: string
+            articlesSeen: number
+          }> = []
 
-        const $ = this.loadCleanedHTML(entry.item.data.data)
-        const strategy = opts.strategy || this.chooseChunkingStrategy($)
-        const documentId = randomUUID()
-        const articleTitle = entry.title || entry.path
+          const processBatch = async () => {
+            if (batch.length === 0) return
+            const currentBatch = batch
+            batch = []
 
-        let chunks: ZIMContentChunk[]
+            const results = await Promise.all(
+              currentBatch.map((b) =>
+                pool!
+                  .processArticle(
+                    b.htmlBuffer,
+                    b.articlePath,
+                    b.articleTitle,
+                    b.documentId,
+                    opts.strategy
+                  )
+                  .catch((err) => {
+                    logger.warn(
+                      `[ZIMExtractionService]: Worker error for article ${b.articlePath}: %s`,
+                      err instanceof Error ? err.message : String(err)
+                    )
+                    return [] as ZIMContentChunk[]
+                  })
+              )
+            )
 
-        if (strategy === 'structured') {
-          const structured = extractStructuredContent($)
-          chunks = structured.sections.map((s) => ({
-            text: s.text,
-            articleTitle,
-            articlePath: entry.path,
-            sectionTitle: s.heading,
-            fullTitle: `${articleTitle} - ${s.heading}`,
-            hierarchy: `${articleTitle} > ${s.heading}`,
-            sectionLevel: s.level,
-            documentId,
-            archiveMetadata,
-            strategy,
-          }))
-        } else {
-          const text = this.extractTextFromHTML($) || ''
-          chunks = [
-            {
-              text,
-              articleTitle,
+            for (let i = 0; i < results.length; i++) {
+              articlesProcessed++
+              const shouldContinue = await onArticle(
+                results[i],
+                currentBatch[i].articlesSeen,
+                totalArticles
+              )
+              if (shouldContinue === false) {
+                cancelled = true
+                break
+              }
+            }
+          }
+
+          for (const entry of archive.iterByPath()) {
+            if (!this.isArticleEntry(entry)) {
+              continue
+            }
+
+            if (articlesSeen < startOffset) {
+              articlesSeen++
+              continue
+            }
+            articlesSeen++
+
+            let htmlBuffer: Buffer
+            try {
+              htmlBuffer = Buffer.from(entry.item.data.data)
+            } catch (readErr) {
+              logger.warn(
+                `[ZIMExtractionService]: Failed to read article ${entry.path}: %s`,
+                readErr instanceof Error ? readErr.message : String(readErr)
+              )
+              continue
+            }
+
+            batch.push({
+              htmlBuffer,
               articlePath: entry.path,
-              sectionTitle: articleTitle,
-              fullTitle: articleTitle,
-              hierarchy: articleTitle,
-              documentId,
-              archiveMetadata,
-              strategy,
-            },
-          ]
+              articleTitle: entry.title || entry.path,
+              documentId: randomUUID(),
+              articlesSeen,
+            })
+
+            if (batch.length >= batchSize) {
+              await processBatch()
+              if (cancelled) break
+            }
+          }
+
+          if (!cancelled) {
+            await processBatch()
+          }
+        } else {
+          for (const entry of archive.iterByPath()) {
+            if (!this.isArticleEntry(entry)) {
+              continue
+            }
+
+            if (articlesSeen < startOffset) {
+              articlesSeen++
+              continue
+            }
+            articlesSeen++
+
+            const $ = this.loadCleanedHTML(entry.item.data.data)
+            const strategy = opts.strategy || this.chooseChunkingStrategy($)
+            const documentId = randomUUID()
+            const articleTitle = entry.title || entry.path
+
+            let chunks: ZIMContentChunk[]
+
+            if (strategy === 'structured') {
+              const structured = extractStructuredContent($)
+              chunks = structured.sections.map((s) => ({
+                text: s.text,
+                articleTitle,
+                articlePath: entry.path,
+                sectionTitle: s.heading,
+                fullTitle: `${articleTitle} - ${s.heading}`,
+                hierarchy: `${articleTitle} > ${s.heading}`,
+                sectionLevel: s.level,
+                documentId,
+                archiveMetadata,
+                strategy,
+              }))
+            } else {
+              const text = this.extractTextFromHTML($) || ''
+              chunks = [
+                {
+                  text,
+                  articleTitle,
+                  articlePath: entry.path,
+                  sectionTitle: articleTitle,
+                  fullTitle: articleTitle,
+                  hierarchy: articleTitle,
+                  documentId,
+                  archiveMetadata,
+                  strategy,
+                },
+              ]
+            }
+
+            const nonEmptyChunks = chunks.filter((c) => c.text.trim().length > 0)
+            articlesProcessed++
+
+            const shouldContinue = await onArticle(nonEmptyChunks, articlesSeen, totalArticles)
+            if (shouldContinue === false) {
+              cancelled = true
+              break
+            }
+          }
         }
-
-        const nonEmptyChunks = chunks.filter((c) => c.text.trim().length > 0)
-        articlesProcessed++
-
-        const shouldContinue = await onArticle(nonEmptyChunks, articlesSeen, totalArticles)
-        if (shouldContinue === false) {
-          cancelled = true
-          break
+      } finally {
+        if (pool) {
+          await pool.terminate()
         }
       }
 

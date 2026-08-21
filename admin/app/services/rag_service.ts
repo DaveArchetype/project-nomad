@@ -647,7 +647,7 @@ export class RagService {
     let pendingMetadatas: Record<string, any>[] = []
     let cancelled = false
 
-    const MAX_CONCURRENT_EMBEDS = 2
+    const MAX_CONCURRENT_EMBEDS = 4
     const inFlight: Promise<void>[] = []
 
     const flush = async (articlesSeen: number): Promise<boolean> => {
@@ -702,7 +702,7 @@ export class RagService {
 
     const streamResult = await zimExtractionService.streamZIMContent(
       filepath,
-      { startOffset },
+      { startOffset, useWorkers: true },
       async (zimChunks, articlesSeen, total) => {
         totalArticles = total
 
