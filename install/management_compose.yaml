@@ -42,18 +42,18 @@ services:
       - PORT=8080
       - LOG_LEVEL=info
       # APP_KEY needs to be at least 16 chars or will fail validation and container won't start!
-      - APP_KEY=replaceme
+      - APP_KEY=${APP_KEY}
       # # Leave HOST as is so the admin server listens all interfaces within the container - this doesn't affect how you access it from the host, it's just for internal container networking
       - HOST=0.0.0.0
       # URL should be set to the URL you will access the admin interface at (e.g. http://localhost:8080 or http://192.168.1.x:8080)
-      - URL=replaceme
+      - URL=${URL}
       - DB_HOST=mysql
       # If you change the MySQL port, make sure to update this accordingly
       - DB_PORT=3306
       - DB_DATABASE=nomad
       - DB_USER=nomad_user
       # Needs to match the MYSQL_PASSWORD in the mysql service!
-      - DB_PASSWORD=replaceme
+      - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=nomad
       - DB_SSL=false
       - REDIS_HOST=redis
@@ -106,14 +106,14 @@ services:
       - NODE_ENV=production
       - NOMAD_STORAGE_PATH=/opt/project-nomad/storage
       - LOG_LEVEL=info
-      - APP_KEY=replaceme
+      - APP_KEY=${APP_KEY}
       - HOST=0.0.0.0
-      - URL=replaceme
+      - URL=${URL}
       - DB_HOST=mysql
       - DB_PORT=3306
       - DB_DATABASE=nomad
       - DB_USER=nomad_user
-      - DB_PASSWORD=replaceme
+      - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=nomad
       - DB_SSL=false
       - REDIS_HOST=redis
@@ -143,11 +143,11 @@ services:
     container_name: nomad_mysql
     restart: unless-stopped
     environment:
-      - MYSQL_ROOT_PASSWORD=replaceme
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
       - MYSQL_DATABASE=nomad
       - MYSQL_USER=nomad_user
       # Needs to match DB_PASSWORD in the admin service!
-      - MYSQL_PASSWORD=replaceme
+      - MYSQL_PASSWORD=${DB_PASSWORD}
     volumes:
       - /opt/project-nomad/mysql:/var/lib/mysql # Persist MySQL data on the host. This path can be changed if needed, just make sure it's writable by the container. Host persistence is important for the database to ensure your data isn't lost when the container is removed or updated.
     healthcheck:
