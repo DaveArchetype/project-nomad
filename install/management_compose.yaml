@@ -9,8 +9,10 @@
 name: project-nomad
 services:
   admin:
-    image: ghcr.io/crosstalk-solutions/project-nomad:latest
-    pull_policy: always
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: project-nomad:local
     container_name: nomad_admin
     restart: unless-stopped
     extra_hosts:
@@ -82,8 +84,7 @@ services:
     # `restart: unless-stopped`, a worker crash — which previously stranded every
     # embedding job in "active"/"waiting" forever because the in-entrypoint `&`
     # worker had no supervisor — is now recovered automatically within seconds.
-    image: ghcr.io/crosstalk-solutions/project-nomad:latest
-    pull_policy: always
+    image: project-nomad:local
     container_name: nomad_worker
     restart: unless-stopped
     # The Dockerfile's entrypoint.sh (which waits for Redis, runs migrations,
