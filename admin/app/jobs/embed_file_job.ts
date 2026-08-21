@@ -76,8 +76,8 @@ export class EmbedFileJob {
     // back to whatever the file is already assigned to, so an assignment made *before*
     // the file was indexed still reaches the vectors. Resolving it here rather than at
     // each dispatch site keeps one source of truth and covers batch continuations too.
-    const effectiveCollection =
-      collection ?? (await KbIngestState.findBy('file_path', filePath))?.collection ?? undefined
+    const ingestState = await KbIngestState.findBy('file_path', filePath)
+    const effectiveCollection = collection ?? ingestState?.collection ?? undefined
 
     const isZim = determineFileType(filePath) === 'zim'
     const resumeOffset = job.data.resumeOffset ?? job.data.batchOffset
@@ -118,10 +118,14 @@ export class EmbedFileJob {
 
       // Anchor initial progress to the resume point so a retried ZIM job
       // doesn't flash the gauge back to ~0 before the first flush reports in.
-      const initialPercent =
-        totalArticles && totalArticles > 0 && resumeOffset
+      // For ZIMs the real percentage arrives from the stream at each flush
+      // (articlesSeen / totalArticles); 5% is the non-ZIM starting value and
+      // is misleading for a fresh ZIM dispatch that hasn't flushed yet.
+      const initialPercent = isZim
+        ? totalArticles && totalArticles > 0 && resumeOffset
           ? Math.min(99, Math.round((resumeOffset / totalArticles) * 100))
-          : 5
+          : 0
+        : 5
       await this.safeUpdateProgress(job, initialPercent)
       await job.updateData({
         ...job.data,
@@ -151,12 +155,17 @@ export class EmbedFileJob {
       // detects external cancellation: cancelAllJobs() obliterates the queue
       // (including this active job), so if our own job key is gone, the cancel
       // happened — return false to unwind the stream cleanly.
-      const onFlush = async (articlesSeen: number, chunksEmbedded: number) => {
+      const onFlush = async (
+        articlesSeen: number,
+        chunksEmbedded: number,
+        totalArticlesCount: number
+      ) => {
         try {
           await job.updateData({
             ...job.data,
             resumeOffset: articlesSeen,
             chunksSoFar: baseChunks + chunksEmbedded,
+            totalArticles: totalArticlesCount,
             lastBatchAt: Date.now(),
           })
         } catch {
@@ -292,8 +301,8 @@ export class EmbedFileJob {
           chunks?: number
         }
 
-        const sizeBytes =
-          data.fileSize ?? Number((await getFileStatsIfExists(data.filePath))?.size ?? 0)
+        const fileStats = await getFileStatsIfExists(data.filePath)
+        const sizeBytes = data.fileSize ?? Number(fileStats?.size ?? 0)
         const chunksEstimated = sizeBytes
           ? estimateChunkCount(data.fileName, sizeBytes, ratioRows)
           : null

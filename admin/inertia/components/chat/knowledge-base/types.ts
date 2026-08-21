@@ -15,6 +15,7 @@ export interface KbFileActions {
     { source: string; collection: string }
   >
   qdrantOffline: boolean
+  inflightSources: Set<string>
 }
 
 export interface KbFileCardProps extends KbFileActions {
@@ -63,6 +64,7 @@ export interface StoredFilesSectionProps {
   onReembedAll: () => void
   onSyncStorage: () => void
   fileWarnings: Record<string, FileWarning[]>
+  inflightSources: Set<string>
   confirmDeleteSource: string | null
   setConfirmDeleteSource: (s: string | null) => void
   setConfirmReembed: (r: { source: string; displayName: string } | null) => void

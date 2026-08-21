@@ -17,6 +17,7 @@ export default function KbFileCard({
   embedMutation,
   updateCollectionMutation,
   qdrantOffline,
+  inflightSources,
 }: KbFileCardProps) {
   const warnings = fileWarnings[record.source] ?? []
   const pill = renderStatePill(record)
@@ -25,6 +26,7 @@ export default function KbFileCard({
   const action = pickRowAction(record, warnings.length > 0)
   const actionPendingForThisRow =
     embedMutation.isPending && embedMutation.variables?.source === record.source
+  const isInflight = inflightSources.has(record.source)
   const canView =
     record.isUserUpload && isViewableExtension(record.displayName) && record.size !== null
   const canDownload = record.isUserUpload && record.size !== null
@@ -38,9 +40,7 @@ export default function KbFileCard({
         key={record.source}
         className="rounded-lg border border-border-subtle bg-surface-primary p-4 space-y-2"
       >
-        <p className="font-medium text-text-primary wrap-break-word">
-          {record.displayName}
-        </p>
+        <p className="font-medium text-text-primary wrap-break-word">{record.displayName}</p>
         <p className="text-sm text-text-muted italic">Managed by NOMAD</p>
       </div>
     )
@@ -52,9 +52,7 @@ export default function KbFileCard({
       className="rounded-lg border border-border-subtle bg-surface-primary p-4 space-y-3"
     >
       <div className="min-w-0">
-        <p className="font-medium text-text-primary wrap-break-word">
-          {record.displayName}
-        </p>
+        <p className="font-medium text-text-primary wrap-break-word">{record.displayName}</p>
         {(pill || warnings.length > 0) && (
           <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
             {pill}
@@ -65,12 +63,12 @@ export default function KbFileCard({
               >
                 <span aria-hidden="true">⚠</span>
                 {w.kind === 'zero_chunks' && (
-                  <span>Embedded 0 chunks — no text content.</span>
+                  <span>No text content — AI can't reference this file.</span>
                 )}
                 {w.kind === 'partial_stall' && (
                   <span>
-                    Only {w.chunksEmbedded.toLocaleString()} of est.{' '}
-                    {w.chunksExpected.toLocaleString()} chunks embedded — may have stalled.
+                    {w.chunksEmbedded.toLocaleString()} / ~{w.chunksExpected.toLocaleString()}{' '}
+                    chunks — may have stalled.
                   </span>
                 )}
               </span>
@@ -94,7 +92,9 @@ export default function KbFileCard({
         <span className="text-sm text-text-muted">Collection</span>
         <CollectionCombobox
           value={record.collection ?? ''}
-          onChange={(val) => updateCollectionMutation.mutate({ source: record.source, collection: val })}
+          onChange={(val) =>
+            updateCollectionMutation.mutate({ source: record.source, collection: val })
+          }
           options={comboboxOptions}
           disabled={isSavingCollection}
           className="w-full"
@@ -103,9 +103,7 @@ export default function KbFileCard({
 
       {isConfirming ? (
         <div className="flex flex-col gap-2 pt-1 border-t border-border-subtle">
-          <span className="text-sm text-text-secondary pt-2">
-            Remove from knowledge base?
-          </span>
+          <span className="text-sm text-text-secondary pt-2">Remove from knowledge base?</span>
           <div className="flex flex-col gap-2">
             <StyledButton
               variant="danger"
@@ -129,7 +127,11 @@ export default function KbFileCard({
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border-subtle">
-          {action && (
+          {isInflight ? (
+            <StyledButton variant="secondary" size="sm" disabled loading>
+              Indexing…
+            </StyledButton>
+          ) : action ? (
             <StyledButton
               variant={action.variant}
               size="sm"
@@ -149,7 +151,7 @@ export default function KbFileCard({
             >
               {action.label}
             </StyledButton>
-          )}
+          ) : null}
           {canView && (
             <StyledButton
               variant="ghost"

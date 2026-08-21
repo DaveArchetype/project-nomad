@@ -27,6 +27,7 @@ export default function StoredFilesSection({
   onReembedAll,
   onSyncStorage,
   fileWarnings,
+  inflightSources,
   confirmDeleteSource,
   setConfirmDeleteSource,
   setConfirmReembed,
@@ -131,6 +132,7 @@ export default function StoredFilesSection({
           embedMutation={embedMutation}
           updateCollectionMutation={updateCollectionMutation}
           qdrantOffline={qdrantOffline}
+          inflightSources={inflightSources}
         />
       ) : (
         <KbFileTable
@@ -148,6 +150,7 @@ export default function StoredFilesSection({
           embedMutation={embedMutation}
           updateCollectionMutation={updateCollectionMutation}
           qdrantOffline={qdrantOffline}
+          inflightSources={inflightSources}
         />
       )}
     </section>

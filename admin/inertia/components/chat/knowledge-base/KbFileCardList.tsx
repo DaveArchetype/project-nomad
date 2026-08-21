@@ -17,6 +17,7 @@ export default function KbFileCardList({
   embedMutation,
   updateCollectionMutation,
   qdrantOffline,
+  inflightSources,
 }: KbFileCardListProps) {
   const sortOptions: { label: string; key: KbFileSortKey }[] = [
     { label: 'Name', key: 'name' },
@@ -75,6 +76,7 @@ export default function KbFileCardList({
             embedMutation={embedMutation}
             updateCollectionMutation={updateCollectionMutation}
             qdrantOffline={qdrantOffline}
+            inflightSources={inflightSources}
           />
         ))
       )}

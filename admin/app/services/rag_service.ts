@@ -188,9 +188,9 @@ export class RagService {
     return (
       text
         // Null bytes
-        .replace(/\x00/g, '')
+        .replace(/\u0000/g, '')
         // Problematic control characters (keep \n, \r, \t)
-        .replace(/[\x01-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '')
+        .replace(/[\u0001-\u0008\u000B-\u000C\u000E-\u001F\u007F]/g, '')
         // Invalid Unicode surrogates
         .replace(/[\uD800-\uDFFF]/g, '')
         // Trim extra whitespace
@@ -589,7 +589,11 @@ export class RagService {
     options: {
       startOffset?: number
       onProgress?: (percent: number) => Promise<void>
-      onFlush?: (articlesSeen: number, chunksEmbedded: number) => Promise<boolean | void>
+      onFlush?: (
+        articlesSeen: number,
+        chunksEmbedded: number,
+        totalArticles: number
+      ) => Promise<boolean | void>
       collection?: string
     } = {}
   ): Promise<ProcessZIMFileResponse> {
@@ -622,7 +626,7 @@ export class RagService {
       }
 
       if (onFlush) {
-        const shouldContinue = await onFlush(articlesSeen, totalChunks)
+        const shouldContinue = await onFlush(articlesSeen, totalChunks, totalArticles)
         if (shouldContinue === false) {
           return false
         }
@@ -869,7 +873,11 @@ export class RagService {
     options: {
       startOffset?: number
       onProgress?: (percent: number) => Promise<void>
-      onFlush?: (articlesSeen: number, chunksEmbedded: number) => Promise<boolean | void>
+      onFlush?: (
+        articlesSeen: number,
+        chunksEmbedded: number,
+        totalArticles: number
+      ) => Promise<boolean | void>
       collection?: string
     } = {}
   ): Promise<ProcessAndEmbedFileResponse> {
@@ -1563,6 +1571,22 @@ export class RagService {
         RagService.EMBEDDING_DIMENSION
       )
 
+      // Suppress warnings for files that have an in-flight embedding job —
+      // a ZIM that is actively being indexed legitimately has 0 Qdrant
+      // points until its first flush (500 chunks / 1000 articles), which
+      // for a 128 GB archive can take minutes. Without this guard the
+      // zero_chunks warning fires the moment the user clicks Index, falsely
+      // claiming "no text content" while the file is being processed.
+      const { EmbedFileJob } = await import('#jobs/embed_file_job')
+      const { QueueService } = await import('#services/queue_service')
+      const inflightQueue = QueueService.getInstance().getQueue(EmbedFileJob.queue)
+      const inflightJobs = await inflightQueue.getJobs(['waiting', 'active', 'delayed', 'paused'])
+      const inflightSources = new Set<string>()
+      for (const j of inflightJobs) {
+        const fp = (j.data as any)?.filePath as string | undefined
+        if (fp) inflightSources.add(fp)
+      }
+
       // Per-source chunk count via Qdrant's facet API. Was a full scroll of
       // every point in the collection, which on a fully-ingested NOMAD takes
       // ~50s for a 3M-point KB just to count ~40 sources. Facet returns the
@@ -1603,6 +1627,7 @@ export class RagService {
 
       const out: Record<string, FileWarning[]> = {}
       for (const source of allSources) {
+        if (inflightSources.has(source)) continue
         const fileSizeBytes = sizeByPath.get(source) ?? 0
         const chunksInQdrant = chunksBySource.get(source) ?? 0
         const fileName = source.split(/[/\\]/).pop() ?? source
@@ -1772,7 +1797,8 @@ export class RagService {
     // paths above.
     let qdrantRunning = false
     if (isReplacement && qdrantInstalled && oldFileWasIndexed) {
-      qdrantRunning = (await this.checkQdrantHealth()).online
+      const health = await this.checkQdrantHealth()
+      qdrantRunning = health.online
     }
 
     const outcome = decideContentReindex({

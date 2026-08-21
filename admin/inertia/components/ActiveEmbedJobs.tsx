@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import useEmbedJobs from '~/hooks/useEmbedJobs'
 import HorizontalBarChart from './HorizontalBarChart'
 import StyledSectionHeader from './StyledSectionHeader'
@@ -6,6 +6,11 @@ import { JOB_HEALTH_DISPLAY, computeJobHealth, formatTimeAgo } from '~/lib/kb_jo
 
 interface ActiveEmbedJobsProps {
   withHeader?: boolean
+}
+
+interface ChunkRateSnapshot {
+  chunks: number
+  timestamp: number
 }
 
 const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
@@ -17,6 +22,42 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
     const id = setInterval(() => setTick(Date.now()), 5000)
     return () => clearInterval(id)
   }, [])
+
+  // Track per-job chunk snapshots to compute chunks/min. We keep the last two
+  // snapshots so the rate smooths over a short window rather than jumping on
+  // every poll. Snapshots older than 60s are discarded so a pause in flushing
+  // doesn't deflate the rate to zero immediately.
+  const rateRef = useRef<Map<string, ChunkRateSnapshot[]>>(new Map())
+  useEffect(() => {
+    if (!jobs || jobs.length === 0) {
+      rateRef.current.clear()
+      return
+    }
+    const now = Date.now()
+    const next = new Map<string, ChunkRateSnapshot[]>()
+    for (const job of jobs) {
+      const chunks = typeof job.chunks === 'number' ? job.chunks : 0
+      const prev = rateRef.current.get(job.jobId) ?? []
+      const recent = prev.filter((s) => now - s.timestamp < 60_000)
+      const last = recent[recent.length - 1]
+      if (!last || last.chunks !== chunks) {
+        recent.push({ chunks, timestamp: now })
+      }
+      next.set(job.jobId, recent)
+    }
+    rateRef.current = next
+  }, [jobs])
+
+  const computeChunksPerMin = (jobId: string): number | null => {
+    const snapshots = rateRef.current.get(jobId)
+    if (!snapshots || snapshots.length < 2) return null
+    const first = snapshots[0]
+    const last = snapshots[snapshots.length - 1]
+    const deltaChunks = last.chunks - first.chunks
+    const deltaMs = last.timestamp - first.timestamp
+    if (deltaMs <= 0) return null
+    return Math.round((deltaChunks / deltaMs) * 60_000)
+  }
 
   return (
     <>
@@ -36,6 +77,7 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
             const lastActivityMs = job.lastBatchAt ?? job.startedAt
             const chunksDone = typeof job.chunks === 'number' ? job.chunks : 0
             const hasChunkInfo = chunksDone > 0 || (job.chunksEstimated ?? 0) > 0
+            const chunksPerMin = computeChunksPerMin(job.jobId)
             return (
               <div
                 key={job.jobId}
@@ -51,6 +93,11 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
                   {lastActivityMs !== undefined && (
                     <span className="text-xs text-text-muted">
                       · last activity {formatTimeAgo(lastActivityMs, tick)}
+                    </span>
+                  )}
+                  {chunksPerMin !== null && (
+                    <span className="text-xs text-text-muted">
+                      · {chunksPerMin.toLocaleString()} chunks/min
                     </span>
                   )}
                 </div>

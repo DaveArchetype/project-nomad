@@ -22,6 +22,7 @@ export default function KbFileTable({
   embedMutation,
   updateCollectionMutation,
   qdrantOffline,
+  inflightSources,
 }: KbFileTableProps) {
   return (
     <StyledTable<KbFileGroup>
@@ -47,16 +48,12 @@ export default function KbFileTable({
                       >
                         <span aria-hidden="true">⚠</span>
                         {w.kind === 'zero_chunks' && (
-                          <span>
-                            Embedded 0 chunks — this file has no text content. AI
-                            Assistant cannot reference it.
-                          </span>
+                          <span>No text content — AI can't reference this file.</span>
                         )}
                         {w.kind === 'partial_stall' && (
                           <span>
-                            Only {w.chunksEmbedded.toLocaleString()} of est.{' '}
-                            {w.chunksExpected.toLocaleString()} chunks embedded —
-                            ingestion may have stalled.
+                            {w.chunksEmbedded.toLocaleString()} / ~
+                            {w.chunksExpected.toLocaleString()} chunks — may have stalled.
                           </span>
                         )}
                       </span>
@@ -134,14 +131,11 @@ export default function KbFileTable({
             }
 
             const isConfirming = confirmDeleteSource === record.source
-            const isDeleting =
-              deleteMutation.isPending && confirmDeleteSource === record.source
+            const isDeleting = deleteMutation.isPending && confirmDeleteSource === record.source
             if (isConfirming) {
               return (
                 <div className="flex items-center gap-2 justify-end">
-                  <span className="text-sm text-text-secondary">
-                    Remove from knowledge base?
-                  </span>
+                  <span className="text-sm text-text-secondary">Remove from knowledge base?</span>
                   <StyledButton
                     variant="danger"
                     size="sm"
@@ -166,16 +160,19 @@ export default function KbFileTable({
             const action = pickRowAction(record, warnings.length > 0)
             const actionPendingForThisRow =
               embedMutation.isPending && embedMutation.variables?.source === record.source
+            const isInflight = inflightSources.has(record.source)
 
             const canView =
-              record.isUserUpload &&
-              isViewableExtension(record.displayName) &&
-              record.size !== null
+              record.isUserUpload && isViewableExtension(record.displayName) && record.size !== null
             const canDownload = record.isUserUpload && record.size !== null
 
             return (
               <div className="flex justify-end items-center gap-2">
-                {action && (
+                {isInflight ? (
+                  <StyledButton variant="secondary" size="sm" disabled loading>
+                    Indexing…
+                  </StyledButton>
+                ) : action ? (
                   <StyledButton
                     variant={action.variant}
                     size="sm"
@@ -193,14 +190,12 @@ export default function KbFileTable({
                         })
                       }
                     }}
-                    disabled={
-                      qdrantOffline || deleteMutation.isPending || embedMutation.isPending
-                    }
+                    disabled={qdrantOffline || deleteMutation.isPending || embedMutation.isPending}
                     loading={actionPendingForThisRow}
                   >
                     {action.label}
                   </StyledButton>
-                )}
+                ) : null}
                 {canView && (
                   <StyledButton
                     variant="ghost"
@@ -229,9 +224,7 @@ export default function KbFileTable({
                   icon="IconTrash"
                   onClick={() => setConfirmDeleteSource(record.source)}
                   disabled={deleteMutation.isPending || embedMutation.isPending}
-                  loading={
-                    deleteMutation.isPending && confirmDeleteSource === record.source
-                  }
+                  loading={deleteMutation.isPending && confirmDeleteSource === record.source}
                 >
                   Delete
                 </StyledButton>

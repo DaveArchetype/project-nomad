@@ -8,6 +8,7 @@ import type { KbFileSort } from '~/lib/kb_file_grouping'
 import { KB_COLLECTIONS } from '../../../../constants/kb_collections'
 import { SERVICE_NAMES } from '../../../../constants/service_names'
 import StyledModal from '../../StyledModal'
+import useEmbedJobs from '~/hooks/useEmbedJobs'
 
 export interface UseKnowledgeBaseResult {
   files: File[]
@@ -42,18 +43,15 @@ export interface UseKnowledgeBaseResult {
   fileWarnings: Record<string, import('../../../../types/rag').FileWarning[]>
   warningsUnavailable: boolean
   ingestPolicy: 'Always' | 'Manual'
+  inflightSources: Set<string>
 
   uploadMutation: ReturnType<typeof useMutation<unknown, Error, File>>
-  updateIngestPolicyMutation: ReturnType<
-    typeof useMutation<unknown, Error, 'Always' | 'Manual'>
-  >
+  updateIngestPolicyMutation: ReturnType<typeof useMutation<unknown, Error, 'Always' | 'Manual'>>
   updateCollectionMutation: ReturnType<
     typeof useMutation<unknown, Error, { source: string; collection: string }>
   >
   deleteMutation: ReturnType<typeof useMutation<void, Error, string>>
-  embedMutation: ReturnType<
-    typeof useMutation<unknown, Error, { source: string; force: boolean }>
-  >
+  embedMutation: ReturnType<typeof useMutation<unknown, Error, { source: string; force: boolean }>>
   cleanupFailedMutation: ReturnType<typeof useMutation<unknown, Error, void>>
   cancelAllMutation: ReturnType<typeof useMutation<unknown, Error, void>>
   startQdrantMutation: ReturnType<typeof useMutation<unknown, Error, void>>
@@ -105,6 +103,12 @@ export function useKnowledgeBase(): UseKnowledgeBaseResult {
     queryFn: () => api.getStoredRAGFiles(),
     select: (data) => data || [],
   })
+
+  const embedJobsQuery = useEmbedJobs()
+  const inflightSources = useMemo(
+    () => new Set((embedJobsQuery.data ?? []).map((j) => j.filePath)),
+    [embedJobsQuery.data]
+  )
 
   const { data: knownCollections = [] } = useQuery({
     queryKey: ['kbCollections'],
@@ -410,6 +414,7 @@ export function useKnowledgeBase(): UseKnowledgeBaseResult {
     fileWarnings,
     warningsUnavailable,
     ingestPolicy,
+    inflightSources,
 
     uploadMutation,
     updateIngestPolicyMutation,

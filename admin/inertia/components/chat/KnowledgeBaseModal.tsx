@@ -93,6 +93,7 @@ export default function KnowledgeBaseModal({
             onReembedAll={() => kb.setBulkMode('reembed')}
             onSyncStorage={kb.handleConfirmSync}
             fileWarnings={kb.fileWarnings}
+            inflightSources={kb.inflightSources}
             confirmDeleteSource={kb.confirmDeleteSource}
             setConfirmDeleteSource={kb.setConfirmDeleteSource}
             setConfirmReembed={kb.setConfirmReembed}
