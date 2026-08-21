@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import ChatSidebar from './ChatSidebar'
 import ChatHeader from './ChatHeader'
@@ -59,19 +59,12 @@ export default function Chat({
     effectiveThinkingRef,
   })
 
-  const clearActiveSession = useCallback(() => {
-    stream.abort()
-    setActiveSessionId(null)
-    setMessages([])
-  }, [stream.abort])
-
   const models = useChatModels({
     enabled,
     activeSessionId,
     selectedModel,
     setSelectedModel,
     abortStream: stream.abort,
-    clearActiveSession,
   })
 
   effectiveThinkingRef.current = models.effectiveThinking
@@ -109,13 +102,13 @@ export default function Chat({
           onConfirm={models.handleConfirmModelSwitch}
           onCancel={models.handleCancelModelSwitch}
           open={true}
-          confirmText="Switch & New Chat"
+          confirmText="Switch Model"
           cancelText="Cancel"
           confirmVariant="primary"
         >
           <p className="text-text-primary">
-            Switching to <strong>{models.pendingModelSwitch}</strong> will start a new chat. Your
-            current conversation stays available in the sidebar.
+            Switching to <strong>{models.pendingModelSwitch}</strong> will continue this
+            conversation with the new model. Your chat history stays intact.
           </p>
         </StyledModal>
       )}

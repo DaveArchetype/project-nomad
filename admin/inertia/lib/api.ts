@@ -320,11 +320,11 @@ class API {
    *
    * Pass `null` to unload every chat model.
    */
-  async unloadChatModels(targetModel: string | null) {
+  async unloadChatModels(targetModel: string | null, vramAware?: boolean) {
     return catchInternal(async () => {
       const response = await this.client.post<{ unloaded: string[] }>(
         '/ollama/unload-chat-models',
-        { targetModel }
+        { targetModel, vramAware }
       )
       return response.data
     })()

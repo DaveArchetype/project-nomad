@@ -20,6 +20,7 @@ export const chatSchema = vine.compile(
 export const unloadChatModelsSchema = vine.compile(
   vine.object({
     targetModel: vine.string().trim().minLength(1).nullable().optional(),
+    vramAware: vine.boolean().optional(),
   })
 )
 

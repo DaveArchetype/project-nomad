@@ -26,7 +26,6 @@ interface UseChatModelsArgs {
   selectedModel: string
   setSelectedModel: (model: string) => void
   abortStream: () => void
-  clearActiveSession: () => void
 }
 
 export function useChatModels({
@@ -35,7 +34,6 @@ export function useChatModels({
   selectedModel,
   setSelectedModel,
   abortStream,
-  clearActiveSession,
 }: UseChatModelsArgs): UseChatModelsResult {
   const [pendingModelSwitch, setPendingModelSwitch] = useState<string | null>(null)
   const [thinkingOverrides, setThinkingOverrides] = useState<Record<string, boolean>>({})
@@ -136,14 +134,18 @@ export function useChatModels({
   const handleConfirmModelSwitch = useCallback(async () => {
     const newModel = pendingModelSwitch
     if (!newModel) return
-    api.unloadChatModels(newModel).catch((err) => {
-      console.warn('Failed to unload previous chat model:', err)
-    })
     abortStream()
     setSelectedModel(newModel)
     setPendingModelSwitch(null)
-    clearActiveSession()
-  }, [pendingModelSwitch, abortStream, clearActiveSession, setSelectedModel])
+    api.unloadChatModels(newModel, true).catch((err) => {
+      console.warn('Failed to unload previous chat model:', err)
+    })
+    if (activeSessionId) {
+      api.updateChatSession(activeSessionId, { model: newModel }).catch((err) => {
+        console.warn('Failed to update session model:', err)
+      })
+    }
+  }, [pendingModelSwitch, abortStream, setSelectedModel, activeSessionId])
 
   const handleCancelModelSwitch = useCallback(() => {
     setPendingModelSwitch(null)

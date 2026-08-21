@@ -718,14 +718,32 @@ export class OllamaService {
    * Pass `targetModel: null` to unload every chat model (used for the future
    * "free up VRAM" path; not exposed yet but the helper supports it).
    *
+   * When `vramAware` is true, the unload is skipped unless the target model's
+   * size exceeds 90% of total GPU VRAM — allowing two small models to coexist
+   * on large GPUs (e.g. switching between 8B models on a 24GB card). If VRAM
+   * cannot be determined, falls back to unloading (safe default).
+   *
    * Note that `keep_alive: 0` is a post-completion hint, not a force-kill —
    * Ollama defers eviction until the runner is idle, so in-flight inference
    * on the same model is never interrupted. See the design doc for the race
    * analysis behind this.
    */
-  public async unloadAllChatModelsExcept(targetModel: string | null): Promise<string[]> {
+  public async unloadAllChatModelsExcept(
+    targetModel: string | null,
+    vramAware = false
+  ): Promise<string[]> {
     await this._ensureDependencies()
     if (!this.baseUrl) return []
+
+    if (vramAware && targetModel) {
+      const shouldUnload = await this._shouldUnloadForVram(targetModel)
+      if (!shouldUnload) {
+        logger.info(
+          `[OllamaService] VRAM-aware unload: keeping loaded models alongside ${targetModel} (fits within 90% VRAM budget)`
+        )
+        return []
+      }
+    }
 
     let loadedModels: string[] = []
     try {
@@ -766,6 +784,106 @@ export class OllamaService {
       )
     }
     return toUnload
+  }
+
+  /**
+   * Returns true if the target model's size exceeds 90% of total GPU VRAM,
+   * indicating that previously-loaded models should be evicted to make room.
+   * Returns true (safe default) if VRAM or model size cannot be determined.
+   */
+  private async _shouldUnloadForVram(targetModel: string): Promise<boolean> {
+    try {
+      const models = await this.getModels(true)
+      const target = models.find((m) => m.name === targetModel)
+      if (!target || !target.size || target.size <= 0) {
+        logger.info(
+          `[OllamaService] VRAM-aware unload: could not determine size for ${targetModel}, unloading as safe default`
+        )
+        return true
+      }
+
+      const totalVramMb = await this._getTotalVramMb()
+      if (totalVramMb <= 0) {
+        logger.info(
+          `[OllamaService] VRAM-aware unload: could not determine total VRAM, unloading as safe default`
+        )
+        return true
+      }
+
+      const totalVramBytes = totalVramMb * 1024 * 1024
+      const vramBudget = totalVramBytes * 0.9
+      const shouldUnload = target.size > vramBudget
+
+      logger.info(
+        `[OllamaService] VRAM-aware unload: ${targetModel} is ${(target.size / (1024 * 1024)).toFixed(0)} MB, VRAM budget is ${(vramBudget / (1024 * 1024)).toFixed(0)} MB of ${totalVramMb} MB — ${shouldUnload ? 'unloading old models' : 'keeping loaded models'}`
+      )
+      return shouldUnload
+    } catch (err: any) {
+      logger.warn(
+        `[OllamaService] VRAM-aware unload check failed: ${err?.message ?? err} — unloading as safe default`
+      )
+      return true
+    }
+  }
+
+  /**
+   * Queries total GPU VRAM by running nvidia-smi inside the Ollama container.
+   * Returns the sum of all GPU memory in MB, or 0 if unavailable (CPU-only,
+   * AMD without nvidia-smi, container not found, etc.).
+   */
+  private async _getTotalVramMb(): Promise<number> {
+    try {
+      const { DockerService } = await import('./docker_service.js')
+      const dockerService = new DockerService()
+      const containers = await dockerService.docker.listContainers({ all: false })
+      const ollamaContainer = containers.find((c) => c.Names.includes(`/${SERVICE_NAMES.OLLAMA}`))
+      if (!ollamaContainer) return 0
+
+      const container = dockerService.docker.getContainer(ollamaContainer.Id)
+      const exec = await container.exec({
+        Cmd: ['nvidia-smi', '--query-gpu=memory.total', '--format=csv,noheader,nounits'],
+        AttachStdout: true,
+        AttachStderr: true,
+        Tty: true,
+      })
+
+      const stream = await exec.start({ Tty: true })
+      const output = await new Promise<string>((resolve) => {
+        let data = ''
+        const timeout = setTimeout(() => resolve(data), 5000)
+        stream.on('data', (chunk: Buffer) => {
+          data += chunk.toString()
+        })
+        stream.on('end', () => {
+          clearTimeout(timeout)
+          resolve(data)
+        })
+      })
+
+      const cleaned = Array.from(output)
+        .filter((c) => c.charCodeAt(0) > 8)
+        .join('')
+        .trim()
+      if (
+        !cleaned ||
+        cleaned.toLowerCase().includes('error') ||
+        cleaned.toLowerCase().includes('not found')
+      ) {
+        return 0
+      }
+
+      const lines = cleaned.split('\n').filter((line) => line.trim())
+      const totalMb = lines.reduce((sum, line) => {
+        const mb = Number.parseInt(line.trim(), 10)
+        return Number.isNaN(mb) ? sum : sum + mb
+      }, 0)
+      return totalMb
+    } catch (err: any) {
+      logger.debug(
+        `[OllamaService] _getTotalVramMb: nvidia-smi probe failed: ${err?.message ?? err}`
+      )
+      return 0
+    }
   }
 
   public async getModels(includeEmbeddings = false): Promise<NomadInstalledModel[]> {

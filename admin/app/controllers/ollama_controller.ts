@@ -47,8 +47,11 @@ export default class OllamaController {
    * here should not block the calling flow.
    */
   async unloadChatModels({ request, response }: HttpContext) {
-    const { targetModel } = await request.validateUsing(unloadChatModelsSchema)
-    const unloaded = await this.ollamaService.unloadAllChatModelsExcept(targetModel ?? null)
+    const { targetModel, vramAware } = await request.validateUsing(unloadChatModelsSchema)
+    const unloaded = await this.ollamaService.unloadAllChatModelsExcept(
+      targetModel ?? null,
+      vramAware === true
+    )
     return response.status(200).json({ unloaded })
   }
 
