@@ -83,7 +83,10 @@ export class ZIMExtractionService {
 
       if (useWorkers) {
         try {
-          const numWorkers = ZIMWorkerPool.getDefaultWorkerCount()
+          const numWorkers =
+            opts.workerCount && opts.workerCount > 0
+              ? opts.workerCount
+              : ZIMWorkerPool.getDefaultWorkerCount()
           pool = new ZIMWorkerPool(numWorkers, archiveMetadata)
           logger.info(
             `[ZIMExtractionService]: Using ${numWorkers} worker threads for parallel article extraction`
@@ -99,47 +102,38 @@ export class ZIMExtractionService {
 
       try {
         if (pool) {
-          const batchSize = pool.size * 2
-          let batch: Array<{
-            htmlBuffer: Buffer
-            articlePath: string
-            articleTitle: string
-            documentId: string
+          // Streaming dispatch/drain queue: the main thread reads raw HTML
+          // buffers from the libzim native iterator (sequential, can't be
+          // parallelized) and dispatches each article to a worker immediately
+          // — no waiting for a full batch. Worker results complete out of
+          // order, so an in-order commit queue (Map<articlesSeen, result> +
+          // nextCommitArticlesSeen cursor) guarantees onArticle is invoked in
+          // ascending article order. This is the critical safety property:
+          // the persisted resume offset only advances past articles whose
+          // chunks have been delivered to onArticle (and thus flushed to
+          // Qdrant), so a crash mid-stream never skips in-flight articles.
+          const maxInFlight = Math.max(pool.size * 4, 16)
+          const completed = new Map<number, ZIMContentChunk[]>()
+          const skipped = new Set<number>()
+          let nextCommitArticlesSeen = startOffset + 1
+          const inFlight: Array<{
             articlesSeen: number
+            promise: Promise<ZIMContentChunk[]>
           }> = []
 
-          const processBatch = async () => {
-            if (batch.length === 0) return
-            const currentBatch = batch
-            batch = []
-
-            const results = await Promise.all(
-              currentBatch.map((b) =>
-                pool!
-                  .processArticle(
-                    b.htmlBuffer,
-                    b.articlePath,
-                    b.articleTitle,
-                    b.documentId,
-                    opts.strategy
-                  )
-                  .catch((err) => {
-                    logger.warn(
-                      `[ZIMExtractionService]: Worker error for article ${b.articlePath}: %s`,
-                      err instanceof Error ? err.message : String(err)
-                    )
-                    return [] as ZIMContentChunk[]
-                  })
-              )
-            )
-
-            for (const [i, result] of results.entries()) {
+          const drainCommitted = async (): Promise<void> => {
+            while (!cancelled) {
+              if (skipped.has(nextCommitArticlesSeen)) {
+                skipped.delete(nextCommitArticlesSeen)
+                nextCommitArticlesSeen++
+                continue
+              }
+              if (!completed.has(nextCommitArticlesSeen)) break
+              const result = completed.get(nextCommitArticlesSeen)!
+              completed.delete(nextCommitArticlesSeen)
               articlesProcessed++
-              const shouldContinue = await onArticle(
-                result,
-                currentBatch[i].articlesSeen,
-                totalArticles
-              )
+              const shouldContinue = await onArticle(result, nextCommitArticlesSeen, totalArticles)
+              nextCommitArticlesSeen++
               if (shouldContinue === false) {
                 cancelled = true
                 break
@@ -166,25 +160,66 @@ export class ZIMExtractionService {
                 `[ZIMExtractionService]: Failed to read article ${entry.path}: %s`,
                 readErr instanceof Error ? readErr.message : String(readErr)
               )
+              skipped.add(articlesSeen)
               continue
             }
 
-            batch.push({
-              htmlBuffer,
-              articlePath: entry.path,
-              articleTitle: entry.title || entry.path,
-              documentId: randomUUID(),
-              articlesSeen,
-            })
-
-            if (batch.length >= batchSize) {
-              await processBatch()
+            // Backpressure: when at capacity, await the oldest in-flight
+            // promise before dispatching the next article. Bounds memory.
+            if (inFlight.length >= maxInFlight) {
+              const oldest = inFlight.shift()!
+              try {
+                const res = await oldest.promise
+                completed.set(oldest.articlesSeen, res)
+              } catch (err) {
+                logger.warn(
+                  `[ZIMExtractionService]: Worker error for article ${oldest.articlesSeen}: %s`,
+                  err instanceof Error ? err.message : String(err)
+                )
+                completed.set(oldest.articlesSeen, [])
+              }
+              await drainCommitted()
               if (cancelled) break
             }
+
+            const articleSeenForThis = articlesSeen
+            const articlePath = entry.path
+            const promise = pool
+              .processArticle(
+                htmlBuffer,
+                articlePath,
+                entry.title || entry.path,
+                randomUUID(),
+                opts.strategy
+              )
+              .catch((err) => {
+                logger.warn(
+                  `[ZIMExtractionService]: Worker error for article ${articlePath}: %s`,
+                  err instanceof Error ? err.message : String(err)
+                )
+                return [] as ZIMContentChunk[]
+              })
+            inFlight.push({ articlesSeen: articleSeenForThis, promise })
           }
 
+          // Drain remaining in-flight promises, then commit any still-buffered
+          // results in order. A cancel during drain stops further commits but
+          // still awaits all in-flight so workers don't leak.
+          while (inFlight.length > 0) {
+            const oldest = inFlight.shift()!
+            try {
+              const res = await oldest.promise
+              completed.set(oldest.articlesSeen, res)
+            } catch (err) {
+              logger.warn(
+                `[ZIMExtractionService]: Worker error for article ${oldest.articlesSeen}: %s`,
+                err instanceof Error ? err.message : String(err)
+              )
+              completed.set(oldest.articlesSeen, [])
+            }
+          }
           if (!cancelled) {
-            await processBatch()
+            await drainCommitted()
           }
         } else {
           for (const entry of archive.iterByPath()) {

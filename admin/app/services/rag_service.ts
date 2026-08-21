@@ -38,6 +38,7 @@ import {
   ZIM_QDRANT_UPSERT_BATCH,
 } from '../../constants/zim_extraction.js'
 import { EMBEDDING_MODEL_NAME } from '../../constants/ollama.js'
+import { loadIngestSettings } from '../utils/ingest_settings.js'
 import {
   ProcessAndEmbedFileResponse,
   ProcessZIMFileResponse,
@@ -65,6 +66,7 @@ export class RagService {
   // Skips the getCollections/createPayloadIndex round-trips that otherwise run on
   // every embed call — ~45% of per-document Qdrant time on large ingestions (#1129)
   private ensuredCollections = new Set<string>()
+  private indexingThresholdApplied = new Set<string>()
   public static UPLOADS_STORAGE_PATH = 'storage/kb_uploads'
   public static CONTENT_COLLECTION_NAME = 'nomad_knowledge_base'
   public static EMBEDDING_DIMENSION = 768 // Nomic Embed Text v1.5 dimension is 768
@@ -118,6 +120,7 @@ export class RagService {
       this.qdrantInitPromise = null
       // Qdrant may have restarted (or been recreated) — re-verify collections on reconnect
       this.ensuredCollections.clear()
+      this.indexingThresholdApplied.clear()
       return {
         online: false,
         message:
@@ -168,6 +171,34 @@ export class RagService {
         field_name: 'collection',
         field_schema: 'keyword',
       })
+
+      // Apply the user-configured Qdrant indexing threshold (non-destructive
+      // update_collection). Setting it very high defers HNSW indexing during
+      // bulk ingest for faster writes; lower it back afterward to trigger
+      // indexing. Memoized separately from ensuredCollections so a threshold
+      // change takes effect on the next ensure without re-running the
+      // getCollections/createPayloadIndex round-trips.
+      if (!this.indexingThresholdApplied.has(collectionName)) {
+        try {
+          const ingestSettings = await loadIngestSettings()
+          if (ingestSettings.qdrantIndexingThreshold != null) {
+            await this.qdrant!.updateCollection(collectionName, {
+              optimizers_config: {
+                indexing_threshold: ingestSettings.qdrantIndexingThreshold,
+              },
+            })
+            logger.info(
+              `[RAG] Applied Qdrant indexing_threshold=${ingestSettings.qdrantIndexingThreshold} to collection ${collectionName}`
+            )
+          }
+          this.indexingThresholdApplied.add(collectionName)
+        } catch (threshErr) {
+          logger.warn(
+            `[RAG] Failed to apply Qdrant indexing_threshold to ${collectionName}: %s`,
+            threshErr instanceof Error ? threshErr.message : String(threshErr)
+          )
+        }
+      }
 
       // Only memoize after every step succeeded, so a partial failure is retried
       this.ensuredCollections.add(collectionName)
@@ -464,9 +495,10 @@ export class RagService {
       }
 
       const embeddings: number[][] = new Array(prefixedChunks.length)
-      const batchSize = RagService.EMBEDDING_BATCH_SIZE
+      const ingestSettings = await loadIngestSettings()
+      const batchSize = ingestSettings.embeddingBatchSize
       const totalBatches = Math.ceil(prefixedChunks.length / batchSize)
-      const EMBED_CONCURRENCY = 2
+      const EMBED_CONCURRENCY = ingestSettings.embedConcurrency
 
       const batches: { idx: number; start: number; chunks: string[] }[] = []
       for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
@@ -549,11 +581,22 @@ export class RagService {
         }
       })
 
+      const upsertConcurrency = ingestSettings.qdrantUpsertConcurrency
+      const upsertBatches: (typeof points)[] = []
       for (let i = 0; i < points.length; i += ZIM_QDRANT_UPSERT_BATCH) {
-        await this.qdrant!.upsert(RagService.CONTENT_COLLECTION_NAME, {
-          points: points.slice(i, i + ZIM_QDRANT_UPSERT_BATCH),
-        })
+        upsertBatches.push(points.slice(i, i + ZIM_QDRANT_UPSERT_BATCH))
       }
+      let upsertInFlight: Promise<void>[] = []
+      for (const batch of upsertBatches) {
+        if (upsertInFlight.length >= upsertConcurrency) {
+          await upsertInFlight.shift()
+        }
+        upsertInFlight.push(
+          this.qdrant!.upsert(RagService.CONTENT_COLLECTION_NAME, { points: batch }).then(() => {})
+        )
+      }
+      await Promise.all(upsertInFlight)
+      upsertInFlight = []
 
       logger.debug(`[RAG] Successfully embedded and stored ${points.length} chunks`)
 
@@ -666,7 +709,8 @@ export class RagService {
     let pendingMetadatas: Record<string, any>[] = []
     let cancelled = false
 
-    const MAX_CONCURRENT_EMBEDS = 4
+    const ingestSettings = await loadIngestSettings()
+    const MAX_CONCURRENT_EMBEDS = ingestSettings.maxConcurrentEmbeds
     const inFlight: Promise<void>[] = []
 
     const flush = async (articlesSeen: number): Promise<boolean> => {
@@ -721,7 +765,7 @@ export class RagService {
 
     const streamResult = await zimExtractionService.streamZIMContent(
       filepath,
-      { startOffset, useWorkers: true },
+      { startOffset, useWorkers: true, workerCount: ingestSettings.zimWorkerCount },
       async (zimChunks, articlesSeen, total) => {
         totalArticles = total
 

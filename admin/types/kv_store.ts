@@ -12,6 +12,29 @@ export const KV_STORE_SCHEMA = {
   // time. Read by OllamaController.chat on each request. Stored as a string
   // (KV schema constraint); parsed to int at read time. Default 15 minutes.
   'rag.embedPauseAfterChatMinutes': 'string',
+  // Ingestion performance knobs. All stored as strings (KV schema constraint),
+  // parsed to int at read time by loadIngestSettings(). Empty/unset reverts to
+  // the hardcoded defaults in app/services/utils/ingest_settings.ts. Exposed in
+  // the AI Settings page under "Ingestion Performance".
+  // Concurrent embed HTTP requests sent to TEI per flush (each carries
+  // embeddingBatchSize chunks). Higher keeps the GPU fed. Default 16.
+  'rag.embedConcurrency': 'string',
+  // Concurrent flushes in flight during ZIM streaming (memory-bounded
+  // backpressure). Default 8.
+  'rag.maxConcurrentEmbeds': 'string',
+  // Concurrent Qdrant upsert batches. Default 8 (was sequential = 1).
+  'rag.qdrantUpsertConcurrency': 'string',
+  // Chunks per embed request. Capped by TEI --max-client-batch-size (512).
+  // Default 256.
+  'rag.embeddingBatchSize': 'string',
+  // ZIM HTML-parse worker threads. 0 = auto-detect (min(cores-1, 8)).
+  // Default 0.
+  'rag.zimWorkerCount': 'string',
+  // When set, applied live via Qdrant update_collection (non-destructive) to
+  // defer HNSW indexing during bulk ingest. Empty = leave Qdrant default
+  // (20000). Set very high (e.g. 1000000) during ingestion, lower back to
+  // 20000 afterward to trigger indexing. Default empty.
+  'rag.qdrantIndexingThreshold': 'string',
   'system.updateAvailable': 'boolean',
   'system.latestVersion': 'string',
   'system.earlyAccess': 'boolean',

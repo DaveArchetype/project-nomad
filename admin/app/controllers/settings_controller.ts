@@ -72,6 +72,12 @@ export default class SettingsController {
     const ollamaFlashAttention = await KVStore.getValue('ai.ollamaFlashAttention')
     const autoThinking = await KVStore.getValue('ai.autoThinking')
     const embedPauseAfterChatMinutes = await KVStore.getValue('rag.embedPauseAfterChatMinutes')
+    const embedConcurrency = await KVStore.getValue('rag.embedConcurrency')
+    const maxConcurrentEmbeds = await KVStore.getValue('rag.maxConcurrentEmbeds')
+    const qdrantUpsertConcurrency = await KVStore.getValue('rag.qdrantUpsertConcurrency')
+    const embeddingBatchSize = await KVStore.getValue('rag.embeddingBatchSize')
+    const zimWorkerCount = await KVStore.getValue('rag.zimWorkerCount')
+    const qdrantIndexingThreshold = await KVStore.getValue('rag.qdrantIndexingThreshold')
     return inertia.render('settings/models', {
       models: {
         availableModels: availableModels?.models || [],
@@ -83,6 +89,12 @@ export default class SettingsController {
           ollamaFlashAttention: ollamaFlashAttention ?? true,
           autoThinking: autoThinking ?? false,
           embedPauseAfterChatMinutes: embedPauseAfterChatMinutes ?? '',
+          embedConcurrency: embedConcurrency ?? '',
+          maxConcurrentEmbeds: maxConcurrentEmbeds ?? '',
+          qdrantUpsertConcurrency: qdrantUpsertConcurrency ?? '',
+          embeddingBatchSize: embeddingBatchSize ?? '',
+          zimWorkerCount: zimWorkerCount ?? '',
+          qdrantIndexingThreshold: qdrantIndexingThreshold ?? '',
         },
       },
     })

@@ -33,6 +33,12 @@ export default function ModelsPage(props: {
       ollamaFlashAttention: boolean
       autoThinking: boolean
       embedPauseAfterChatMinutes: string
+      embedConcurrency: string
+      maxConcurrentEmbeds: string
+      qdrantUpsertConcurrency: string
+      embeddingBatchSize: string
+      zimWorkerCount: string
+      qdrantIndexingThreshold: string
     }
   }
 }) {
@@ -116,6 +122,20 @@ export default function ModelsPage(props: {
   const [remoteOllamaSaving, setRemoteOllamaSaving] = useState(false)
   const [embedPauseAfterChatMinutes, setEmbedPauseAfterChatMinutes] = useState(
     props.models.settings.embedPauseAfterChatMinutes
+  )
+  const [embedConcurrency, setEmbedConcurrency] = useState(props.models.settings.embedConcurrency)
+  const [maxConcurrentEmbeds, setMaxConcurrentEmbeds] = useState(
+    props.models.settings.maxConcurrentEmbeds
+  )
+  const [qdrantUpsertConcurrency, setQdrantUpsertConcurrency] = useState(
+    props.models.settings.qdrantUpsertConcurrency
+  )
+  const [embeddingBatchSize, setEmbeddingBatchSize] = useState(
+    props.models.settings.embeddingBatchSize
+  )
+  const [zimWorkerCount, setZimWorkerCount] = useState(props.models.settings.zimWorkerCount)
+  const [qdrantIndexingThreshold, setQdrantIndexingThreshold] = useState(
+    props.models.settings.qdrantIndexingThreshold
   )
 
   async function handleSaveRemoteOllama() {
@@ -375,6 +395,102 @@ export default function ModelsPage(props: {
                   updateSettingMutation.mutate({
                     key: 'rag.embedPauseAfterChatMinutes',
                     value: embedPauseAfterChatMinutes,
+                  })
+                }
+              />
+            </div>
+          </div>
+
+          <StyledSectionHeader title="Ingestion Performance" className="mt-12 mb-4" />
+          <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
+            <div className="space-y-4">
+              <Input
+                name="embedConcurrency"
+                label="Embed concurrency"
+                type="number"
+                helpText="Concurrent embed requests sent to TEI per flush (each carries the batch size below). Higher keeps the GPU fed. Lower if you see HTTP 429s or OOM. Default 16."
+                placeholder="16"
+                value={embedConcurrency}
+                onChange={(e) => setEmbedConcurrency(e.target.value)}
+                onBlur={() =>
+                  updateSettingMutation.mutate({
+                    key: 'rag.embedConcurrency',
+                    value: embedConcurrency,
+                  })
+                }
+              />
+              <Input
+                name="maxConcurrentEmbeds"
+                label="Max concurrent embed flushes"
+                type="number"
+                helpText="Concurrent flushes in flight during ZIM streaming (memory-bounded backpressure). Higher overlaps CPU extraction with GPU embedding. Default 8."
+                placeholder="8"
+                value={maxConcurrentEmbeds}
+                onChange={(e) => setMaxConcurrentEmbeds(e.target.value)}
+                onBlur={() =>
+                  updateSettingMutation.mutate({
+                    key: 'rag.maxConcurrentEmbeds',
+                    value: maxConcurrentEmbeds,
+                  })
+                }
+              />
+              <Input
+                name="qdrantUpsertConcurrency"
+                label="Qdrant upsert concurrency"
+                type="number"
+                helpText="Concurrent Qdrant upsert batches. Higher parallelizes vector writes. Default 8 (was sequential)."
+                placeholder="8"
+                value={qdrantUpsertConcurrency}
+                onChange={(e) => setQdrantUpsertConcurrency(e.target.value)}
+                onBlur={() =>
+                  updateSettingMutation.mutate({
+                    key: 'rag.qdrantUpsertConcurrency',
+                    value: qdrantUpsertConcurrency,
+                  })
+                }
+              />
+              <Input
+                name="embeddingBatchSize"
+                label="Embedding batch size"
+                type="number"
+                helpText="Chunks per embed request. Capped by TEI's max-client-batch-size (512). Larger batches reduce HTTP overhead. Default 256."
+                placeholder="256"
+                value={embeddingBatchSize}
+                onChange={(e) => setEmbeddingBatchSize(e.target.value)}
+                onBlur={() =>
+                  updateSettingMutation.mutate({
+                    key: 'rag.embeddingBatchSize',
+                    value: embeddingBatchSize,
+                  })
+                }
+              />
+              <Input
+                name="zimWorkerCount"
+                label="ZIM worker threads"
+                type="number"
+                helpText="Threads for parallel HTML parsing during ZIM ingestion. 0 = auto-detect (min(CPU cores - 1, 8)). Default 0."
+                placeholder="0"
+                value={zimWorkerCount}
+                onChange={(e) => setZimWorkerCount(e.target.value)}
+                onBlur={() =>
+                  updateSettingMutation.mutate({
+                    key: 'rag.zimWorkerCount',
+                    value: zimWorkerCount,
+                  })
+                }
+              />
+              <Input
+                name="qdrantIndexingThreshold"
+                label="Qdrant indexing threshold"
+                type="number"
+                helpText="Defers HNSW indexing during bulk ingest for faster writes (applied live, non-destructive). Set very high (e.g. 1000000) during ingestion, then clear or set to 20000 afterward to trigger indexing. Empty = Qdrant default (20000)."
+                placeholder=""
+                value={qdrantIndexingThreshold}
+                onChange={(e) => setQdrantIndexingThreshold(e.target.value)}
+                onBlur={() =>
+                  updateSettingMutation.mutate({
+                    key: 'rag.qdrantIndexingThreshold',
+                    value: qdrantIndexingThreshold,
                   })
                 }
               />

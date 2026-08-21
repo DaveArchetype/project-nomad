@@ -77,6 +77,7 @@ export type StreamZIMContentOptions = {
   strategy?: ExtractZIMChunkingStrategy
   startOffset?: number
   useWorkers?: boolean
+  workerCount?: number
 }
 
 export type StreamZIMArticleCallback = (

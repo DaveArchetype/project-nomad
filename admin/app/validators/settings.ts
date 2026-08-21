@@ -91,6 +91,54 @@ export function validateSettingValue(key: KVStoreKey, value: unknown): string | 
       }
       return null
     }
+    case 'rag.embedConcurrency': {
+      if (value === '' || value === undefined || value === null) return null
+      const num = Number(value)
+      if (!Number.isInteger(num) || num < 1 || num > 64) {
+        return 'Embed concurrency must be a whole number between 1 and 64.'
+      }
+      return null
+    }
+    case 'rag.maxConcurrentEmbeds': {
+      if (value === '' || value === undefined || value === null) return null
+      const num = Number(value)
+      if (!Number.isInteger(num) || num < 1 || num > 32) {
+        return 'Max concurrent embeds must be a whole number between 1 and 32.'
+      }
+      return null
+    }
+    case 'rag.qdrantUpsertConcurrency': {
+      if (value === '' || value === undefined || value === null) return null
+      const num = Number(value)
+      if (!Number.isInteger(num) || num < 1 || num > 32) {
+        return 'Qdrant upsert concurrency must be a whole number between 1 and 32.'
+      }
+      return null
+    }
+    case 'rag.embeddingBatchSize': {
+      if (value === '' || value === undefined || value === null) return null
+      const num = Number(value)
+      if (!Number.isInteger(num) || num < 32 || num > 512) {
+        return 'Embedding batch size must be a whole number between 32 and 512.'
+      }
+      return null
+    }
+    case 'rag.zimWorkerCount': {
+      if (value === '' || value === undefined || value === null) return null
+      const num = Number(value)
+      if (!Number.isInteger(num) || num < 0 || num > 32) {
+        return 'ZIM worker count must be a whole number between 0 and 32 (0 = auto).'
+      }
+      return null
+    }
+    case 'rag.qdrantIndexingThreshold': {
+      if (value === '' || value === undefined || value === null) return null
+      const num = Number(value)
+      if (!Number.isInteger(num) || num < 0 || num > 1_000_000) {
+        return 'Qdrant indexing threshold must be a whole number between 0 and 1000000.'
+      }
+      return null
+    }
     default:
       return null
   }
