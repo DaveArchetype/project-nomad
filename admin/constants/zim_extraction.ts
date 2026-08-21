@@ -39,7 +39,7 @@ export const NON_CONTENT_HEADING_PATTERNS = [
   /^navigation$/i,
 ]
 
-export const ZIM_FLUSH_CHUNK_COUNT = 500
+export const ZIM_FLUSH_CHUNK_COUNT = 2048
 
 export const ZIM_FLUSH_ARTICLE_INTERVAL = 1000
 

@@ -82,7 +82,7 @@ export class RagService {
   // Nomic Embed Text v1.5 uses task-specific prefixes for optimal performance
   public static SEARCH_DOCUMENT_PREFIX = 'search_document: '
   public static SEARCH_QUERY_PREFIX = 'search_query: '
-  public static EMBEDDING_BATCH_SIZE = 32
+  public static EMBEDDING_BATCH_SIZE = 512
 
   constructor(
     private dockerService: DockerService,
@@ -616,6 +616,10 @@ export class RagService {
   /**
    * Process a ZIM file in a single streaming pass: extract article chunks and
    * flush them to Ollama/Qdrant in bulk once enough texts have accumulated.
+   *
+   * Pipelined: embed batches are dispatched without blocking the ZIM iterator
+   * so the GPU embeds batch N while the CPU reads and chunks articles for
+   * batch N+1. Backpressure-limited to MAX_CONCURRENT_EMBEDS to bound memory.
    */
   private async processZIMFile(
     filepath: string,
@@ -641,31 +645,59 @@ export class RagService {
     let lastFlushedAt = startOffset || 0
     let pendingTexts: string[] = []
     let pendingMetadatas: Record<string, any>[] = []
+    let cancelled = false
+
+    const MAX_CONCURRENT_EMBEDS = 2
+    const inFlight: Promise<void>[] = []
 
     const flush = async (articlesSeen: number): Promise<boolean> => {
-      if (pendingTexts.length > 0) {
-        const result = await this.embedAndStoreChunks(pendingTexts, pendingMetadatas)
+      lastFlushedAt = articlesSeen
+
+      if (pendingTexts.length === 0) {
+        if (onProgress && totalArticles > 0) {
+          await onProgress(Math.min(99, Math.round((articlesSeen / totalArticles) * 100)))
+        }
+        if (onFlush) {
+          const shouldContinue = await onFlush(articlesSeen, totalChunks, totalArticles)
+          if (shouldContinue === false) {
+            cancelled = true
+          }
+        }
+        return !cancelled
+      }
+
+      const texts = pendingTexts
+      const metadatas = pendingMetadatas
+      pendingTexts = []
+      pendingMetadatas = []
+
+      if (inFlight.length >= MAX_CONCURRENT_EMBEDS) {
+        await inFlight.shift()
+      }
+
+      const embedPromise = (async () => {
+        const result = await this.embedAndStoreChunks(texts, metadatas)
         if (result) {
           totalChunks += result.chunks
         } else {
           logger.warn(`[RAG] Flush at article ${articlesSeen} failed to embed; chunks skipped`)
         }
-        pendingTexts = []
-        pendingMetadatas = []
-      }
-      lastFlushedAt = articlesSeen
 
-      if (onProgress && totalArticles > 0) {
-        await onProgress(Math.min(99, Math.round((articlesSeen / totalArticles) * 100)))
-      }
-
-      if (onFlush) {
-        const shouldContinue = await onFlush(articlesSeen, totalChunks, totalArticles)
-        if (shouldContinue === false) {
-          return false
+        if (onProgress && totalArticles > 0) {
+          await onProgress(Math.min(99, Math.round((articlesSeen / totalArticles) * 100)))
         }
-      }
-      return true
+
+        if (onFlush) {
+          const shouldContinue = await onFlush(articlesSeen, totalChunks, totalArticles)
+          if (shouldContinue === false) {
+            cancelled = true
+          }
+        }
+      })()
+      embedPromise.catch(() => {})
+      inFlight.push(embedPromise)
+
+      return !cancelled
     }
 
     const streamResult = await zimExtractionService.streamZIMContent(
@@ -720,6 +752,7 @@ export class RagService {
     )
 
     if (streamResult.cancelled) {
+      await Promise.allSettled(inFlight)
       logger.info(
         `[RAG] ZIM stream cancelled at article offset; ${totalChunks} chunks embedded so far`
       )
@@ -732,8 +765,10 @@ export class RagService {
       }
     }
 
-    const continued = await flush(streamResult.articlesProcessed + (startOffset || 0))
-    if (!continued) {
+    await flush(streamResult.articlesProcessed + (startOffset || 0))
+    await Promise.all(inFlight)
+
+    if (cancelled) {
       return {
         success: false,
         cancelled: true,

@@ -1,6 +1,9 @@
 import { inject } from '@adonisjs/core'
 import OpenAI from 'openai'
-import type { ChatCompletionChunk, ChatCompletionMessageParam } from 'openai/resources/chat/completions.js'
+import type {
+  ChatCompletionChunk,
+  ChatCompletionMessageParam,
+} from 'openai/resources/chat/completions.js'
 import type { Stream } from 'openai/streaming.js'
 import { NomadOllamaModel } from '../../types/ollama.js'
 import { EMBEDDING_MODEL_NAME, FALLBACK_RECOMMENDED_OLLAMA_MODELS } from '../../constants/ollama.js'
@@ -59,7 +62,10 @@ export class OllamaService {
   private baseUrl: string | null = null
   private initPromise: Promise<void> | null = null
   private isOllamaNative: boolean | null = null
-  private activeDownloads: Map<string, Promise<{ success: boolean; message: string; retryable?: boolean }>> = new Map()
+  private activeDownloads: Map<
+    string,
+    Promise<{ success: boolean; message: string; retryable?: boolean }>
+  > = new Map()
   // Memoized `thinking` capability per model name (see checkModelHasThinking). Only successful
   // /api/show lookups are cached; transient failures are left uncached so they can be retried.
   private thinkingCapabilityCache: Map<string, boolean> = new Map()
@@ -120,7 +126,9 @@ export class OllamaService {
     // Deduplicate concurrent downloads of the same model
     const existing = this.activeDownloads.get(model)
     if (existing) {
-      logger.info(`[OllamaService] Download already in progress for "${model}", waiting on existing download.`)
+      logger.info(
+        `[OllamaService] Download already in progress for "${model}", waiting on existing download.`
+      )
       return existing
     }
 
@@ -231,9 +239,8 @@ export class OllamaService {
                   aggTotal += total
                 }
 
-                const percent = aggTotal > 0
-                  ? parseFloat(((aggCompleted / aggTotal) * 100).toFixed(2))
-                  : 0
+                const percent =
+                  aggTotal > 0 ? parseFloat(((aggCompleted / aggTotal) * 100).toFixed(2)) : 0
 
                 // Throttle broadcasts. Always call the progressCallback though — the worker
                 // uses it to update job state in Redis, which should reflect the latest view.
@@ -283,9 +290,7 @@ export class OllamaService {
       }
 
       const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error(
-        `[OllamaService] Failed to download model "${model}": ${errorMessage}`
-      )
+      logger.error(`[OllamaService] Failed to download model "${model}": ${errorMessage}`)
 
       // Check for version mismatch (Ollama 412 response)
       const isVersionMismatch = errorMessage.includes('newer version of Ollama')
@@ -351,7 +356,9 @@ export class OllamaService {
       params.num_ctx = chatRequest.numCtx
     }
 
-    const response = await this.openai.chat.completions.create(params, { signal: chatRequest.signal })
+    const response = await this.openai.chat.completions.create(params, {
+      signal: chatRequest.signal,
+    })
     const choice = response.choices[0]
 
     return {
@@ -359,7 +366,8 @@ export class OllamaService {
         content: choice.message.content ?? '',
         // Ollama's OpenAI-compat endpoint (/v1) emits thinking as `reasoning`; its native
         // shape uses `thinking`. Read both so thinking is never silently dropped (#1065).
-        thinking: (choice.message as any).thinking ?? (choice.message as any).reasoning ?? undefined,
+        thinking:
+          (choice.message as any).thinking ?? (choice.message as any).reasoning ?? undefined,
       },
       done: true,
       model: response.model,
@@ -456,7 +464,9 @@ export class OllamaService {
             content: parsedContent,
             thinking: nativeThinking + parsedThinking,
           },
-          done: chunk.choices[0]?.finish_reason !== null && chunk.choices[0]?.finish_reason !== undefined,
+          done:
+            chunk.choices[0]?.finish_reason !== null &&
+            chunk.choices[0]?.finish_reason !== undefined,
         }
       }
     }
@@ -481,7 +491,8 @@ export class OllamaService {
         { timeout: 5000 }
       )
       const hasThinking =
-        Array.isArray(response.data?.capabilities) && response.data.capabilities.includes('thinking')
+        Array.isArray(response.data?.capabilities) &&
+        response.data.capabilities.includes('thinking')
       this.thinkingCapabilityCache.set(modelName, hasThinking)
       return hasThinking
     } catch {
@@ -506,7 +517,10 @@ export class OllamaService {
       logger.error(
         `[OllamaService] Failed to delete model "${modelName}": ${error instanceof Error ? error.message : error}`
       )
-      return { success: false, message: 'Failed to delete model. This may not be an Ollama backend.' }
+      return {
+        success: false,
+        message: 'Failed to delete model. This may not be an Ollama backend.',
+      }
     }
   }
 
@@ -544,7 +558,8 @@ export class OllamaService {
     const anyErr = err as any
     const data = anyErr?.response?.data
     if (data) parts.push(typeof data === 'string' ? data : JSON.stringify(data))
-    if (anyErr?.error) parts.push(typeof anyErr.error === 'string' ? anyErr.error : JSON.stringify(anyErr.error))
+    if (anyErr?.error)
+      parts.push(typeof anyErr.error === 'string' ? anyErr.error : JSON.stringify(anyErr.error))
     const haystack = parts.join(' ').toLowerCase()
     return (
       (haystack.includes('context length') && haystack.includes('exceed')) ||
@@ -566,7 +581,8 @@ export class OllamaService {
       throw new Error('AI service is not initialized.')
     }
 
-    const cap = (arr: string[], max: number) => arr.map((s) => (s.length > max ? s.slice(0, max) : s))
+    const cap = (arr: string[], max: number) =>
+      arr.map((s) => (s.length > max ? s.slice(0, max) : s))
 
     // Generous pre-cap (#881): fine for the native path (num_ctx=8192) but can still exceed a
     // 2048-context fallback on dense content. The context-length retry below is the hard backstop.
@@ -581,7 +597,10 @@ export class OllamaService {
       // Retry once, truncated hard enough to fit a 2048-token context at any density, so the
       // chunk is embedded (truncated) instead of dropped and the job doesn't storm.
       const hardCapped = cap(input, OllamaService.EMBED_CONTEXT_SAFE_CHARS)
-      const reduced = hardCapped.reduce((n, s, i) => (s.length < safeInput[i].length ? n + 1 : n), 0)
+      const reduced = hardCapped.reduce(
+        (n, s, i) => (s.length < safeInput[i].length ? n + 1 : n),
+        0
+      )
       logger.warn(
         '[OllamaService] embed: context-length overflow; retrying %d/%d inputs hard-capped at %d chars',
         reduced,
@@ -599,7 +618,10 @@ export class OllamaService {
    * smaller effective context and would only fail the same way — the caller (embed) retries it
    * truncated instead.
    */
-  private async _embedWithFallback(model: string, input: string[]): Promise<{ embeddings: number[][] }> {
+  private async _embedWithFallback(
+    model: string,
+    input: string[]
+  ): Promise<{ embeddings: number[][] }> {
     try {
       // Pass num_ctx explicitly so we don't depend on the embedding model's modelfile defaults.
       // Some installs ship nomic-embed-text:v1.5 with num_ctx=2048; 8192 matches its RoPE-extrapolated
@@ -612,7 +634,7 @@ export class OllamaService {
           truncate: true,
           options: { num_ctx: 8192 },
         },
-        { timeout: 60000 }
+        { timeout: 180000 }
       )
       // Some backends (e.g. LM Studio) return HTTP 200 for unknown endpoints with an incompatible
       // body — validate explicitly before accepting the result.
@@ -668,9 +690,7 @@ export class OllamaService {
       const models: Array<{ name?: string; size_vram?: number }> = response.data?.models ?? []
       // Match any loaded model whose name signals it's an embedding model.
       // nomic-embed-text, mxbai-embed-large, snowflake-arctic-embed, etc. all follow this convention.
-      return models.some(
-        (m) => m.name?.toLowerCase().includes('embed') && (m.size_vram ?? 0) > 0
-      )
+      return models.some((m) => m.name?.toLowerCase().includes('embed') && (m.size_vram ?? 0) > 0)
     } catch (err: any) {
       // /api/ps unreachable (Ollama down, non-native backend, etc.) — fail closed: assume CPU,
       // which means we'll pace. Better to over-pace than risk box-killing CPU saturation.
