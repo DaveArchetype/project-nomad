@@ -18,8 +18,13 @@ export const INGEST_SETTINGS_DEFAULTS: IngestSettings = {
   qdrantIndexingThreshold: null,
 }
 
-function parseIntWithDefault(raw: string | null, fallback: number, min: number, max: number): number {
-  if (raw == null || raw === '') return fallback
+function parseIntWithDefault(
+  raw: string | null,
+  fallback: number,
+  min: number,
+  max: number
+): number {
+  if (raw === null || raw === '') return fallback
   const num = Number.parseInt(raw, 10)
   if (!Number.isFinite(num)) return fallback
   return Math.min(Math.max(num, min), max)
@@ -43,12 +48,17 @@ export async function loadIngestSettings(): Promise<IngestSettings> {
   ])
 
   const qdrantIndexingThreshold =
-    qdrantIndexingThresholdRaw == null || qdrantIndexingThresholdRaw === ''
+    qdrantIndexingThresholdRaw === null || qdrantIndexingThresholdRaw === ''
       ? null
       : Math.max(0, Number.parseInt(qdrantIndexingThresholdRaw, 10))
 
   return {
-    embedConcurrency: parseIntWithDefault(embedConcurrencyRaw, INGEST_SETTINGS_DEFAULTS.embedConcurrency, 1, 64),
+    embedConcurrency: parseIntWithDefault(
+      embedConcurrencyRaw,
+      INGEST_SETTINGS_DEFAULTS.embedConcurrency,
+      1,
+      64
+    ),
     maxConcurrentEmbeds: parseIntWithDefault(
       maxConcurrentEmbedsRaw,
       INGEST_SETTINGS_DEFAULTS.maxConcurrentEmbeds,
@@ -67,8 +77,15 @@ export async function loadIngestSettings(): Promise<IngestSettings> {
       32,
       512
     ),
-    zimWorkerCount: parseIntWithDefault(zimWorkerCountRaw, INGEST_SETTINGS_DEFAULTS.zimWorkerCount, 0, 32),
+    zimWorkerCount: parseIntWithDefault(
+      zimWorkerCountRaw,
+      INGEST_SETTINGS_DEFAULTS.zimWorkerCount,
+      0,
+      32
+    ),
     qdrantIndexingThreshold:
-      qdrantIndexingThreshold != null && Number.isFinite(qdrantIndexingThreshold) ? qdrantIndexingThreshold : null,
+      qdrantIndexingThreshold !== null && Number.isFinite(qdrantIndexingThreshold)
+        ? qdrantIndexingThreshold
+        : null,
   }
 }
