@@ -369,9 +369,10 @@ export class EmbedFileJob {
       return []
     })
 
-    const [allPaused, pausedJobsRaw] = await Promise.all([
+    const [allPaused, pausedJobsRaw, chatPausedUntilRaw] = await Promise.all([
       EmbedFileJob.isAllPaused(),
       KVStore.getValue('rag.embedPausedJobs'),
+      KVStore.getValue('rag.embedPausedUntil'),
     ])
     let pausedJobIds: Set<string> = new Set()
     if (pausedJobsRaw) {
@@ -382,6 +383,16 @@ export class EmbedFileJob {
         // ignore malformed JSON
       }
     }
+
+    // Chat-induced pause is a global flag (same value for every job). Parse
+    // once and stamp it onto each job so the KB UI can show time remaining
+    // and a Resume All button that clears it early. Only surface when still
+    // in the future; an expired timestamp is treated as no pause.
+    const chatPausedUntil = chatPausedUntilRaw ? Number.parseInt(chatPausedUntilRaw, 10) : undefined
+    const chatPausedUntilMs =
+      chatPausedUntil && Number.isFinite(chatPausedUntil) && chatPausedUntil > Date.now()
+        ? chatPausedUntil
+        : undefined
 
     return Promise.all(
       jobs.map(async (job) => {
@@ -411,6 +422,7 @@ export class EmbedFileJob {
           chunks: data.chunksSoFar ?? data.chunks,
           chunksEstimated,
           paused: isPaused,
+          chatPausedUntil: chatPausedUntilMs,
         }
       })
     )
@@ -659,12 +671,15 @@ export class EmbedFileJob {
 
   /** Resume all embedding jobs. Clears the KV flag (active jobs exit
    *  waitForResume) and calls BullMQ's queue.resume() so waiting jobs are
-   *  picked up again. */
+   *  picked up again. Also clears the chat-induced pause (`embedPausedUntil`)
+   *  so "Resume All" immediately overrides a chat pause, not just the manual
+   *  pause-all flag. */
   static async resumeAllJobs(): Promise<{ resumed: number }> {
     const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
     const jobs = await queue.getJobs(['waiting', 'active', 'delayed'])
     await KVStore.clearValue('rag.embedAllPaused')
+    await KVStore.clearValue('rag.embedPausedUntil')
     await queue.resume()
     logger.info(`[EmbedFileJob] Resumed all embedding jobs (${jobs.length} in queue)`)
     return { resumed: jobs.length }

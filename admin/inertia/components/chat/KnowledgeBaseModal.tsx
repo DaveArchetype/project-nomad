@@ -72,6 +72,7 @@ export default function KnowledgeBaseModal({
             resumeAllPending={kb.resumeAllMutation.isPending}
             onResumeAll={() => kb.resumeAllMutation.mutate()}
             allPaused={kb.allEmbedJobsPaused}
+            chatPausedUntil={kb.chatPausedUntil}
             pollIntervalMs={kb.pollIntervalMs}
             onPollIntervalChange={kb.setPollIntervalMs}
           />

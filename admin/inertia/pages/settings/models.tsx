@@ -26,7 +26,14 @@ export default function ModelsPage(props: {
   models: {
     availableModels: NomadOllamaModel[]
     installedModels: NomadInstalledModel[]
-    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; ollamaFlashAttention: boolean; autoThinking: boolean }
+    settings: {
+      chatSuggestionsEnabled: boolean
+      aiAssistantCustomName: string
+      remoteOllamaUrl: string
+      ollamaFlashAttention: boolean
+      autoThinking: boolean
+      embedPauseAfterChatMinutes: string
+    }
   }
 }) {
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
@@ -68,7 +75,9 @@ export default function ModelsPage(props: {
               message: `${aiAssistantName} is being reinstalled with GPU support. This page will reload shortly.`,
               type: 'success',
             })
-            try { localStorage.removeItem('nomad:gpu-banner-dismissed') } catch {}
+            try {
+              localStorage.removeItem('nomad:gpu-banner-dismissed')
+            } catch {}
             setTimeout(() => window.location.reload(), 5000)
           } catch (error) {
             addNotification({
@@ -84,9 +93,9 @@ export default function ModelsPage(props: {
         cancelText="Cancel"
       >
         <p className="text-text-primary">
-          This will recreate the {aiAssistantName} container with GPU support enabled.
-          Your downloaded models will be preserved. The service will be briefly
-          unavailable during reinstall.
+          This will recreate the {aiAssistantName} container with GPU support enabled. Your
+          downloaded models will be preserved. The service will be briefly unavailable during
+          reinstall.
         </p>
       </StyledModal>,
       'gpu-health-force-reinstall-modal'
@@ -105,6 +114,9 @@ export default function ModelsPage(props: {
   const [remoteOllamaUrl, setRemoteOllamaUrl] = useState(props.models.settings.remoteOllamaUrl)
   const [remoteOllamaError, setRemoteOllamaError] = useState<string | null>(null)
   const [remoteOllamaSaving, setRemoteOllamaSaving] = useState(false)
+  const [embedPauseAfterChatMinutes, setEmbedPauseAfterChatMinutes] = useState(
+    props.models.settings.embedPauseAfterChatMinutes
+  )
 
   async function handleSaveRemoteOllama() {
     setRemoteOllamaError(null)
@@ -116,7 +128,8 @@ export default function ModelsPage(props: {
         router.reload()
       }
     } catch (error: any) {
-      const msg = error?.response?.data?.message || error?.message || 'Failed to configure remote Ollama.'
+      const msg =
+        error?.response?.data?.message || error?.message || 'Failed to configure remote Ollama.'
       setRemoteOllamaError(msg)
     } finally {
       setRemoteOllamaSaving(false)
@@ -151,7 +164,11 @@ export default function ModelsPage(props: {
   const forceRefreshRef = useRef(false)
   const [isForceRefreshing, setIsForceRefreshing] = useState(false)
 
-  const { data: availableModelData, isFetching, refetch } = useQuery({
+  const {
+    data: availableModelData,
+    isFetching,
+    refetch,
+  } = useQuery({
     queryKey: ['ollama', 'availableModels', query, limit],
     queryFn: async () => {
       const force = forceRefreshRef.current
@@ -279,26 +296,28 @@ export default function ModelsPage(props: {
               className="!mt-6"
             />
           )}
-          {isInstalled && systemInfo?.gpuHealth?.status === 'passthrough_failed' && !gpuBannerDismissed && (
-            <Alert
-              type="warning"
-              variant="bordered"
-              title="GPU Not Accessible"
-              message={`Your system has ${systemInfo?.gpuHealth?.gpuVendor === 'amd' ? 'an AMD' : 'an NVIDIA'} GPU, but ${aiAssistantName} can't access it. AI is running on CPU only, which is significantly slower.`}
-              className="!mt-6"
-              dismissible={true}
-              onDismiss={handleDismissGpuBanner}
-              buttonProps={{
-                children: `Fix: Reinstall ${aiAssistantName}`,
-                icon: 'IconRefresh',
-                variant: 'action',
-                size: 'sm',
-                onClick: handleForceReinstallOllama,
-                loading: reinstalling,
-                disabled: reinstalling,
-              }}
-            />
-          )}
+          {isInstalled &&
+            systemInfo?.gpuHealth?.status === 'passthrough_failed' &&
+            !gpuBannerDismissed && (
+              <Alert
+                type="warning"
+                variant="bordered"
+                title="GPU Not Accessible"
+                message={`Your system has ${systemInfo?.gpuHealth?.gpuVendor === 'amd' ? 'an AMD' : 'an NVIDIA'} GPU, but ${aiAssistantName} can't access it. AI is running on CPU only, which is significantly slower.`}
+                className="!mt-6"
+                dismissible={true}
+                onDismiss={handleDismissGpuBanner}
+                buttonProps={{
+                  children: `Fix: Reinstall ${aiAssistantName}`,
+                  icon: 'IconRefresh',
+                  variant: 'action',
+                  size: 'sm',
+                  onClick: handleForceReinstallOllama,
+                  loading: reinstalling,
+                  disabled: reinstalling,
+                }}
+              />
+            )}
 
           <StyledSectionHeader title="Settings" className="mt-8 mb-4" />
           <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
@@ -333,7 +352,7 @@ export default function ModelsPage(props: {
               <Input
                 name="aiAssistantCustomName"
                 label="Assistant Name"
-                helpText='Give your AI assistant a custom name that will be used in the chat interface and other areas of the application.'
+                helpText="Give your AI assistant a custom name that will be used in the chat interface and other areas of the application."
                 placeholder="AI Assistant"
                 value={aiAssistantCustomName}
                 onChange={(e) => setAiAssistantCustomName(e.target.value)}
@@ -341,6 +360,21 @@ export default function ModelsPage(props: {
                   updateSettingMutation.mutate({
                     key: 'ai.assistantCustomName',
                     value: aiAssistantCustomName,
+                  })
+                }
+              />
+              <Input
+                name="embedPauseAfterChatMinutes"
+                label="Embedding pause after chat (minutes)"
+                type="number"
+                helpText="When you send a chat message, background knowledge-base embedding pauses for this many minutes so inference doesn't compete with the embed job. 0 = resume immediately. Default 15."
+                placeholder="15"
+                value={embedPauseAfterChatMinutes}
+                onChange={(e) => setEmbedPauseAfterChatMinutes(e.target.value)}
+                onBlur={() =>
+                  updateSettingMutation.mutate({
+                    key: 'rag.embedPauseAfterChatMinutes',
+                    value: embedPauseAfterChatMinutes,
                   })
                 }
               />
@@ -407,8 +441,9 @@ export default function ModelsPage(props: {
           <StyledSectionHeader title="Remote Connection" className="mt-8 mb-4" />
           <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
             <p className="text-sm text-text-secondary mb-4">
-              Connect to any OpenAI-compatible API server — Ollama, LM Studio, llama.cpp, and others are all supported.
-              For remote Ollama instances, the host must be started with <code className="bg-surface-secondary px-1 rounded">OLLAMA_HOST=0.0.0.0</code>.
+              Connect to any OpenAI-compatible API server — Ollama, LM Studio, llama.cpp, and others
+              are all supported. For remote Ollama instances, the host must be started with{' '}
+              <code className="bg-surface-secondary px-1 rounded">OLLAMA_HOST=0.0.0.0</code>.
             </p>
             <div className="flex items-end gap-3">
               <div className="flex-1">
@@ -477,7 +512,7 @@ export default function ModelsPage(props: {
               onClick={handleForceRefresh}
               icon="IconRefresh"
               loading={isForceRefreshing}
-              className='mt-1'
+              className="mt-1"
             >
               Refresh Models
             </StyledButton>
@@ -546,7 +581,9 @@ export default function ModelsPage(props: {
                                 </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="text-sm text-text-secondary">{tag.input || 'N/A'}</span>
+                                <span className="text-sm text-text-secondary">
+                                  {tag.input || 'N/A'}
+                                </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <span className="text-sm text-text-secondary">
@@ -554,7 +591,9 @@ export default function ModelsPage(props: {
                                 </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="text-sm text-text-secondary">{tag.size || 'N/A'}</span>
+                                <span className="text-sm text-text-secondary">
+                                  {tag.size || 'N/A'}
+                                </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <StyledButton

@@ -14,7 +14,7 @@ import { RAG_CONTEXT_LIMITS, SYSTEM_PROMPTS } from '../../constants/ollama.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import logger from '@adonisjs/core/services/logger'
 
-const EMBED_PAUSE_AFTER_CHAT_MS = 15 * 60 * 1000
+const DEFAULT_EMBED_PAUSE_AFTER_CHAT_MINUTES = 15
 
 type Message = { role: 'system' | 'user' | 'assistant'; content: string }
 
@@ -58,11 +58,20 @@ export default class OllamaController {
   async chat({ request, response }: HttpContext) {
     const reqData = await request.validateUsing(chatSchema)
 
-    // Pause background embedding for 5 minutes so the chat's query embedding
-    // and inference don't compete with the embed job for GPU/Ollama time.
-    // Each new chat request extends the window (sliding); the embed job's
-    // batch loop checks this flag between batches and sleeps until it expires.
-    await KVStore.setValue('rag.embedPausedUntil', String(Date.now() + EMBED_PAUSE_AFTER_CHAT_MS))
+    // Pause background embedding so the chat's query embedding and inference
+    // don't compete with the embed job for GPU/Ollama time. Each new chat
+    // request extends the window (sliding); the embed job's batch loop checks
+    // this flag between batches and sleeps until it expires. Duration is
+    // configurable via the `rag.embedPauseAfterChatMinutes` KV setting
+    // (AI Settings page); 0 disables the pause entirely.
+    const pauseMinutesRaw = await KVStore.getValue('rag.embedPauseAfterChatMinutes')
+    const pauseMinutes =
+      pauseMinutesRaw != null && pauseMinutesRaw !== ''
+        ? Number.parseInt(pauseMinutesRaw, 10)
+        : DEFAULT_EMBED_PAUSE_AFTER_CHAT_MINUTES
+    if (Number.isFinite(pauseMinutes) && pauseMinutes > 0) {
+      await KVStore.setValue('rag.embedPausedUntil', String(Date.now() + pauseMinutes * 60 * 1000))
+    }
 
     // Flush SSE headers immediately so the client connection is open while
     // pre-processing (query rewriting, RAG lookup) runs in the background.

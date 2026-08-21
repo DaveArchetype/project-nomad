@@ -45,6 +45,7 @@ export interface UseKnowledgeBaseResult {
   ingestPolicy: 'Always' | 'Manual'
   inflightSources: Set<string>
   allEmbedJobsPaused: boolean
+  chatPausedUntil: number | undefined
   pollIntervalMs: number
   setPollIntervalMs: (ms: number) => void
 
@@ -140,6 +141,13 @@ export function useKnowledgeBase(): UseKnowledgeBaseResult {
     () => (embedJobsQuery.data ?? []).some((j) => j.paused),
     [embedJobsQuery.data]
   )
+  const chatPausedUntil = useMemo(() => {
+    const jobs = embedJobsQuery.data ?? []
+    for (const j of jobs) {
+      if (j.chatPausedUntil && j.chatPausedUntil > Date.now()) return j.chatPausedUntil
+    }
+    return undefined
+  }, [embedJobsQuery.data])
 
   const { data: knownCollections = [] } = useQuery({
     queryKey: ['kbCollections'],
@@ -469,6 +477,7 @@ export function useKnowledgeBase(): UseKnowledgeBaseResult {
     ingestPolicy,
     inflightSources,
     allEmbedJobsPaused,
+    chatPausedUntil,
     pollIntervalMs,
     setPollIntervalMs,
 

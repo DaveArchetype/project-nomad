@@ -7,6 +7,11 @@ export const KV_STORE_SCHEMA = {
   'rag.embedPausedUntil': 'string',
   'rag.embedAllPaused': 'boolean',
   'rag.embedPausedJobs': 'string',
+  // How long (in minutes) background embedding stays paused after a chat
+  // message so inference doesn't compete with the embed job for GPU/Ollama
+  // time. Read by OllamaController.chat on each request. Stored as a string
+  // (KV schema constraint); parsed to int at read time. Default 15 minutes.
+  'rag.embedPauseAfterChatMinutes': 'string',
   'system.updateAvailable': 'boolean',
   'system.latestVersion': 'string',
   'system.earlyAccess': 'boolean',

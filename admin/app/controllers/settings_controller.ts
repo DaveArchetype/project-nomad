@@ -71,6 +71,7 @@ export default class SettingsController {
     const remoteOllamaUrl = await KVStore.getValue('ai.remoteOllamaUrl')
     const ollamaFlashAttention = await KVStore.getValue('ai.ollamaFlashAttention')
     const autoThinking = await KVStore.getValue('ai.autoThinking')
+    const embedPauseAfterChatMinutes = await KVStore.getValue('rag.embedPauseAfterChatMinutes')
     return inertia.render('settings/models', {
       models: {
         availableModels: availableModels?.models || [],
@@ -81,6 +82,7 @@ export default class SettingsController {
           remoteOllamaUrl: remoteOllamaUrl ?? '',
           ollamaFlashAttention: ollamaFlashAttention ?? true,
           autoThinking: autoThinking ?? false,
+          embedPauseAfterChatMinutes: embedPauseAfterChatMinutes ?? '',
         },
       },
     })

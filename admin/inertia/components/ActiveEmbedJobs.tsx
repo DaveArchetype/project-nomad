@@ -94,6 +94,20 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
     },
   })
 
+  const resumeAllFromChatMutation = useMutation({
+    mutationFn: () => api.resumeAllEmbedJobs(),
+    onSuccess: (data) => {
+      addNotification({
+        type: 'success',
+        message: data?.message || 'Embedding resumed — chat pause cleared.',
+      })
+      queryClient.invalidateQueries({ queryKey: ['embed-jobs'] })
+    },
+    onError: (error: any) => {
+      addNotification({ type: 'error', message: error?.message || 'Failed to resume jobs.' })
+    },
+  })
+
   const canResume = (health: JobHealthStatus): boolean => health === 'stalled' || health === 'slow'
 
   return (
@@ -116,7 +130,9 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
             const hasChunkInfo = chunksDone > 0 || (job.chunksEstimated ?? 0) > 0
             const chunksPerMin = computeChunksPerMin(job.jobId)
             const isPaused = job.paused === true
+            const chatPaused = job.chatPausedUntil != null && job.chatPausedUntil > tick
             const showResume = canResume(health) && !isPaused
+            const showChatResume = chatPaused && !isPaused
             return (
               <div
                 key={job.jobId}
@@ -129,7 +145,7 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
                     title={display.ariaLabel}
                   />
                   <span className="text-sm font-medium text-text-primary">
-                    {isPaused ? 'Paused' : display.label}
+                    {isPaused ? 'Paused' : chatPaused ? 'Paused for chat' : display.label}
                   </span>
                   {lastActivityMs !== undefined && (
                     <span className="text-xs text-text-muted">
@@ -177,6 +193,17 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
                         loading={resumeMutation.isPending && resumeMutation.variables === job.jobId}
                       >
                         Retry
+                      </StyledButton>
+                    )}
+                    {showChatResume && (
+                      <StyledButton
+                        variant="primary"
+                        size="sm"
+                        icon="IconPlayerPlay"
+                        onClick={() => resumeAllFromChatMutation.mutate()}
+                        loading={resumeAllFromChatMutation.isPending}
+                      >
+                        Resume
                       </StyledButton>
                     )}
                   </div>

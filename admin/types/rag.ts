@@ -7,6 +7,11 @@ export type EmbedJobWithProgress = {
   error?: string
   /** True when the job is paused (either individually or via pause-all). */
   paused?: boolean
+  /** ms epoch when the chat-induced embedding pause expires. Set by
+   *  OllamaController.chat; the embed job's batch loop blocks until it
+   *  passes. Surfaced so the KB UI can show time remaining and a Resume
+   *  All button that clears it early. Same value on every job (global flag). */
+  chatPausedUntil?: number
   /** ms epoch of last completed batch; multi-batch ZIMs update this each batch. */
   lastBatchAt?: number
   /** ms epoch of first batch start; used as a fallback when lastBatchAt unset. */

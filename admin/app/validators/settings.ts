@@ -1,15 +1,19 @@
-import vine from "@vinejs/vine";
-import { SETTINGS_KEYS } from "../../constants/kv_store.js";
-import type { KVStoreKey } from "../../types/kv_store.js";
+import vine from '@vinejs/vine'
+import { SETTINGS_KEYS } from '../../constants/kv_store.js'
+import type { KVStoreKey } from '../../types/kv_store.js'
 
-export const getSettingSchema = vine.compile(vine.object({
+export const getSettingSchema = vine.compile(
+  vine.object({
     key: vine.enum(SETTINGS_KEYS),
-}))
+  })
+)
 
-export const updateSettingSchema = vine.compile(vine.object({
+export const updateSettingSchema = vine.compile(
+  vine.object({
     key: vine.enum(SETTINGS_KEYS),
     value: vine.any().optional(),
-}))
+  })
+)
 
 const HHMM_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
 
@@ -19,63 +23,75 @@ const HHMM_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
  * error message string when invalid, or null when the value is acceptable.
  */
 export function validateSettingValue(key: KVStoreKey, value: unknown): string | null {
-    switch (key) {
-        case 'autoUpdate.windowStart':
-        case 'autoUpdate.windowEnd':
-        case 'contentAutoUpdate.windowStart':
-        case 'contentAutoUpdate.windowEnd':
-            if (typeof value !== 'string' || !HHMM_PATTERN.test(value)) {
-                return 'Time window values must be in 24-hour HH:MM format (e.g. "20:00").'
-            }
-            return null
-        case 'autoUpdate.cooloffHours':
-        case 'contentAutoUpdate.cooloffHours': {
-            const num = Number(value)
-            if (!Number.isInteger(num) || num < 0 || num > 8760) {
-                return 'Cool-off must be a whole number of hours between 0 and 8760.'
-            }
-            return null
-        }
-        case 'system.internetStatusTestUrl': {
-            // Empty clears the setting (reverts to env var / built-in defaults).
-            if (value === '' || value === undefined || value === null) {
-                return null
-            }
-            if (typeof value !== 'string') {
-                return 'Test URL must be a string.'
-            }
-            try {
-                const url = new URL(value)
-                if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-                    return 'Test URL must use http or https.'
-                }
-            } catch {
-                return 'Test URL must be a valid URL (e.g. "https://example.com").'
-            }
-            return null
-        }
-        case 'ui.reverseProxyBaseDomain': {
-            if (value === '' || value === undefined || value === null) {
-                return null
-            }
-            if (typeof value !== 'string') {
-                return 'Reverse proxy base domain must be a string.'
-            }
-            const trimmed = value.trim()
-            if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(trimmed)) {
-                return 'Base domain must be a valid hostname (e.g. "nomad.lan" or "example.com").'
-            }
-            return null
-        }
-        case 'contentAutoUpdate.maxBytesPerWindow': {
-            // Per-window download budget in bytes. 0 = unlimited.
-            const num = Number(value)
-            if (!Number.isInteger(num) || num < 0) {
-                return 'The per-window data cap must be a whole number of bytes (0 = unlimited).'
-            }
-            return null
-        }
-        default:
-            return null
+  switch (key) {
+    case 'autoUpdate.windowStart':
+    case 'autoUpdate.windowEnd':
+    case 'contentAutoUpdate.windowStart':
+    case 'contentAutoUpdate.windowEnd':
+      if (typeof value !== 'string' || !HHMM_PATTERN.test(value)) {
+        return 'Time window values must be in 24-hour HH:MM format (e.g. "20:00").'
+      }
+      return null
+    case 'autoUpdate.cooloffHours':
+    case 'contentAutoUpdate.cooloffHours': {
+      const num = Number(value)
+      if (!Number.isInteger(num) || num < 0 || num > 8760) {
+        return 'Cool-off must be a whole number of hours between 0 and 8760.'
+      }
+      return null
     }
+    case 'system.internetStatusTestUrl': {
+      // Empty clears the setting (reverts to env var / built-in defaults).
+      if (value === '' || value === undefined || value === null) {
+        return null
+      }
+      if (typeof value !== 'string') {
+        return 'Test URL must be a string.'
+      }
+      try {
+        const url = new URL(value)
+        if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+          return 'Test URL must use http or https.'
+        }
+      } catch {
+        return 'Test URL must be a valid URL (e.g. "https://example.com").'
+      }
+      return null
+    }
+    case 'ui.reverseProxyBaseDomain': {
+      if (value === '' || value === undefined || value === null) {
+        return null
+      }
+      if (typeof value !== 'string') {
+        return 'Reverse proxy base domain must be a string.'
+      }
+      const trimmed = value.trim()
+      if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(trimmed)) {
+        return 'Base domain must be a valid hostname (e.g. "nomad.lan" or "example.com").'
+      }
+      return null
+    }
+    case 'contentAutoUpdate.maxBytesPerWindow': {
+      // Per-window download budget in bytes. 0 = unlimited.
+      const num = Number(value)
+      if (!Number.isInteger(num) || num < 0) {
+        return 'The per-window data cap must be a whole number of bytes (0 = unlimited).'
+      }
+      return null
+    }
+    case 'rag.embedPauseAfterChatMinutes': {
+      // 0 = resume immediately (no pause), 1440 = 24h cap.
+      // Empty clears the setting (reverts to the 15-minute default).
+      if (value === '' || value === undefined || value === null) {
+        return null
+      }
+      const num = Number(value)
+      if (!Number.isInteger(num) || num < 0 || num > 1440) {
+        return 'Embed pause must be a whole number of minutes between 0 and 1440 (0 = resume immediately).'
+      }
+      return null
+    }
+    default:
+      return null
+  }
 }

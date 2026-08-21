@@ -14,6 +14,7 @@ export const SETTINGS_KEYS: KVStoreKey[] = [
   'ai.ollamaFlashAttention',
   'ai.autoThinking',
   'rag.defaultIngestPolicy',
+  'rag.embedPauseAfterChatMinutes',
   'autoUpdate.enabled',
   'autoUpdate.windowStart',
   'autoUpdate.windowEnd',
