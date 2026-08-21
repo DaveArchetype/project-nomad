@@ -44,7 +44,7 @@ export default class SettingsController {
   }
 
   async maps({ inertia }: HttpContext) {
-    const baseAssetsCheck = await this.mapService.ensureBaseAssets()
+    const baseAssetsCheck = await this.mapService.checkBaseAssetsExist()
     const [regionFiles, worldBasemapExists] = await Promise.all([
       this.mapService.listRegions(),
       this.mapService.checkWorldBasemapExists(),
@@ -135,9 +135,9 @@ export default class SettingsController {
   }
 
   async getSetting({ request, response }: HttpContext) {
-    const { key } = await getSettingSchema.validate({ key: request.qs().key });
-    const value = await KVStore.getValue(key);
-    return response.status(200).send({ key, value });
+    const { key } = await getSettingSchema.validate({ key: request.qs().key })
+    const value = await KVStore.getValue(key)
+    return response.status(200).send({ key, value })
   }
 
   async updateSetting({ request, response }: HttpContext) {

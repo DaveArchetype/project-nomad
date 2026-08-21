@@ -18,7 +18,7 @@ export default class MapsController {
   constructor(private mapService: MapService) {}
 
   async index({ inertia }: HttpContext) {
-    const baseAssetsCheck = await this.mapService.ensureBaseAssets()
+    const baseAssetsCheck = await this.mapService.checkBaseAssetsExist()
     const [regionFiles, worldBasemapExists] = await Promise.all([
       this.mapService.listRegions(),
       this.mapService.checkWorldBasemapExists(),
@@ -143,11 +143,13 @@ export default class MapsController {
       })
     }
 
-    const forwardedProto = request.headers()['x-forwarded-proto'];
+    const forwardedProto = request.headers()['x-forwarded-proto']
 
     const protocol: string = forwardedProto
-      ? (typeof forwardedProto === 'string' ? forwardedProto : request.protocol())
-      : request.protocol();
+      ? typeof forwardedProto === 'string'
+        ? forwardedProto
+        : request.protocol()
+      : request.protocol()
 
     const styles = await this.mapService.generateStylesJSON(request.host(), protocol)
     return response.json(styles)
