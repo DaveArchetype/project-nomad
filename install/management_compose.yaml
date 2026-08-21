@@ -60,6 +60,12 @@ services:
       # If you change the Redis port, make sure to update this accordingly
       - REDIS_PORT=6379
       - DISABLE_COMPRESSION=false # Most reverse proxies (Nginx, Caddy, etc.) will skip compression if the response is already compressed so this is usally a win all around, but if this causes issues with your setup you can set it to "true" to disable gzip in the admin server
+      # Worker runs in the dedicated `worker` service below (with restart: unless-stopped
+      # so a crash is recovered automatically). Setting this to false stops the admin
+      # container from also launching an unsupervised in-process worker that wedges the
+      # queue when it dies. Default in entrypoint.sh is true, so existing installs that
+      # haven't adopted the worker service keep working.
+      - START_WORKER=false
     depends_on:
       mysql:
         condition: service_healthy
@@ -70,6 +76,45 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+  worker:
+    # Dedicated BullMQ worker container. Same image as admin, but its entrypoint is
+    # overridden to run `node ace queue:work --all` directly (no web server). With
+    # `restart: unless-stopped`, a worker crash — which previously stranded every
+    # embedding job in "active"/"waiting" forever because the in-entrypoint `&`
+    # worker had no supervisor — is now recovered automatically within seconds.
+    image: ghcr.io/crosstalk-solutions/project-nomad:latest
+    pull_policy: always
+    container_name: nomad_worker
+    restart: unless-stopped
+    entrypoint: ["node", "ace", "queue:work", "--all"]
+    volumes:
+      - /opt/project-nomad/storage:/app/storage
+      - /var/run/docker.sock:/var/run/docker.sock
+      - nomad-update-shared:/app/update-shared
+    environment:
+      - NODE_ENV=production
+      - NOMAD_STORAGE_PATH=/opt/project-nomad/storage
+      - LOG_LEVEL=info
+      - APP_KEY=replaceme
+      - HOST=0.0.0.0
+      - URL=replaceme
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=nomad
+      - DB_USER=nomad_user
+      - DB_PASSWORD=replaceme
+      - DB_NAME=nomad
+      - DB_SSL=false
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DISABLE_COMPRESSION=false
+    depends_on:
+      admin:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
   dozzle:
     # Dozzle is an optional container that allows for easily viewing container logs. We recommend including it unless you have a specific reason not to. Note that if you don't install it, the "Service Logs & Metrics" link in Settings that launches Dozzle will not work.
     image: amir20/dozzle:v10.0

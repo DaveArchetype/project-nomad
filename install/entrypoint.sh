@@ -38,9 +38,12 @@ node ace migration:run --force
 echo "Seeding the database..."
 node ace db:seed
 
-# Start background workers for all queues
-echo "Starting background workers for all queues..."
-node ace queue:work --all &
+# Start background workers for all queues (unless running in a dedicated
+# worker container — see the `worker` service in management_compose.yaml).
+if [ "${START_WORKER:-true}" = "true" ]; then
+  echo "Starting background workers for all queues..."
+  node ace queue:work --all &
+fi
 
 # Start the AdonisJS application
 echo "Starting AdonisJS application..."
