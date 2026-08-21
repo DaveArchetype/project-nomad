@@ -463,29 +463,48 @@ export class RagService {
         throw new Error('No text chunks generated for embedding.')
       }
 
-      const embeddings: number[][] = []
+      const embeddings: number[][] = new Array(prefixedChunks.length)
       const batchSize = RagService.EMBEDDING_BATCH_SIZE
       const totalBatches = Math.ceil(prefixedChunks.length / batchSize)
+      const EMBED_CONCURRENCY = 4
 
+      const batches: { idx: number; start: number; chunks: string[] }[] = []
       for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
         const batchStart = batchIdx * batchSize
-        const batch = prefixedChunks.slice(batchStart, batchStart + batchSize)
+        batches.push({
+          idx: batchIdx,
+          start: batchStart,
+          chunks: prefixedChunks.slice(batchStart, batchStart + batchSize),
+        })
+      }
 
+      let completedChunks = 0
+      for (let i = 0; i < batches.length; i += EMBED_CONCURRENCY) {
         await this._waitForEmbedPause()
 
-        logger.debug(
-          `[RAG] Embedding batch ${batchIdx + 1}/${totalBatches} (${batch.length} chunks)`
+        const wave = batches.slice(i, i + EMBED_CONCURRENCY)
+        const results = await Promise.all(
+          wave.map(async (b) => {
+            logger.debug(
+              `[RAG] Embedding batch ${b.idx + 1}/${totalBatches} (${b.chunks.length} chunks)`
+            )
+            const response = await this.ollamaService.embed(
+              this.resolvedEmbeddingModel ?? EMBEDDING_MODEL_NAME,
+              b.chunks
+            )
+            return { start: b.start, embeddings: response.embeddings }
+          })
         )
 
-        const response = await this.ollamaService.embed(
-          this.resolvedEmbeddingModel ?? EMBEDDING_MODEL_NAME,
-          batch
-        )
-
-        embeddings.push(...response.embeddings)
+        for (const r of results) {
+          for (let j = 0; j < r.embeddings.length; j++) {
+            embeddings[r.start + j] = r.embeddings[j]
+          }
+          completedChunks += r.embeddings.length
+        }
 
         if (onProgress) {
-          const progress = ((batchStart + batch.length) / prefixedChunks.length) * 100
+          const progress = (completedChunks / prefixedChunks.length) * 100
           await onProgress(progress)
         }
       }
