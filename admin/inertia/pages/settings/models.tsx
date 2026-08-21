@@ -408,8 +408,8 @@ export default function ModelsPage(props: {
                 name="embedConcurrency"
                 label="Embed concurrency"
                 type="number"
-                helpText="Concurrent embed requests sent to TEI per flush (each carries the batch size below). Higher keeps the GPU fed. Lower if you see HTTP 429s or OOM. Default 16."
-                placeholder="16"
+                helpText="Concurrent embed requests sent to TEI per flush (each carries the batch size below). Higher keeps the GPU fed. Lower if you see HTTP 429s or OOM. Default 4."
+                placeholder="4"
                 value={embedConcurrency}
                 onChange={(e) => setEmbedConcurrency(e.target.value)}
                 onBlur={() =>
@@ -423,8 +423,8 @@ export default function ModelsPage(props: {
                 name="maxConcurrentEmbeds"
                 label="Max concurrent embed flushes"
                 type="number"
-                helpText="Concurrent flushes in flight during ZIM streaming (memory-bounded backpressure). Higher overlaps CPU extraction with GPU embedding. Default 8."
-                placeholder="8"
+                helpText="Concurrent flushes in flight during ZIM streaming (memory-bounded backpressure). Higher overlaps CPU extraction with GPU embedding. Default 2."
+                placeholder="2"
                 value={maxConcurrentEmbeds}
                 onChange={(e) => setMaxConcurrentEmbeds(e.target.value)}
                 onBlur={() =>
@@ -453,8 +453,8 @@ export default function ModelsPage(props: {
                 name="embeddingBatchSize"
                 label="Embedding batch size"
                 type="number"
-                helpText="Chunks per embed request. Capped by TEI's max-client-batch-size (512). Larger batches reduce HTTP overhead. Default 256."
-                placeholder="256"
+                helpText="Chunks per embed request. With 6000-token chunks, 8 per batch keeps TEI within its 65536 max-batch-tokens. Default 8."
+                placeholder="8"
                 value={embeddingBatchSize}
                 onChange={(e) => setEmbeddingBatchSize(e.target.value)}
                 onBlur={() =>

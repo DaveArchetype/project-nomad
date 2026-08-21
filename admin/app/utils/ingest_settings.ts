@@ -10,10 +10,10 @@ export interface IngestSettings {
 }
 
 export const INGEST_SETTINGS_DEFAULTS: IngestSettings = {
-  embedConcurrency: 16,
-  maxConcurrentEmbeds: 8,
+  embedConcurrency: 4,
+  maxConcurrentEmbeds: 2,
   qdrantUpsertConcurrency: 8,
-  embeddingBatchSize: 256,
+  embeddingBatchSize: 8,
   zimWorkerCount: 0,
   qdrantIndexingThreshold: null,
 }
@@ -74,7 +74,7 @@ export async function loadIngestSettings(): Promise<IngestSettings> {
     embeddingBatchSize: parseIntWithDefault(
       embeddingBatchSizeRaw,
       INGEST_SETTINGS_DEFAULTS.embeddingBatchSize,
-      32,
+      4,
       512
     ),
     zimWorkerCount: parseIntWithDefault(

@@ -74,9 +74,9 @@ export class RagService {
   // NOMADs cap out at a few hundred ZIM files + uploaded PDFs; 10k leaves
   // generous headroom without paying the cost of an unbounded request.
   public static FACET_SOURCE_LIMIT = 10_000
-  public static MODEL_CONTEXT_LENGTH = 2048 // nomic-embed-text has 2K token context
-  public static MAX_SAFE_TOKENS = 1600 // Leave buffer for prefix and tokenization variance
-  public static TARGET_TOKENS_PER_CHUNK = 1500 // Target 1500 tokens per chunk for embedding
+  public static MODEL_CONTEXT_LENGTH = 8192 // nomic-embed-text-v1.5 supports 8K context
+  public static MAX_SAFE_TOKENS = 7000 // Leave buffer for prefix and tokenization variance
+  public static TARGET_TOKENS_PER_CHUNK = 6000 // Target 6000 tokens per chunk for embedding
   public static PREFIX_TOKEN_BUDGET = 10 // Reserve ~10 tokens for prefixes
   public static CHAR_TO_TOKEN_RATIO = 2 // Conservative chars-per-token estimate; technical docs
   // (numbers, symbols, abbreviations) tokenize denser
@@ -357,7 +357,7 @@ export class RagService {
       // since nomic-embed-text tokenizer uses ~3 chars per token
       this.tokenChunker = await TokenChunker.create({
         chunkSize: Math.floor(RagService.TARGET_TOKENS_PER_CHUNK * RagService.CHAR_TO_TOKEN_RATIO),
-        chunkOverlap: Math.floor(150 * RagService.CHAR_TO_TOKEN_RATIO),
+        chunkOverlap: Math.floor(300 * RagService.CHAR_TO_TOKEN_RATIO),
       })
     }
     return this.tokenChunker

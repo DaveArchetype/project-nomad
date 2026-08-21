@@ -118,8 +118,8 @@ export function validateSettingValue(key: KVStoreKey, value: unknown): string | 
     case 'rag.embeddingBatchSize': {
       if (value === '' || value === undefined || value === null) return null
       const num = Number(value)
-      if (!Number.isInteger(num) || num < 32 || num > 512) {
-        return 'Embedding batch size must be a whole number between 32 and 512.'
+      if (!Number.isInteger(num) || num < 4 || num > 512) {
+        return 'Embedding batch size must be a whole number between 4 and 512.'
       }
       return null
     }
