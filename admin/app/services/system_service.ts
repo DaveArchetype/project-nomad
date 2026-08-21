@@ -28,6 +28,12 @@ import { KiwixLibraryService } from '#services/kiwix_library_service'
 export class SystemService {
   private static appVersion: string | null = null
   private static diskInfoFile = '/storage/nomad-disk-info.json'
+  private static ollamaComputeCache: {
+    containerId: string
+    startedAt: string
+    expiresAt: number
+    result: { library: 'CUDA' | 'ROCm'; name: string; vramMiB: number } | null
+  } | null = null
 
   constructor(private dockerService: DockerService) {}
 
@@ -140,7 +146,25 @@ export class SystemService {
       const startedAtMs = startedAtRaw ? new Date(startedAtRaw).getTime() : NaN
       const hasValidStartedAt = Number.isFinite(startedAtMs) && startedAtMs > 0
 
-      const logsOpts: { stdout: true; stderr: true; follow: false; since?: number; until?: number; tail?: number } = {
+      const cache = SystemService.ollamaComputeCache
+      if (
+        cache &&
+        cache.containerId === ollamaContainer.Id &&
+        cache.startedAt === (startedAtRaw ?? '') &&
+        Date.now() < cache.expiresAt
+      ) {
+        return cache.result
+      }
+      const startupWindowClosed = hasValidStartedAt && Date.now() > startedAtMs + 300_000
+
+      const logsOpts: {
+        stdout: true
+        stderr: true
+        follow: false
+        since?: number
+        until?: number
+        tail?: number
+      } = {
         stdout: true,
         stderr: true,
         follow: false,
@@ -158,23 +182,43 @@ export class SystemService {
       const buf = (await container.logs(logsOpts)) as unknown as Buffer
       const logs = buf.toString('utf8')
 
+      const cacheNegative = () => {
+        SystemService.ollamaComputeCache = {
+          containerId: ollamaContainer.Id,
+          startedAt: startedAtRaw ?? '',
+          expiresAt: startupWindowClosed ? Number.POSITIVE_INFINITY : Date.now() + 60_000,
+          result: null,
+        }
+      }
+
       const lines = logs.split('\n').filter((l) => l.includes('msg="inference compute"'))
-      if (lines.length === 0) return null
+      if (lines.length === 0) {
+        cacheNegative()
+        return null
+      }
 
       const lastLine = lines[lines.length - 1]
       const libraryMatch = lastLine.match(/library=(CUDA|ROCm)/)
-      if (!libraryMatch) return null
+      if (!libraryMatch) {
+        cacheNegative()
+        return null
+      }
 
       const descMatch = lastLine.match(/description="([^"]+)"/)
       const totalMatch = lastLine.match(/total="([0-9.]+)\s*GiB"/)
 
-      return {
+      const result = {
         library: libraryMatch[1] as 'CUDA' | 'ROCm',
-        name:
-          descMatch?.[1] ||
-          (libraryMatch[1] === 'CUDA' ? 'NVIDIA GPU' : 'AMD GPU'),
+        name: descMatch?.[1] || (libraryMatch[1] === 'CUDA' ? 'NVIDIA GPU' : 'AMD GPU'),
         vramMiB: totalMatch ? Math.round(Number.parseFloat(totalMatch[1]) * 1024) : 0,
       }
+      SystemService.ollamaComputeCache = {
+        containerId: ollamaContainer.Id,
+        startedAt: startedAtRaw ?? '',
+        expiresAt: Number.POSITIVE_INFINITY,
+        result,
+      }
+      return result
     } catch (error) {
       logger.warn(
         `[SystemService] Failed to probe Ollama logs for inference compute line: ${error instanceof Error ? error.message : error}`
@@ -281,7 +325,8 @@ export class SystemService {
         }
       }
 
-      const ollamaUrl = remoteOllamaUrl || (await this.dockerService.getServiceURL(SERVICE_NAMES.OLLAMA))
+      const ollamaUrl =
+        remoteOllamaUrl || (await this.dockerService.getServiceURL(SERVICE_NAMES.OLLAMA))
       if (!ollamaUrl) {
         return null
       }
@@ -504,11 +549,7 @@ export class SystemService {
 
         // Run the probes when controllers are empty (common inside Docker) or
         // when lspci gave us bogus discrete-GPU BAR0 values that need replacing.
-        if (
-          !graphics.controllers ||
-          graphics.controllers.length === 0 ||
-          hasLspciBogusDgpuVram
-        ) {
+        if (!graphics.controllers || graphics.controllers.length === 0 || hasLspciBogusDgpuVram) {
           const runtimes = dockerInfo.Runtimes || {}
           gpuHealth.hasNvidiaRuntime = 'nvidia' in runtimes
 
@@ -517,7 +558,9 @@ export class SystemService {
           //   2. Marker file at /app/storage/.nomad-gpu-type (written by install_nomad.sh)
           // The marker file matters because the System page should reflect AMD presence
           // even before AI Assistant has been installed for the first time.
-          let savedGpuType: string | null | undefined = await KVStore.getValue('gpu.type') as string | undefined
+          let savedGpuType: string | null | undefined = (await KVStore.getValue('gpu.type')) as
+            | string
+            | undefined
           if (!savedGpuType) {
             try {
               savedGpuType = (await readFile('/app/storage/.nomad-gpu-type', 'utf8')).trim()
