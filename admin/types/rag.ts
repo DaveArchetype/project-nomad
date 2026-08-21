@@ -5,6 +5,8 @@ export type EmbedJobWithProgress = {
   progress: number
   status: string
   error?: string
+  /** True when the job is paused (either individually or via pause-all). */
+  paused?: boolean
   /** ms epoch of last completed batch; multi-batch ZIMs update this each batch. */
   lastBatchAt?: number
   /** ms epoch of first batch start; used as a fallback when lastBatchAt unset. */

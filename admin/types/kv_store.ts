@@ -5,6 +5,8 @@ export const KV_STORE_SCHEMA = {
   'rag.docsEmbedded': 'boolean',
   'rag.defaultIngestPolicy': 'string',
   'rag.embedPausedUntil': 'string',
+  'rag.embedAllPaused': 'boolean',
+  'rag.embedPausedJobs': 'string',
   'system.updateAvailable': 'boolean',
   'system.latestVersion': 'string',
   'system.earlyAccess': 'boolean',

@@ -566,6 +566,42 @@ class API {
     })()
   }
 
+  async pauseAllEmbedJobs(): Promise<{ message: string; paused: number } | undefined> {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string; paused: number }>(
+        '/rag/jobs/pause-all'
+      )
+      return response.data
+    })()
+  }
+
+  async resumeAllEmbedJobs(): Promise<{ message: string; resumed: number } | undefined> {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string; resumed: number }>(
+        '/rag/jobs/resume-all'
+      )
+      return response.data
+    })()
+  }
+
+  async pauseEmbedJob(jobId: string): Promise<{ message: string } | undefined> {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string }>(
+        `/rag/jobs/${encodeURIComponent(jobId)}/pause`
+      )
+      return response.data
+    })()
+  }
+
+  async resumePausedEmbedJob(jobId: string): Promise<{ message: string } | undefined> {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string }>(
+        `/rag/jobs/${encodeURIComponent(jobId)}/resume-paused`
+      )
+      return response.data
+    })()
+  }
+
   async checkRAGHealth() {
     return catchInternal(async () => {
       const response = await this.client.get<{ online: boolean; message?: string }>('/rag/health')

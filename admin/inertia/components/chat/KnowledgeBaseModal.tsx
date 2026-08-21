@@ -67,6 +67,11 @@ export default function KnowledgeBaseModal({
             onCleanupFailed={() => kb.cleanupFailedMutation.mutate()}
             cancelAllPending={kb.cancelAllMutation.isPending}
             onCancelAll={kb.handleConfirmCancelAll}
+            pauseAllPending={kb.pauseAllMutation.isPending}
+            onPauseAll={() => kb.pauseAllMutation.mutate()}
+            resumeAllPending={kb.resumeAllMutation.isPending}
+            onResumeAll={() => kb.resumeAllMutation.mutate()}
+            allPaused={(kb.embedJobsQuery.data ?? []).some((j) => j.paused)}
           />
           <StoredFilesSection
             isMobile={isMobile}

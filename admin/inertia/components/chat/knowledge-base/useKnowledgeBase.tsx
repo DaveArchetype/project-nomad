@@ -54,6 +54,8 @@ export interface UseKnowledgeBaseResult {
   embedMutation: ReturnType<typeof useMutation<unknown, Error, { source: string; force: boolean }>>
   cleanupFailedMutation: ReturnType<typeof useMutation<unknown, Error, void>>
   cancelAllMutation: ReturnType<typeof useMutation<unknown, Error, void>>
+  pauseAllMutation: ReturnType<typeof useMutation<unknown, Error, void>>
+  resumeAllMutation: ReturnType<typeof useMutation<unknown, Error, void>>
   startQdrantMutation: ReturnType<typeof useMutation<unknown, Error, void>>
   syncMutation: ReturnType<typeof useMutation<unknown, Error, void>>
   reembedMutation: ReturnType<typeof useMutation<unknown, Error, void>>
@@ -230,6 +232,28 @@ export function useKnowledgeBase(): UseKnowledgeBaseResult {
     },
     onError: (error: any) => {
       addNotification({ type: 'error', message: error?.message || 'Failed to cancel jobs.' })
+    },
+  })
+
+  const pauseAllMutation = useMutation({
+    mutationFn: () => api.pauseAllEmbedJobs(),
+    onSuccess: (data) => {
+      addNotification({ type: 'success', message: data?.message || 'All embedding jobs paused.' })
+      queryClient.invalidateQueries({ queryKey: ['embed-jobs'] })
+    },
+    onError: (error: any) => {
+      addNotification({ type: 'error', message: error?.message || 'Failed to pause jobs.' })
+    },
+  })
+
+  const resumeAllMutation = useMutation({
+    mutationFn: () => api.resumeAllEmbedJobs(),
+    onSuccess: (data) => {
+      addNotification({ type: 'success', message: data?.message || 'All embedding jobs resumed.' })
+      queryClient.invalidateQueries({ queryKey: ['embed-jobs'] })
+    },
+    onError: (error: any) => {
+      addNotification({ type: 'error', message: error?.message || 'Failed to resume jobs.' })
     },
   })
 
@@ -423,6 +447,8 @@ export function useKnowledgeBase(): UseKnowledgeBaseResult {
     embedMutation,
     cleanupFailedMutation,
     cancelAllMutation,
+    pauseAllMutation,
+    resumeAllMutation,
     startQdrantMutation,
     syncMutation,
     reembedMutation,

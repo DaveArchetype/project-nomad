@@ -179,6 +179,42 @@ export default class RagController {
     })
   }
 
+  public async pauseAllJobs({ response }: HttpContext) {
+    const result = await EmbedFileJob.pauseAllJobs()
+    return response.status(200).json({
+      message: `Paused ${result.paused} embedding job${result.paused !== 1 ? 's' : ''}.`,
+      ...result,
+    })
+  }
+
+  public async resumeAllJobs({ response }: HttpContext) {
+    const result = await EmbedFileJob.resumeAllJobs()
+    return response.status(200).json({
+      message: `Resumed ${result.resumed} embedding job${result.resumed !== 1 ? 's' : ''}.`,
+      ...result,
+    })
+  }
+
+  public async pauseJob({ request, response }: HttpContext) {
+    const jobId = request.param('jobId')
+    const result = await EmbedFileJob.pauseJob(jobId)
+    if (!result.success) {
+      const status = result.code === 'not_found' ? 404 : 500
+      return response.status(status).json({ error: result.message, code: result.code })
+    }
+    return response.status(200).json({ message: result.message })
+  }
+
+  public async resumePausedJob({ request, response }: HttpContext) {
+    const jobId = request.param('jobId')
+    const result = await EmbedFileJob.resumeJobById(jobId)
+    if (!result.success) {
+      const status = result.code === 'not_found' ? 404 : 500
+      return response.status(status).json({ error: result.message, code: result.code })
+    }
+    return response.status(200).json({ message: result.message })
+  }
+
   public async resumeJob({ request, response }: HttpContext) {
     const jobId = request.param('jobId')
     const result = await EmbedFileJob.retryJob(jobId)

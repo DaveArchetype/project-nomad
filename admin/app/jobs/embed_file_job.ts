@@ -5,6 +5,7 @@ import { RagService } from '#services/rag_service'
 import { DockerService } from '#services/docker_service'
 import { OllamaService } from '#services/ollama_service'
 import KbIngestState from '#models/kb_ingest_state'
+import KVStore from '#models/kv_store'
 import { createHash } from 'node:crypto'
 import logger from '@adonisjs/core/services/logger'
 import fs from 'node:fs/promises'
@@ -64,6 +65,69 @@ export class EmbedFileJob {
         `[EmbedFileJob] Failed to extend job lock: %s`,
         err instanceof Error ? err.message : String(err)
       )
+    }
+  }
+
+  /** Checks whether a specific job is individually paused via the
+   *  `rag.embedPausedJobs` KV key (a JSON array of job IDs). */
+  static async isJobPaused(jobId: string): Promise<boolean> {
+    const raw = await KVStore.getValue('rag.embedPausedJobs')
+    if (!raw) return false
+    try {
+      const ids: string[] = JSON.parse(raw)
+      return Array.isArray(ids) && ids.includes(jobId)
+    } catch {
+      return false
+    }
+  }
+
+  /** Checks whether the global pause-all flag is set. */
+  static async isAllPaused(): Promise<boolean> {
+    return (await KVStore.getValue('rag.embedAllPaused')) === true
+  }
+
+  /** Returns true if either the global pause or this job's individual pause
+   *  flag is set. Used by the onFlush callback to decide whether to wait. */
+  static async isPaused(jobId: string): Promise<boolean> {
+    const [allPaused, jobPaused] = await Promise.all([
+      EmbedFileJob.isAllPaused(),
+      EmbedFileJob.isJobPaused(jobId),
+    ])
+    return allPaused || jobPaused
+  }
+
+  /** Blocks until neither the global pause nor this job's individual pause
+   *  flag is set. Re-anchors the BullMQ lock every 30s while waiting so the
+   *  job isn't reaped mid-pause. Returns false if the job was cancelled
+   *  (queue obliterated) while waiting. */
+  private async waitForResume(job: Job): Promise<boolean> {
+    const jobId = job.id ?? ''
+    let logged = false
+    while (true) {
+      const paused = await EmbedFileJob.isPaused(jobId)
+      if (!paused) {
+        if (logged) {
+          logger.info(`[EmbedFileJob] Resuming job ${jobId} after pause`)
+        }
+        return true
+      }
+
+      if (!logged) {
+        logger.info(`[EmbedFileJob] Job ${jobId} paused, waiting for resume...`)
+        logged = true
+        await job.updateData({ ...job.data, status: 'paused', pausedAt: Date.now() })
+      }
+
+      await this.safeExtendLock(job)
+
+      const stillQueued = await QueueService.getInstance()
+        .getQueue(EmbedFileJob.queue)
+        .getJob(jobId)
+      if (!stillQueued) {
+        return false
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 5_000))
     }
   }
 
@@ -178,7 +242,20 @@ export class EmbedFileJob {
         const stillQueued = await QueueService.getInstance()
           .getQueue(EmbedFileJob.queue)
           .getJob(job.id!)
-        return !!stillQueued
+        if (!stillQueued) return false
+
+        // Between batches: if the operator paused this job (or all jobs),
+        // block here until resumed. The lock is re-anchored inside
+        // waitForResume so BullMQ doesn't reap the job mid-pause.
+        const canContinue = await this.waitForResume(job)
+        if (!canContinue) return false
+
+        // Restore processing status in case we were paused
+        if (job.data.status === 'paused') {
+          await job.updateData({ ...job.data, status: 'processing' }).catch(() => {})
+        }
+
+        return true
       }
 
       // Process and embed the file
@@ -292,9 +369,23 @@ export class EmbedFileJob {
       return []
     })
 
+    const [allPaused, pausedJobsRaw] = await Promise.all([
+      EmbedFileJob.isAllPaused(),
+      KVStore.getValue('rag.embedPausedJobs'),
+    ])
+    let pausedJobIds: Set<string> = new Set()
+    if (pausedJobsRaw) {
+      try {
+        const ids: string[] = JSON.parse(pausedJobsRaw)
+        if (Array.isArray(ids)) pausedJobIds = new Set(ids)
+      } catch {
+        // ignore malformed JSON
+      }
+    }
+
     return Promise.all(
       jobs.map(async (job) => {
-        const data = job.data as EmbedFileJobParams & {
+        const data = job.data as EmbedJobWithProgress & {
           status?: string
           lastBatchAt?: number
           startedAt?: number
@@ -307,16 +398,19 @@ export class EmbedFileJob {
           ? estimateChunkCount(data.fileName, sizeBytes, ratioRows)
           : null
 
+        const isPaused = allPaused || pausedJobIds.has(job.id!.toString())
+
         return {
           jobId: job.id!.toString(),
           fileName: data.fileName,
           filePath: data.filePath,
           progress: typeof job.progress === 'number' ? job.progress : 0,
-          status: data.status ?? 'waiting',
+          status: isPaused ? 'paused' : (data.status ?? 'waiting'),
           lastBatchAt: data.lastBatchAt,
           startedAt: data.startedAt,
           chunks: data.chunksSoFar ?? data.chunks,
           chunksEstimated,
+          paused: isPaused,
         }
       })
     )
@@ -547,6 +641,96 @@ export class EmbedFileJob {
     }
 
     logger.info(`[EmbedFileJob] Force-resumed job ${jobId} (was ${state})`)
+    return { success: true, message: 'Job resumed.' }
+  }
+
+  /** Pause all embedding jobs. Sets a KV flag checked by active jobs between
+   *  batches (they block in waitForResume) and calls BullMQ's queue.pause()
+   *  so waiting jobs aren't picked up by the worker. */
+  static async pauseAllJobs(): Promise<{ paused: number }> {
+    const queueService = QueueService.getInstance()
+    const queue = queueService.getQueue(this.queue)
+    const jobs = await queue.getJobs(['waiting', 'active', 'delayed'])
+    await KVStore.setValue('rag.embedAllPaused', true)
+    await queue.pause()
+    logger.info(`[EmbedFileJob] Paused all embedding jobs (${jobs.length} in queue)`)
+    return { paused: jobs.length }
+  }
+
+  /** Resume all embedding jobs. Clears the KV flag (active jobs exit
+   *  waitForResume) and calls BullMQ's queue.resume() so waiting jobs are
+   *  picked up again. */
+  static async resumeAllJobs(): Promise<{ resumed: number }> {
+    const queueService = QueueService.getInstance()
+    const queue = queueService.getQueue(this.queue)
+    const jobs = await queue.getJobs(['waiting', 'active', 'delayed'])
+    await KVStore.clearValue('rag.embedAllPaused')
+    await queue.resume()
+    logger.info(`[EmbedFileJob] Resumed all embedding jobs (${jobs.length} in queue)`)
+    return { resumed: jobs.length }
+  }
+
+  /** Pause a single embedding job by ID. Adds the job ID to the
+   *  `rag.embedPausedJobs` KV array. If the job is active, its onFlush
+   *  callback will block in waitForResume on the next batch boundary. */
+  static async pauseJob(
+    jobId: string
+  ): Promise<{ success: boolean; code?: string; message: string }> {
+    const queueService = QueueService.getInstance()
+    const queue = queueService.getQueue(this.queue)
+    const job = await queue.getJob(jobId)
+
+    if (!job) {
+      return { success: false, code: 'not_found', message: 'Job not found.' }
+    }
+
+    const raw = await KVStore.getValue('rag.embedPausedJobs')
+    let ids: string[] = []
+    if (raw) {
+      try {
+        ids = JSON.parse(raw)
+        if (!Array.isArray(ids)) ids = []
+      } catch {
+        ids = []
+      }
+    }
+    if (!ids.includes(jobId)) {
+      ids.push(jobId)
+      await KVStore.setValue('rag.embedPausedJobs', JSON.stringify(ids))
+    }
+
+    logger.info(`[EmbedFileJob] Paused job ${jobId}`)
+    return { success: true, message: 'Job paused.' }
+  }
+
+  /** Resume a single embedding job by ID. Removes the job ID from the
+   *  `rag.embedPausedJobs` KV array so the active job's waitForResume loop
+   *  exits on its next poll. */
+  static async resumeJobById(
+    jobId: string
+  ): Promise<{ success: boolean; code?: string; message: string }> {
+    const queueService = QueueService.getInstance()
+    const queue = queueService.getQueue(this.queue)
+    const job = await queue.getJob(jobId)
+
+    if (!job) {
+      return { success: false, code: 'not_found', message: 'Job not found.' }
+    }
+
+    const raw = await KVStore.getValue('rag.embedPausedJobs')
+    if (raw) {
+      try {
+        const ids: string[] = JSON.parse(raw)
+        if (Array.isArray(ids)) {
+          const filtered = ids.filter((id) => id !== jobId)
+          await KVStore.setValue('rag.embedPausedJobs', JSON.stringify(filtered))
+        }
+      } catch {
+        await KVStore.clearValue('rag.embedPausedJobs')
+      }
+    }
+
+    logger.info(`[EmbedFileJob] Resumed job ${jobId}`)
     return { success: true, message: 'Job resumed.' }
   }
 }

@@ -1,4 +1,4 @@
-import { Worker } from 'worker_threads'
+import { Worker } from 'node:worker_threads'
 import os from 'node:os'
 import logger from '@adonisjs/core/services/logger'
 import type { ZIMArchiveMetadata, ZIMContentChunk } from '../../types/zim.js'
@@ -20,20 +20,47 @@ import type { ZIMArchiveMetadata, ZIMContentChunk } from '../../types/zim.js'
  *   - constants/zim_extraction.ts: HTML_SELECTORS_TO_REMOVE / NON_CONTENT_HEADING_PATTERNS
  */
 function workerFn() {
-  const { parentPort, workerData } = require('worker_threads')
+  const { parentPort, workerData } = require('node:worker_threads')
   const archiveMetadata = workerData.archiveMetadata
 
   const HTML_SELECTORS_TO_REMOVE = [
-    'script', 'style', 'nav', 'header', 'footer', 'noscript', 'iframe', 'svg',
-    '.navbox', '.sidebar', '.infobox', '.mw-editsection', '.reference', '.reflist',
-    '.toc', '.noprint', '.mw-jump-link', '.mw-headline-anchor', '[role="navigation"]',
-    '.navbar', '.hatnote', '.ambox', '.sistersitebox', '.portal', '#coordinates',
-    '.geo-nondefault', '.authority-control',
+    'script',
+    'style',
+    'nav',
+    'header',
+    'footer',
+    'noscript',
+    'iframe',
+    'svg',
+    '.navbox',
+    '.sidebar',
+    '.infobox',
+    '.mw-editsection',
+    '.reference',
+    '.reflist',
+    '.toc',
+    '.noprint',
+    '.mw-jump-link',
+    '.mw-headline-anchor',
+    '[role="navigation"]',
+    '.navbar',
+    '.hatnote',
+    '.ambox',
+    '.sistersitebox',
+    '.portal',
+    '#coordinates',
+    '.geo-nondefault',
+    '.authority-control',
   ]
 
   const NON_CONTENT_HEADING_PATTERNS = [
-    /^see also$/i, /^references$/i, /^external links$/i, /^further reading$/i,
-    /^notes$/i, /^bibliography$/i, /^navigation$/i,
+    /^see also$/i,
+    /^references$/i,
+    /^external links$/i,
+    /^further reading$/i,
+    /^notes$/i,
+    /^bibliography$/i,
+    /^navigation$/i,
   ]
 
   function isNonContentHeading(heading: string) {
@@ -78,7 +105,10 @@ function workerFn() {
 
         if (['h2', 'h3', 'h4'].includes(tagName)) {
           flushSection()
-          const heading = $el.text().replace(/\[edit\]/gi, '').trim()
+          const heading = $el
+            .text()
+            .replace(/\[edit\]/gi, '')
+            .trim()
           const level = Number.parseInt(tagName.substring(1))
           currentSection = { heading, content: [], level, skip: isNonContentHeading(heading) }
         } else if (['p', 'ul', 'ol', 'dl', 'table'].includes(tagName)) {
@@ -124,7 +154,10 @@ function workerFn() {
   function extractTextFromHTML($: any) {
     try {
       const text = $('body').length ? $('body').text() : $.root().text()
-      return text.replace(/\s+/g, ' ').replace(/\n\s*\n/g, '\n').trim()
+      return text
+        .replace(/\s+/g, ' ')
+        .replace(/\n\s*\n/g, '\n')
+        .trim()
     } catch {
       return null
     }
@@ -304,9 +337,8 @@ export class ZIMWorkerPool {
   }
 
   static getDefaultWorkerCount(): number {
-    const cores = typeof os.availableParallelism === 'function'
-      ? os.availableParallelism()
-      : os.cpus().length
+    const cores =
+      typeof os.availableParallelism === 'function' ? os.availableParallelism() : os.cpus().length
     return Math.min(Math.max(cores - 1, 1), 8)
   }
 }

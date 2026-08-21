@@ -72,6 +72,28 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
     },
   })
 
+  const pauseJobMutation = useMutation({
+    mutationFn: (jobId: string) => api.pauseEmbedJob(jobId),
+    onSuccess: (data) => {
+      addNotification({ type: 'success', message: data?.message || 'Job paused.' })
+      queryClient.invalidateQueries({ queryKey: ['embed-jobs'] })
+    },
+    onError: (error: any) => {
+      addNotification({ type: 'error', message: error?.message || 'Failed to pause job.' })
+    },
+  })
+
+  const resumePausedJobMutation = useMutation({
+    mutationFn: (jobId: string) => api.resumePausedEmbedJob(jobId),
+    onSuccess: (data) => {
+      addNotification({ type: 'success', message: data?.message || 'Job resumed.' })
+      queryClient.invalidateQueries({ queryKey: ['embed-jobs'] })
+    },
+    onError: (error: any) => {
+      addNotification({ type: 'error', message: error?.message || 'Failed to resume job.' })
+    },
+  })
+
   const canResume = (health: JobHealthStatus): boolean => health === 'stalled' || health === 'slow'
 
   return (
@@ -94,6 +116,7 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
             const hasChunkInfo = chunksDone > 0 || (job.chunksEstimated ?? 0) > 0
             const chunksPerMin = computeChunksPerMin(job.jobId)
             const showResume = canResume(health)
+            const isPaused = job.paused === true
             return (
               <div
                 key={job.jobId}
@@ -105,29 +128,58 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
                     aria-label={display.ariaLabel}
                     title={display.ariaLabel}
                   />
-                  <span className="text-sm font-medium text-text-primary">{display.label}</span>
+                  <span className="text-sm font-medium text-text-primary">
+                    {isPaused ? 'Paused' : display.label}
+                  </span>
                   {lastActivityMs !== undefined && (
                     <span className="text-xs text-text-muted">
                       · last activity {formatTimeAgo(lastActivityMs, tick)}
                     </span>
                   )}
-                  {chunksPerMin !== null && (
+                  {chunksPerMin !== null && !isPaused && (
                     <span className="text-xs text-text-muted">
                       · {chunksPerMin.toLocaleString()} chunks/min
                     </span>
                   )}
-                  {showResume && (
-                    <StyledButton
-                      variant="secondary"
-                      size="sm"
-                      icon="IconRefresh"
-                      onClick={() => resumeMutation.mutate(job.jobId)}
-                      loading={resumeMutation.isPending && resumeMutation.variables === job.jobId}
-                      className="ml-auto"
-                    >
-                      Resume
-                    </StyledButton>
-                  )}
+                  <div className="ml-auto flex items-center gap-2">
+                    {isPaused ? (
+                      <StyledButton
+                        variant="primary"
+                        size="sm"
+                        icon="IconPlayerPlay"
+                        onClick={() => resumePausedJobMutation.mutate(job.jobId)}
+                        loading={
+                          resumePausedJobMutation.isPending &&
+                          resumePausedJobMutation.variables === job.jobId
+                        }
+                      >
+                        Resume
+                      </StyledButton>
+                    ) : (
+                      <StyledButton
+                        variant="secondary"
+                        size="sm"
+                        icon="IconPlayerPause"
+                        onClick={() => pauseJobMutation.mutate(job.jobId)}
+                        loading={
+                          pauseJobMutation.isPending && pauseJobMutation.variables === job.jobId
+                        }
+                      >
+                        Pause
+                      </StyledButton>
+                    )}
+                    {showResume && (
+                      <StyledButton
+                        variant="secondary"
+                        size="sm"
+                        icon="IconRefresh"
+                        onClick={() => resumeMutation.mutate(job.jobId)}
+                        loading={resumeMutation.isPending && resumeMutation.variables === job.jobId}
+                      >
+                        Retry
+                      </StyledButton>
+                    )}
+                  </div>
                 </div>
                 {hasChunkInfo && (
                   <div className="text-xs text-text-muted mb-2">

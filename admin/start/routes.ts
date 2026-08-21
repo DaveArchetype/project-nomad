@@ -464,6 +464,22 @@ router
       summary: 'Cancel all RAG jobs',
       tags: ['rag'],
     })
+    documented(router.post('/jobs/pause-all', [RagController, 'pauseAllJobs']), {
+      summary: 'Pause all RAG embedding jobs',
+      tags: ['rag'],
+    })
+    documented(router.post('/jobs/resume-all', [RagController, 'resumeAllJobs']), {
+      summary: 'Resume all paused RAG embedding jobs',
+      tags: ['rag'],
+    })
+    documented(router.post('/jobs/:jobId/pause', [RagController, 'pauseJob']), {
+      summary: 'Pause a single RAG embedding job',
+      tags: ['rag'],
+    })
+    documented(router.post('/jobs/:jobId/resume-paused', [RagController, 'resumePausedJob']), {
+      summary: 'Resume a single paused RAG embedding job',
+      tags: ['rag'],
+    })
     documented(router.post('/jobs/:jobId/resume', [RagController, 'resumeJob']), {
       summary: 'Force-resume a stalled RAG job',
       tags: ['rag'],

@@ -8,6 +8,11 @@ interface ProcessingQueueSectionProps {
   onCleanupFailed: () => void
   cancelAllPending: boolean
   onCancelAll: () => void
+  pauseAllPending: boolean
+  onPauseAll: () => void
+  resumeAllPending: boolean
+  onResumeAll: () => void
+  allPaused: boolean
 }
 
 export default function ProcessingQueueSection({
@@ -16,12 +21,42 @@ export default function ProcessingQueueSection({
   onCleanupFailed,
   cancelAllPending,
   onCancelAll,
+  pauseAllPending,
+  onPauseAll,
+  resumeAllPending,
+  onResumeAll,
+  allPaused,
 }: ProcessingQueueSectionProps) {
   return (
     <section className="rounded-lg border border-border-subtle bg-surface-primary p-4 md:p-6 space-y-4">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
         <StyledSectionHeader title="Processing Queue" className="mb-0!" />
         <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full md:w-auto">
+          {allPaused ? (
+            <StyledButton
+              variant="primary"
+              size="md"
+              icon="IconPlayerPlay"
+              onClick={onResumeAll}
+              loading={resumeAllPending}
+              disabled={resumeAllPending}
+              className="w-full md:w-auto"
+            >
+              Resume All
+            </StyledButton>
+          ) : (
+            <StyledButton
+              variant="secondary"
+              size="md"
+              icon="IconPlayerPause"
+              onClick={onPauseAll}
+              loading={pauseAllPending}
+              disabled={pauseAllPending}
+              className="w-full md:w-auto"
+            >
+              Pause All
+            </StyledButton>
+          )}
           <StyledButton
             variant="danger"
             size="md"

@@ -133,10 +133,10 @@ export class ZIMExtractionService {
               )
             )
 
-            for (let i = 0; i < results.length; i++) {
+            for (const [i, result] of results.entries()) {
               articlesProcessed++
               const shouldContinue = await onArticle(
-                results[i],
+                result,
                 currentBatch[i].articlesSeen,
                 totalArticles
               )
