@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import clsx from 'clsx'
-import DynamicIcon, { DynamicIconName} from './DynamicIcon'
+import DynamicIcon, { DynamicIconName } from './DynamicIcon'
 import { IconRefresh } from '@tabler/icons-react'
 
 export interface StyledButtonProps extends React.HTMLAttributes<HTMLButtonElement> {
@@ -130,11 +130,7 @@ const StyledButton: React.FC<StyledButtonProps> = ({
 
   const getLoadingSpinner = () => {
     const spinnerSize = size === 'sm' ? 'h-3.5 w-3.5' : size === 'lg' ? 'h-5 w-5' : 'h-4 w-4'
-    return (
-      <IconRefresh
-        className={clsx(spinnerSize, 'animate-spin')}
-      />
-    )
+    return <IconRefresh className={clsx(spinnerSize, 'animate-spin')} />
   }
 
   const onClickHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -160,14 +156,9 @@ const StyledButton: React.FC<StyledButtonProps> = ({
       disabled={isDisabled}
       onClick={onClickHandler}
     >
-      {loading ? (
-        getLoadingSpinner()
-      ) : (
-        <>
-          {icon && <DynamicIcon icon={icon} className={getIconSize()} />}
-          {children}
-        </>
-      )}
+      {loading && <span className="inline-flex shrink-0">{getLoadingSpinner()}</span>}
+      {icon && !loading && <DynamicIcon icon={icon} className={getIconSize()} />}
+      {children}
     </button>
   )
 }
