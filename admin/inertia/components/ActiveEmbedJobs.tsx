@@ -9,6 +9,16 @@ import { JOB_HEALTH_DISPLAY, computeJobHealth, formatTimeAgo } from '~/lib/kb_jo
 import type { JobHealthStatus } from '../../app/utils/kb_job_health.js'
 import api from '~/lib/api'
 
+function formatEta(minutes: number): string {
+  if (minutes < 60) return `${minutes}m`
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  if (hours < 24) return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
+  const days = Math.floor(hours / 24)
+  const hrs = hours % 24
+  return hrs > 0 ? `${days}d ${hrs}h` : `${days}d`
+}
+
 interface ActiveEmbedJobsProps {
   withHeader?: boolean
 }
@@ -92,6 +102,8 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
             const chunksDone = typeof job.chunks === 'number' ? job.chunks : 0
             const hasChunkInfo = chunksDone > 0 || (job.chunksEstimated ?? 0) > 0
             const chunksPerMin = job.chunksPerMinute ?? null
+            const articlesPerMin = job.articlesPerMinute ?? null
+            const etaMinutes = job.etaMinutes ?? null
             const isPaused = job.paused === true
             const chatPaused = job.chatPausedUntil != null && job.chatPausedUntil > tick
             const showResume = canResume(health) && !isPaused
@@ -118,6 +130,9 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
                   {chunksPerMin !== null && !isPaused && (
                     <span className="text-xs text-text-muted">
                       · {chunksPerMin.toLocaleString()} chunks/min
+                      {articlesPerMin !== null &&
+                        ` · ${articlesPerMin.toLocaleString()} articles/min`}
+                      {etaMinutes !== null && etaMinutes > 0 && ` · ETA ${formatEta(etaMinutes)}`}
                     </span>
                   )}
                   <div className="ml-auto flex items-center gap-2">
@@ -177,6 +192,14 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
                     {job.chunksEstimated
                       ? ` / ~${job.chunksEstimated.toLocaleString()} chunks`
                       : ' chunks'}
+                    {job.resumeOffset !== undefined && job.totalArticles !== undefined && (
+                      <>
+                        {' · '}
+                        {job.resumeOffset.toLocaleString()}
+                        {' / '}
+                        {job.totalArticles.toLocaleString()} articles
+                      </>
+                    )}
                   </div>
                 )}
                 <HorizontalBarChart

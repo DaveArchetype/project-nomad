@@ -20,8 +20,16 @@ export type EmbedJobWithProgress = {
   chunks?: number
   /** Registry-based estimate of the file's total chunk count, for progress display. */
   chunksEstimated?: number | null
-  /** Chunks embedded per minute, computed server-side from the last batch window. */
+  /** Chunks embedded per minute, computed from the last flush delta. */
   chunksPerMinute?: number | null
+  /** Articles processed per minute, computed from the last flush delta. */
+  articlesPerMinute?: number | null
+  /** Current article offset (ZIM resume position). */
+  resumeOffset?: number
+  /** Total articles in the file (ZIM). */
+  totalArticles?: number
+  /** Estimated time remaining in minutes, based on articlesPerMinute. */
+  etaMinutes?: number | null
 }
 
 export type ProcessAndEmbedFileResponse = {

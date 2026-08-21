@@ -25,6 +25,9 @@ export interface EmbedFileJobParams {
   isFinalBatch?: boolean
   chunksSoFar?: number
   collection?: string
+  prevChunksSoFar?: number
+  prevBatchAt?: number
+  prevResumeOffset?: number
 }
 
 export class EmbedFileJob {
@@ -225,12 +228,17 @@ export class EmbedFileJob {
         totalArticlesCount: number
       ) => {
         try {
+          const newChunks = baseChunks + chunksEmbedded
+          const now = Date.now()
           await job.updateData({
             ...job.data,
+            prevChunksSoFar: job.data.chunksSoFar ?? 0,
+            prevBatchAt: job.data.lastBatchAt ?? now,
+            prevResumeOffset: job.data.resumeOffset ?? 0,
             resumeOffset: articlesSeen,
-            chunksSoFar: baseChunks + chunksEmbedded,
+            chunksSoFar: newChunks,
             totalArticles: totalArticlesCount,
-            lastBatchAt: Date.now(),
+            lastBatchAt: now,
           })
         } catch {
           // The job was obliterated underneath us (cancelAllJobs) — treat as
@@ -416,10 +424,36 @@ export class EmbedFileJob {
         const now = Date.now()
 
         let chunksPerMinute: number | null = null
-        if (!isPaused && currentChunks > 0 && startedAt) {
-          const elapsedMs = now - startedAt
-          if (elapsedMs > 5000) {
-            chunksPerMinute = Math.round((currentChunks / elapsedMs) * 60_000)
+        let articlesPerMinute: number | null = null
+        let etaMinutes: number | null = null
+        if (!isPaused && currentChunks > 0 && data.lastBatchAt) {
+          const prevChunks = data.prevChunksSoFar ?? 0
+          const prevBatchAt = data.prevBatchAt ?? startedAt ?? data.lastBatchAt
+          const deltaMs = data.lastBatchAt - prevBatchAt
+          if (deltaMs > 1000) {
+            const chunksDelta = currentChunks - prevChunks
+            if (chunksDelta > 0) {
+              chunksPerMinute = Math.round((chunksDelta / deltaMs) * 60_000)
+            }
+            const prevOffset = data.prevResumeOffset ?? 0
+            const currentOffset = data.resumeOffset ?? 0
+            const articlesDelta = currentOffset - prevOffset
+            if (articlesDelta > 0) {
+              articlesPerMinute = Math.round((articlesDelta / deltaMs) * 60_000)
+            }
+          }
+          if (chunksPerMinute === null && startedAt) {
+            const elapsedMs = now - startedAt
+            if (elapsedMs > 5000) {
+              chunksPerMinute = Math.round((currentChunks / elapsedMs) * 60_000)
+            }
+          }
+          if (articlesPerMinute !== null && articlesPerMinute > 0 && data.totalArticles) {
+            const currentOffset = data.resumeOffset ?? 0
+            const remaining = data.totalArticles - currentOffset
+            if (remaining > 0) {
+              etaMinutes = Math.round(remaining / articlesPerMinute)
+            }
           }
         }
 
@@ -436,6 +470,10 @@ export class EmbedFileJob {
           paused: isPaused,
           chatPausedUntil: chatPausedUntilMs,
           chunksPerMinute,
+          articlesPerMinute,
+          resumeOffset: data.resumeOffset,
+          totalArticles: data.totalArticles,
+          etaMinutes,
         }
       })
     )
