@@ -44,6 +44,7 @@ export interface UseKnowledgeBaseResult {
   warningsUnavailable: boolean
   ingestPolicy: 'Always' | 'Manual'
   inflightSources: Set<string>
+  allEmbedJobsPaused: boolean
 
   uploadMutation: ReturnType<typeof useMutation<unknown, Error, File>>
   updateIngestPolicyMutation: ReturnType<typeof useMutation<unknown, Error, 'Always' | 'Manual'>>
@@ -109,6 +110,10 @@ export function useKnowledgeBase(): UseKnowledgeBaseResult {
   const embedJobsQuery = useEmbedJobs()
   const inflightSources = useMemo(
     () => new Set((embedJobsQuery.data ?? []).map((j) => j.filePath)),
+    [embedJobsQuery.data]
+  )
+  const allEmbedJobsPaused = useMemo(
+    () => (embedJobsQuery.data ?? []).some((j) => j.paused),
     [embedJobsQuery.data]
   )
 
@@ -439,6 +444,7 @@ export function useKnowledgeBase(): UseKnowledgeBaseResult {
     warningsUnavailable,
     ingestPolicy,
     inflightSources,
+    allEmbedJobsPaused,
 
     uploadMutation,
     updateIngestPolicyMutation,

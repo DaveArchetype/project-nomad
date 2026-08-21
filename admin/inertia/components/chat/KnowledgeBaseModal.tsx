@@ -71,7 +71,7 @@ export default function KnowledgeBaseModal({
             onPauseAll={() => kb.pauseAllMutation.mutate()}
             resumeAllPending={kb.resumeAllMutation.isPending}
             onResumeAll={() => kb.resumeAllMutation.mutate()}
-            allPaused={(kb.embedJobsQuery.data ?? []).some((j) => j.paused)}
+            allPaused={kb.allEmbedJobsPaused}
           />
           <StoredFilesSection
             isMobile={isMobile}
