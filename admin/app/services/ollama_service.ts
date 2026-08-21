@@ -631,7 +631,7 @@ export class OllamaService {
     } catch (err: any) {
       const status = err?.response?.status
       if (status === 429) {
-        await new Promise((r) => setTimeout(r, 2000))
+        await new Promise((r) => setTimeout(r, 5000))
         try {
           const retry = await axios.post(
             `${teiUrl}/v1/embeddings`,
