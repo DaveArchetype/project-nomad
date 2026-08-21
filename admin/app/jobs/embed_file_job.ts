@@ -8,7 +8,9 @@ import KbIngestState from '#models/kb_ingest_state'
 import { createHash } from 'node:crypto'
 import logger from '@adonisjs/core/services/logger'
 import fs from 'node:fs/promises'
-import { determineFileType } from '../utils/fs.js'
+import { determineFileType, getFileStatsIfExists } from '../utils/fs.js'
+import KbRatioRegistry from '#models/kb_ratio_registry'
+import { estimateChunkCount } from '../utils/kb_ratio_lookup.js'
 
 export interface EmbedFileJobParams {
   filePath: string
@@ -150,12 +152,18 @@ export class EmbedFileJob {
       // (including this active job), so if our own job key is gone, the cancel
       // happened — return false to unwind the stream cleanly.
       const onFlush = async (articlesSeen: number, chunksEmbedded: number) => {
-        await job.updateData({
-          ...job.data,
-          resumeOffset: articlesSeen,
-          chunksSoFar: baseChunks + chunksEmbedded,
-          lastBatchAt: Date.now(),
-        })
+        try {
+          await job.updateData({
+            ...job.data,
+            resumeOffset: articlesSeen,
+            chunksSoFar: baseChunks + chunksEmbedded,
+            lastBatchAt: Date.now(),
+          })
+        } catch {
+          // The job was obliterated underneath us (cancelAllJobs) — treat as
+          // cancellation and unwind the stream instead of erroring out.
+          return false
+        }
         await this.safeExtendLock(job)
 
         const stillQueued = await QueueService.getInstance()
@@ -270,24 +278,39 @@ export class EmbedFileJob {
     const queue = queueService.getQueue(this.queue)
     const jobs = await queue.getJobs(['waiting', 'active', 'delayed'])
 
-    return jobs.map((job) => {
-      const data = job.data as EmbedFileJobParams & {
-        status?: string
-        lastBatchAt?: number
-        startedAt?: number
-        chunks?: number
-      }
-      return {
-        jobId: job.id!.toString(),
-        fileName: data.fileName,
-        filePath: data.filePath,
-        progress: typeof job.progress === 'number' ? job.progress : 0,
-        status: data.status ?? 'waiting',
-        lastBatchAt: data.lastBatchAt,
-        startedAt: data.startedAt,
-        chunks: data.chunks,
-      }
+    const ratioRows = await KbRatioRegistry.all().catch((err) => {
+      logger.warn('[EmbedFileJob] Could not load chunk ratio registry for estimates:', err)
+      return []
     })
+
+    return Promise.all(
+      jobs.map(async (job) => {
+        const data = job.data as EmbedFileJobParams & {
+          status?: string
+          lastBatchAt?: number
+          startedAt?: number
+          chunks?: number
+        }
+
+        const sizeBytes =
+          data.fileSize ?? Number((await getFileStatsIfExists(data.filePath))?.size ?? 0)
+        const chunksEstimated = sizeBytes
+          ? estimateChunkCount(data.fileName, sizeBytes, ratioRows)
+          : null
+
+        return {
+          jobId: job.id!.toString(),
+          fileName: data.fileName,
+          filePath: data.filePath,
+          progress: typeof job.progress === 'number' ? job.progress : 0,
+          status: data.status ?? 'waiting',
+          lastBatchAt: data.lastBatchAt,
+          startedAt: data.startedAt,
+          chunks: data.chunksSoFar ?? data.chunks,
+          chunksEstimated,
+        }
+      })
+    )
   }
 
   static async getByFilePath(filePath: string): Promise<Job | undefined> {
@@ -421,6 +444,20 @@ export class EmbedFileJob {
         } catch {
           // File may already be deleted — that's fine
         }
+        // The file is gone, so its ingest-state row would only produce a
+        // phantom entry in the KB panel.
+        await KbIngestState.remove(filePath).catch((err) => {
+          logger.warn(`[EmbedFileJob] Failed to remove ingest state for ${filePath}:`, err)
+        })
+      } else if (filePath) {
+        // ZIMs and library files stay on disk. Mark them stalled so the next
+        // scanAndSyncStorage skips them (cancel sticks) and the KB panel shows
+        // a retryable state instead of stale partial progress. Partial chunks
+        // already in Qdrant are kept; the Retry action wipes them via the
+        // force path before re-embedding.
+        await KbIngestState.markStalled(filePath).catch((err) => {
+          logger.warn(`[EmbedFileJob] Failed to mark ${filePath} stalled:`, err)
+        })
       }
     }
 

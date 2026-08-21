@@ -34,6 +34,8 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
             })
             const display = JOB_HEALTH_DISPLAY[health]
             const lastActivityMs = job.lastBatchAt ?? job.startedAt
+            const chunksDone = typeof job.chunks === 'number' ? job.chunks : 0
+            const hasChunkInfo = chunksDone > 0 || (job.chunksEstimated ?? 0) > 0
             return (
               <div
                 key={job.jobId}
@@ -51,19 +53,18 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
                       · last activity {formatTimeAgo(lastActivityMs, tick)}
                     </span>
                   )}
-                  {typeof job.chunks === 'number' && job.chunks > 0 && (
-                    <span className="text-xs text-text-muted">
-                      · {job.chunks.toLocaleString()} chunks
-                    </span>
-                  )}
                 </div>
                 <HorizontalBarChart
                   items={[
                     {
                       label: job.fileName,
                       value: job.progress,
-                      total: '100%',
-                      used: `${job.progress}%`,
+                      total: hasChunkInfo
+                        ? job.chunksEstimated
+                          ? `~${job.chunksEstimated.toLocaleString()} chunks`
+                          : 'chunks'
+                        : '100%',
+                      used: hasChunkInfo ? chunksDone.toLocaleString() : `${job.progress}%`,
                       type: job.status,
                     },
                   ]}

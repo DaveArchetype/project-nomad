@@ -1630,24 +1630,55 @@ export class RagService {
   }
 
   /**
+   * Remove every trace of a source from the knowledge base: its Qdrant points,
+   * its kb_ingest_state row, and any BullMQ job entries still targeting it
+   * (waiting/delayed/failed/completed — matched on data.filePath so legacy
+   * auto-id continuation jobs are covered too). Without the job-entry sweep,
+   * a retained :completed/:failed entry under the deterministic per-file
+   * jobId makes the next Index dispatch a silent no-op (jobId dedupe), and
+   * getStatus keeps reporting the stale job's progress.
+   */
+  public async removeKnowledgeArtifacts(source: string): Promise<void> {
+    await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
+
+    await this.qdrant!.delete(RagService.CONTENT_COLLECTION_NAME, {
+      filter: {
+        must: [{ key: 'source', match: { value: source } }],
+      },
+    })
+
+    logger.info(`[RAG] Deleted all points for source: ${source}`)
+
+    // Drop the ingest state row so the file disappears entirely. Without
+    // this, the next scanAndSyncStorage would see `indexed + no chunks` for a
+    // path that no longer exists in storage and try to re-embed nothing.
+    await KbIngestState.remove(source)
+
+    const { EmbedFileJob } = await import('#jobs/embed_file_job')
+    const { QueueService } = await import('#services/queue_service')
+    const queue = QueueService.getInstance().getQueue(EmbedFileJob.queue)
+    const jobEntries = await queue.getJobs(['waiting', 'delayed', 'paused', 'failed', 'completed'])
+    for (const jobEntry of jobEntries) {
+      if ((jobEntry.data as any)?.filePath !== source) continue
+      try {
+        await jobEntry.remove()
+      } catch (err) {
+        logger.warn(
+          `[RAG] Could not remove job entry for ${source} (likely still active): %s`,
+          err instanceof Error ? err.message : String(err)
+        )
+      }
+    }
+  }
+
+  /**
    * Delete all Qdrant points associated with a given source path and remove
    * the corresponding file from disk if it lives under the uploads directory.
    * @param source - Full source path as stored in Qdrant payloads
    */
   public async deleteFileBySource(source: string): Promise<{ success: boolean; message: string }> {
     try {
-      await this._ensureCollection(
-        RagService.CONTENT_COLLECTION_NAME,
-        RagService.EMBEDDING_DIMENSION
-      )
-
-      await this.qdrant!.delete(RagService.CONTENT_COLLECTION_NAME, {
-        filter: {
-          must: [{ key: 'source', match: { value: source } }],
-        },
-      })
-
-      logger.info(`[RAG] Deleted all points for source: ${source}`)
+      await this.removeKnowledgeArtifacts(source)
 
       /** Delete the physical file only if it lives inside the uploads directory.
        * resolve() normalises path traversal sequences (e.g. "/../..") before the
@@ -1664,11 +1695,6 @@ export class RagService {
           `[RAG] File was removed from knowledge base but doesn't live in Nomad's uploads directory, so it can't be safely removed. Skipping deletion of physical file...`
         )
       }
-
-      // Drop the ingest state row last so the file disappears entirely. Without
-      // this, the next scanAndSyncStorage would see `indexed + no chunks` for a
-      // path that no longer exists in storage and try to re-embed nothing.
-      await KbIngestState.remove(source)
 
       return { success: true, message: 'File removed from knowledge base.' }
     } catch (error) {

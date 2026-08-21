@@ -11,6 +11,8 @@ export type EmbedJobWithProgress = {
   startedAt?: number
   /** Total chunks embedded across this job's batches so far. */
   chunks?: number
+  /** Registry-based estimate of the file's total chunk count, for progress display. */
+  chunksEstimated?: number | null
 }
 
 export type ProcessAndEmbedFileResponse = {

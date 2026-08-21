@@ -104,9 +104,13 @@ export default function ZimPage() {
   }
 
   const deleteFileMutation = useMutation({
-    mutationFn: async (file: ZimFileWithMetadata) => api.deleteZimFile(file.name.replace('.zim', '')),
+    mutationFn: async (file: ZimFileWithMetadata) =>
+      api.deleteZimFile(file.name.replace('.zim', '')),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['zim-files'] })
+      queryClient.invalidateQueries({ queryKey: ['storedFiles'] })
+      queryClient.invalidateQueries({ queryKey: ['kbFileWarnings'] })
+      queryClient.invalidateQueries({ queryKey: ['embed-jobs'] })
     },
   })
 
@@ -134,9 +138,7 @@ export default function ZimPage() {
           <div className="flex items-center justify-between gap-4">
             <div className="flex flex-col">
               <h1 className="text-4xl font-semibold mb-2">Content Manager</h1>
-              <p className="text-text-muted">
-                Manage your stored content files.
-              </p>
+              <p className="text-text-muted">Manage your stored content files.</p>
             </div>
             <div className="flex items-center gap-2">
               <StyledButton
@@ -162,7 +164,9 @@ export default function ZimPage() {
           {showUploader && (
             <div className="mt-6">
               <p className="text-text-muted text-sm mb-3">
-                Upload a ZIM file from your browser. Files up to 20 GB are supported. For best results upload from the same machine or over a stable LAN connection. Larger files should be copied directly to the storage volume.
+                Upload a ZIM file from your browser. Files up to 20 GB are supported. For best
+                results upload from the same machine or over a stable LAN connection. Larger files
+                should be copied directly to the storage volume.
               </p>
               <ZimUploader
                 existingFilenames={data?.map((f) => f.name) ?? []}
@@ -186,7 +190,7 @@ export default function ZimPage() {
             <Alert
               title="The Kiwix application is not installed. Please install it to view downloaded ZIM files"
               type="warning"
-              variant='solid'
+              variant="solid"
               className="!mt-6"
             />
           )}
@@ -200,9 +204,7 @@ export default function ZimPage() {
                 accessor: 'title',
                 title: renderSortHeader('Title', 'name'),
                 render: (record) => (
-                  <span className="font-medium">
-                    {record.title || record.name}
-                  </span>
+                  <span className="font-medium">{record.title || record.name}</span>
                 ),
               },
               {
