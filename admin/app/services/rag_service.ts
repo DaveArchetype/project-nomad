@@ -466,7 +466,7 @@ export class RagService {
       const embeddings: number[][] = new Array(prefixedChunks.length)
       const batchSize = RagService.EMBEDDING_BATCH_SIZE
       const totalBatches = Math.ceil(prefixedChunks.length / batchSize)
-      const EMBED_CONCURRENCY = 4
+      const EMBED_CONCURRENCY = 2
 
       const batches: { idx: number; start: number; chunks: string[] }[] = []
       for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
