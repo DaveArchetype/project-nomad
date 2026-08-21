@@ -1,6 +1,6 @@
 import { BaseCommand, flags } from '@adonisjs/core/ace'
 import type { CommandOptions } from '@adonisjs/core/types/ace'
-import { Worker } from 'bullmq'
+import { Worker, Queue } from 'bullmq'
 import queueConfig from '#config/queue'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import { RunExtractPmtilesJob } from '#jobs/run_extract_pmtiles_job'
@@ -48,6 +48,8 @@ export default class QueueWork extends BaseCommand {
     const queuesToProcess = this.all ? Array.from(allQueues.values()) : [this.queue]
 
     this.logger.info(`Starting workers for queues: ${queuesToProcess.join(', ')}`)
+
+    await this.requeueStuckJobs(queuesToProcess)
 
     const workers: Worker[] = []
 
@@ -249,5 +251,33 @@ export default class QueueWork extends BaseCommand {
     }
 
     return concurrencyMap[queueName] || concurrencyMap.default
+  }
+
+  private async requeueStuckJobs(queuesToProcess: string[]): Promise<void> {
+    for (const queueName of queuesToProcess) {
+      try {
+        const queue = new Queue(queueName, { connection: queueConfig.connection })
+        const activeJobs = await queue.getActive()
+        if (activeJobs.length === 0) {
+          await queue.close()
+          continue
+        }
+        this.logger.info(
+          `[${queueName}] Found ${activeJobs.length} stuck active job(s), requeuing...`
+        )
+        for (const job of activeJobs) {
+          await job.remove()
+          await queue.add(job.name, job.data, {
+            jobId: job.id,
+          })
+          this.logger.info(`[${queueName}] Requeued job ${job.id} (${job.name})`)
+        }
+        await queue.close()
+      } catch (err) {
+        this.logger.error(
+          `[${queueName}] Failed to requeue stuck jobs: ${err instanceof Error ? err.message : String(err)}`
+        )
+      }
+    }
   }
 }
