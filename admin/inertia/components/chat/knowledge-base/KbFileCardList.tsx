@@ -43,7 +43,7 @@ export default function KbFileCardList({
                     setSort({ key: opt.key, direction: sort.direction === 'asc' ? 'desc' : 'asc' })
                   }
                 }}
-                className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
+                className={`flex-1 px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap ${
                   isActive
                     ? 'bg-desert-green text-white'
                     : 'bg-surface-primary text-text-secondary hover:bg-surface-tertiary'

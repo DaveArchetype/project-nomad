@@ -50,7 +50,7 @@ export interface UseKnowledgeBaseResult {
   updateCollectionMutation: ReturnType<
     typeof useMutation<unknown, Error, { source: string; collection: string }>
   >
-  deleteMutation: ReturnType<typeof useMutation<void, Error, string>>
+  deleteMutation: ReturnType<typeof useMutation<{ message: string } | undefined, Error, string>>
   embedMutation: ReturnType<typeof useMutation<unknown, Error, { source: string; force: boolean }>>
   cleanupFailedMutation: ReturnType<typeof useMutation<unknown, Error, void>>
   cancelAllMutation: ReturnType<typeof useMutation<unknown, Error, void>>

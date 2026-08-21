@@ -47,8 +47,8 @@ export default function StoredFilesSection({
     <section className="rounded-lg border border-border-subtle bg-surface-primary p-4 md:p-6 space-y-4 md:space-y-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
         <StyledSectionHeader title="Stored Knowledge Base Files" className="mb-0!" />
-        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full md:w-auto">
-          <label className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 text-sm text-text-secondary w-full md:w-auto">
+        <div className="flex flex-col md:flex-wrap md:items-center gap-2 w-full md:w-auto">
+          <label className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 text-sm text-text-secondary w-full md:w-auto shrink-0">
             <span className="shrink-0">Search in:</span>
             <select
               value={collectionFilter}
@@ -63,51 +63,53 @@ export default function StoredFilesSection({
               ))}
             </select>
           </label>
-          <StyledButton
-            variant="secondary"
-            size="md"
-            icon="IconSettings"
-            onClick={onManageCollectionsOpen}
-            className="w-full md:w-auto"
-          >
-            Manage Collections
-          </StyledButton>
-          <StyledButton
-            variant="danger"
-            size="md"
-            icon="IconAlertTriangle"
-            onClick={onResetRebuild}
-            disabled={isUploading || qdrantOffline || bulkBusy}
-            loading={resetMutationPending}
-            title="Drop the entire embeddings collection and re-embed everything from scratch. Permanently removes vectors for files no longer on disk. Destructive: requires typing RESET to confirm."
-            className="w-full md:w-auto"
-          >
-            Reset & Rebuild
-          </StyledButton>
-          <StyledButton
-            variant="secondary"
-            size="md"
-            icon="IconRefreshAlert"
-            onClick={onReembedAll}
-            disabled={isUploading || qdrantOffline || bulkBusy || storedFiles.length === 0}
-            loading={reembedMutationPending}
-            title="Re-embed every file on disk, replacing existing vectors file-by-file. Vectors for files no longer on disk are preserved. Use this if the chunker or embedding model has changed."
-            className="w-full md:w-auto"
-          >
-            Re-embed All
-          </StyledButton>
-          <StyledButton
-            variant="secondary"
-            size="md"
-            icon="IconRefresh"
-            onClick={onSyncStorage}
-            disabled={syncMutationPending || isUploading || qdrantOffline || bulkBusy}
-            loading={syncMutationPending || isUploading}
-            title="Scan storage for new files and queue any that haven't been embedded yet. Safe to run anytime; won't touch already-embedded content."
-            className="w-full md:w-auto"
-          >
-            Sync Storage
-          </StyledButton>
+          <div className="flex flex-col md:flex-wrap md:items-center gap-2 w-full md:w-auto">
+            <StyledButton
+              variant="secondary"
+              size="md"
+              icon="IconSettings"
+              onClick={onManageCollectionsOpen}
+              className="w-full md:w-auto md:!px-3"
+            >
+              Manage Collections
+            </StyledButton>
+            <StyledButton
+              variant="danger"
+              size="md"
+              icon="IconAlertTriangle"
+              onClick={onResetRebuild}
+              disabled={isUploading || qdrantOffline || bulkBusy}
+              loading={resetMutationPending}
+              title="Drop the entire embeddings collection and re-embed everything from scratch. Permanently removes vectors for files no longer on disk. Destructive: requires typing RESET to confirm."
+              className="w-full md:w-auto md:!px-3"
+            >
+              Reset & Rebuild
+            </StyledButton>
+            <StyledButton
+              variant="secondary"
+              size="md"
+              icon="IconRefreshAlert"
+              onClick={onReembedAll}
+              disabled={isUploading || qdrantOffline || bulkBusy || storedFiles.length === 0}
+              loading={reembedMutationPending}
+              title="Re-embed every file on disk, replacing existing vectors file-by-file. Vectors for files no longer on disk are preserved. Use this if the chunker or embedding model has changed."
+              className="w-full md:w-auto md:!px-3"
+            >
+              Re-embed All
+            </StyledButton>
+            <StyledButton
+              variant="secondary"
+              size="md"
+              icon="IconRefresh"
+              onClick={onSyncStorage}
+              disabled={syncMutationPending || isUploading || qdrantOffline || bulkBusy}
+              loading={syncMutationPending || isUploading}
+              title="Scan storage for new files and queue any that haven't been embedded yet. Safe to run anytime; won't touch already-embedded content."
+              className="w-full md:w-auto md:!px-3"
+            >
+              Sync Storage
+            </StyledButton>
+          </div>
         </div>
       </div>
       {warningsUnavailable && (

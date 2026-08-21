@@ -7,7 +7,7 @@ export interface KbFileActions {
   setConfirmDeleteSource: (s: string | null) => void
   setConfirmReembed: (r: { source: string; displayName: string } | null) => void
   setViewerSource: (s: string | null) => void
-  deleteMutation: UseMutationResult<void, Error, string>
+  deleteMutation: UseMutationResult<{ message: string } | undefined, Error, string>
   embedMutation: UseMutationResult<unknown, Error, { source: string; force: boolean }>
   updateCollectionMutation: UseMutationResult<
     unknown,
@@ -69,7 +69,7 @@ export interface StoredFilesSectionProps {
   setConfirmDeleteSource: (s: string | null) => void
   setConfirmReembed: (r: { source: string; displayName: string } | null) => void
   setViewerSource: (s: string | null) => void
-  deleteMutation: UseMutationResult<void, Error, string>
+  deleteMutation: UseMutationResult<{ message: string } | undefined, Error, string>
   embedMutation: UseMutationResult<unknown, Error, { source: string; force: boolean }>
   updateCollectionMutation: UseMutationResult<
     unknown,

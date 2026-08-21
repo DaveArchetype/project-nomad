@@ -32,28 +32,29 @@ export default function KbFileTable({
         {
           accessor: 'source',
           title: renderSortHeader('File Name', 'name', sort, setSort),
+          className: '!whitespace-normal !max-w-xs !overflow-visible',
           render(record) {
             const warnings = fileWarnings[record.source] ?? []
             const pill = renderStatePill(record)
             return (
-              <div className="flex flex-col gap-1.5">
-                <span className="text-text-primary">{record.displayName}</span>
+              <div className="flex flex-col gap-1.5 min-w-0">
+                <span className="text-text-primary break-words">{record.displayName}</span>
                 {(pill || warnings.length > 0) && (
                   <div className="flex flex-wrap items-center gap-1.5">
                     {pill}
                     {warnings.map((w, i) => (
                       <span
                         key={i}
-                        className="inline-flex items-center gap-1.5 self-start text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded px-2 py-0.5"
+                        className="inline-flex items-center gap-1 self-start text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded px-1.5 py-0.5 whitespace-normal"
                       >
-                        <span aria-hidden="true">⚠</span>
-                        {w.kind === 'zero_chunks' && (
-                          <span>No text content — AI can't reference this file.</span>
-                        )}
+                        <span aria-hidden="true" className="shrink-0">
+                          ⚠
+                        </span>
+                        {w.kind === 'zero_chunks' && <span>No text content</span>}
                         {w.kind === 'partial_stall' && (
                           <span>
-                            {w.chunksEmbedded.toLocaleString()} / ~
-                            {w.chunksExpected.toLocaleString()} chunks — may have stalled.
+                            {w.chunksEmbedded.toLocaleString()}/~{w.chunksExpected.toLocaleString()}{' '}
+                            chunks
                           </span>
                         )}
                       </span>
@@ -121,6 +122,7 @@ export default function KbFileTable({
         {
           accessor: 'source',
           title: '',
+          className: '!max-w-none !overflow-visible !whitespace-nowrap',
           render(record) {
             if (record.bucket === 'admin_docs') {
               return (
@@ -167,7 +169,7 @@ export default function KbFileTable({
             const canDownload = record.isUserUpload && record.size !== null
 
             return (
-              <div className="flex justify-end items-center gap-2">
+              <div className="flex flex-wrap justify-end items-center gap-2">
                 {isInflight ? (
                   <StyledButton variant="secondary" size="sm" disabled loading>
                     Indexing…

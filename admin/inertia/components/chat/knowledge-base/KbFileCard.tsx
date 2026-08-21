@@ -62,13 +62,10 @@ export default function KbFileCard({
                 className="inline-flex items-center gap-1.5 self-start text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded px-2 py-0.5"
               >
                 <span aria-hidden="true">⚠</span>
-                {w.kind === 'zero_chunks' && (
-                  <span>No text content — AI can't reference this file.</span>
-                )}
+                {w.kind === 'zero_chunks' && <span>No text content</span>}
                 {w.kind === 'partial_stall' && (
                   <span>
-                    {w.chunksEmbedded.toLocaleString()} / ~{w.chunksExpected.toLocaleString()}{' '}
-                    chunks — may have stalled.
+                    {w.chunksEmbedded.toLocaleString()}/~{w.chunksExpected.toLocaleString()} chunks
                   </span>
                 )}
               </span>
