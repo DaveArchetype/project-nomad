@@ -505,4 +505,48 @@ export class EmbedFileJob {
       error: data.error,
     }
   }
+
+  /** Force-resume a single embedding job by ID. Handles both failed/delayed
+   *  jobs (simple retry) and orphaned active jobs (moveToFailed then retry).
+   *  The job's `resumeOffset` and `chunksSoFar` are already persisted in
+   *  job.data via onFlush, so the retried job resumes from the last flush
+   *  point instead of restarting from zero. */
+  static async retryJob(
+    jobId: string
+  ): Promise<{ success: boolean; code?: string; message: string }> {
+    const queueService = QueueService.getInstance()
+    const queue = queueService.getQueue(EmbedFileJob.queue)
+    const job = await queue.getJob(jobId)
+
+    if (!job) {
+      return { success: false, code: 'not_found', message: 'Job not found.' }
+    }
+
+    const state = await job.getState()
+
+    try {
+      if (state === 'failed' || state === 'delayed') {
+        await job.retry()
+      } else if (state === 'active') {
+        await job.moveToFailed(new Error('Force-resumed by operator'), job.token ?? '0', true)
+        await job.retry()
+      } else {
+        return {
+          success: false,
+          code: 'not_stalled',
+          message: `Job is in '${state}' state and does not need resuming.`,
+        }
+      }
+    } catch (err) {
+      logger.error(`[EmbedFileJob] Failed to resume job ${jobId}:`, err)
+      return {
+        success: false,
+        code: 'resume_failed',
+        message: err instanceof Error ? err.message : 'Failed to resume job.',
+      }
+    }
+
+    logger.info(`[EmbedFileJob] Force-resumed job ${jobId} (was ${state})`)
+    return { success: true, message: 'Job resumed.' }
+  }
 }

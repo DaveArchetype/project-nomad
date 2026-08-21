@@ -557,6 +557,15 @@ class API {
     })()
   }
 
+  async resumeEmbedJob(jobId: string): Promise<{ message: string } | undefined> {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string }>(
+        `/rag/jobs/${encodeURIComponent(jobId)}/resume`
+      )
+      return response.data
+    })()
+  }
+
   async checkRAGHealth() {
     return catchInternal(async () => {
       const response = await this.client.get<{ online: boolean; message?: string }>('/rag/health')
@@ -816,18 +825,17 @@ class API {
 
   async listMapMarkers() {
     return catchInternal(async () => {
-      const response =
-        await this.client.get<
-          Array<{
-            id: number
-            name: string
-            longitude: number
-            latitude: number
-            color: string
-            notes: string | null
-            created_at: string
-          }>
-        >('/maps/markers')
+      const response = await this.client.get<
+        Array<{
+          id: number
+          name: string
+          longitude: number
+          latitude: number
+          color: string
+          notes: string | null
+          created_at: string
+        }>
+      >('/maps/markers')
       return response.data
     })()
   }

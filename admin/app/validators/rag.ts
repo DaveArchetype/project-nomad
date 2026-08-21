@@ -38,3 +38,9 @@ export const estimateBatchSchema = vine.compile(
       .maxLength(500),
   })
 )
+
+export const resumeJobSchema = vine.compile(
+  vine.object({
+    jobId: vine.string().minLength(1),
+  })
+)

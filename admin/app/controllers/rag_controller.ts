@@ -7,13 +7,20 @@ import app from '@adonisjs/core/services/app'
 import { randomBytes } from 'node:crypto'
 import { sanitizeFilename } from '../utils/fs.js'
 import { basename } from 'node:path'
-import { deleteFileSchema, embedFileSchema, estimateBatchSchema, fileSourceSchema, getJobStatusSchema } from '#validators/rag'
+import {
+  deleteFileSchema,
+  embedFileSchema,
+  estimateBatchSchema,
+  fileSourceSchema,
+  getJobStatusSchema,
+  resumeJobSchema,
+} from '#validators/rag'
 import logger from '@adonisjs/core/services/logger'
 import { sanitizeCollectionName } from '../../constants/kb_collections.js'
 
 @inject()
 export default class RagController {
-  constructor(private ragService: RagService) { }
+  constructor(private ragService: RagService) {}
 
   public async upload({ request, response }: HttpContext) {
     const uploadedFile = request.file('file')
@@ -171,6 +178,21 @@ export default class RagController {
       message: `Cancelled ${result.cancelled} job${result.cancelled !== 1 ? 's' : ''}${result.filesDeleted > 0 ? `, deleted ${result.filesDeleted} file${result.filesDeleted !== 1 ? 's' : ''}` : ''}.`,
       ...result,
     })
+  }
+
+  public async resumeJob({ request, response }: HttpContext) {
+    const { jobId } = await request.validateUsing(resumeJobSchema)
+    const result = await EmbedFileJob.retryJob(jobId)
+    if (!result.success) {
+      const status =
+        {
+          not_found: 404,
+          not_stalled: 409,
+          resume_failed: 500,
+        }[result.code ?? ''] ?? 500
+      return response.status(status).json({ error: result.message, code: result.code })
+    }
+    return response.status(200).json({ message: result.message })
   }
 
   public async policyPromptState({ response }: HttpContext) {
