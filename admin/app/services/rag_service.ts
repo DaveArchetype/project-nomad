@@ -458,8 +458,9 @@ export class RagService {
         totalChunks: number
       }> = []
 
-      for (const [t, text] of texts.entries()) {
-        const chunkResults = await chunker.chunk(text)
+      const chunkResultsAll = await Promise.all(texts.map((text) => chunker.chunk(text)))
+
+      for (const [t, chunkResults] of chunkResultsAll.entries()) {
         if (!chunkResults || chunkResults.length === 0) {
           continue
         }
