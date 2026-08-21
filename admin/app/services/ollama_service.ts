@@ -608,22 +608,66 @@ export class OllamaService {
   private async _embedWithTei(input: string[]): Promise<{ embeddings: number[][] } | null> {
     const teiUrl = await this._getTeiUrl()
     if (!teiUrl) return null
+
+    const cleanInput = input.map((s) => (s.length === 0 ? ' ' : s))
+
     try {
-      const response = await axios.post(`${teiUrl}/embed`, { inputs: input }, { timeout: 60_000 })
-      if (Array.isArray(response.data)) {
-        return { embeddings: response.data }
+      const response = await axios.post(
+        `${teiUrl}/v1/embeddings`,
+        { model: 'nomic-ai/nomic-embed-text-v1.5', input: cleanInput },
+        { timeout: 60_000 }
+      )
+      if (Array.isArray(response.data?.data)) {
+        const sorted = response.data.data.slice().sort((a: any, b: any) => a.index - b.index)
+        return { embeddings: sorted.map((d: any) => d.embedding) }
       }
       if (Array.isArray(response.data?.embeddings)) {
         return { embeddings: response.data.embeddings }
       }
+      if (Array.isArray(response.data)) {
+        return { embeddings: response.data }
+      }
       return null
-    } catch (err) {
+    } catch (err: any) {
+      const status = err?.response?.status
+      if (status === 429) {
+        await new Promise((r) => setTimeout(r, 2000))
+        try {
+          const retry = await axios.post(
+            `${teiUrl}/v1/embeddings`,
+            { model: 'nomic-ai/nomic-embed-text-v1.5', input: cleanInput },
+            { timeout: 60_000 }
+          )
+          if (Array.isArray(retry.data?.data)) {
+            const sorted = retry.data.data.slice().sort((a: any, b: any) => a.index - b.index)
+            return { embeddings: sorted.map((d: any) => d.embedding) }
+          }
+          if (Array.isArray(retry.data?.embeddings)) {
+            return { embeddings: retry.data.embeddings }
+          }
+          if (Array.isArray(retry.data)) {
+            return { embeddings: retry.data }
+          }
+          return null
+        } catch (retryErr: any) {
+          logger.warn(
+            '[OllamaService] TEI embed retry failed, falling back to Ollama: %s',
+            retryErr instanceof Error ? retryErr.message : String(retryErr)
+          )
+          this.teiUrl = null
+          this.teiLastCheckAt = Date.now()
+          return null
+        }
+      }
       logger.warn(
-        '[OllamaService] TEI embed failed, falling back to Ollama: %s',
+        '[OllamaService] TEI embed failed (status %s), falling back to Ollama: %s',
+        status ?? 'unknown',
         err instanceof Error ? err.message : String(err)
       )
-      this.teiUrl = null
-      this.teiLastCheckAt = Date.now()
+      if (status !== 422) {
+        this.teiUrl = null
+        this.teiLastCheckAt = Date.now()
+      }
       return null
     }
   }
