@@ -86,7 +86,18 @@ services:
     pull_policy: always
     container_name: nomad_worker
     restart: unless-stopped
-    entrypoint: ["node", "ace", "queue:work", "--all"]
+    # The Dockerfile's entrypoint.sh (which waits for Redis, runs migrations,
+    # etc.) is bypassed here. depends_on: admin: service_healthy covers a clean
+    # `up`, but NOT a `docker compose restart worker` — so inline a Redis wait
+    # to avoid BullMQ racing a freshly-restarted Redis container's stale IP.
+    entrypoint:
+      - "sh"
+      - "-c"
+      - >
+        until node -e "const s=require('net').connect(Number(process.env.REDIS_PORT||6379),process.env.REDIS_HOST||'redis');s.on('connect',()=>{s.end();process.exit(0)});s.on('error',()=>process.exit(1))" 2>/dev/null; do
+          sleep 1;
+        done &&
+        exec node ace queue:work --all
     volumes:
       - /opt/project-nomad/storage:/app/storage
       - /var/run/docker.sock:/var/run/docker.sock
