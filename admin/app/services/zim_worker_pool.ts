@@ -386,6 +386,6 @@ export class ZIMWorkerPool {
   static getDefaultWorkerCount(): number {
     const cores =
       typeof os.availableParallelism === 'function' ? os.availableParallelism() : os.cpus().length
-    return Math.min(Math.max(cores - 1, 1), 8)
+    return Math.min(Math.max(Math.floor(cores / 2), 1), 4)
   }
 }
