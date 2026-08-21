@@ -567,35 +567,95 @@ export class OllamaService {
     )
   }
 
+  private teiUrl: string | null = null
+  private teiCheckPromise: Promise<string | null> | null = null
+  private teiLastCheckAt = 0
+  private static readonly TEI_CHECK_INTERVAL_MS = 30_000
+
+  private async _getTeiUrl(): Promise<string | null> {
+    const now = Date.now()
+    if (this.teiUrl && now - this.teiLastCheckAt < OllamaService.TEI_CHECK_INTERVAL_MS) {
+      return this.teiUrl
+    }
+    if (this.teiCheckPromise) return this.teiCheckPromise
+
+    this.teiCheckPromise = (async () => {
+      try {
+        const teiHost = process.env.NODE_ENV === 'production' ? 'nomad_tei' : 'localhost'
+        const teiPort = process.env.TEI_PORT || '80'
+        const url = `http://${teiHost}:${teiPort}`
+        const resp = await axios.get(`${url}/health`, { timeout: 3000 })
+        if (resp.status === 200) {
+          this.teiUrl = url
+          this.teiLastCheckAt = Date.now()
+          return url
+        }
+      } catch {
+        // TEI not running or not reachable
+      }
+      this.teiUrl = null
+      this.teiLastCheckAt = Date.now()
+      return null
+    })()
+
+    try {
+      return await this.teiCheckPromise
+    } finally {
+      this.teiCheckPromise = null
+    }
+  }
+
+  private async _embedWithTei(input: string[]): Promise<{ embeddings: number[][] } | null> {
+    const teiUrl = await this._getTeiUrl()
+    if (!teiUrl) return null
+    try {
+      const response = await axios.post(`${teiUrl}/embed`, { inputs: input }, { timeout: 60_000 })
+      if (Array.isArray(response.data)) {
+        return { embeddings: response.data }
+      }
+      if (Array.isArray(response.data?.embeddings)) {
+        return { embeddings: response.data.embeddings }
+      }
+      return null
+    } catch (err) {
+      logger.warn(
+        '[OllamaService] TEI embed failed, falling back to Ollama: %s',
+        err instanceof Error ? err.message : String(err)
+      )
+      this.teiUrl = null
+      this.teiLastCheckAt = Date.now()
+      return null
+    }
+  }
+
   /**
    * Generate embeddings for the given input strings.
-   * Tries the Ollama native /api/embed endpoint first, falls back to /v1/embeddings.
+   * Tries TEI (Text Embeddings Inference) first if available — it's 10-50x faster
+   * than Ollama for batched embeddings on GPU. Falls back to Ollama native /api/embed,
+   * then /v1/embeddings.
    *
    * If the first attempt fails because a chunk exceeds the model's context window, retries once
    * with an aggressive 2048-safe truncation (EMBED_CONTEXT_SAFE_CHARS) so the chunk is embedded
    * (start-of-chunk) rather than silently dropped from Qdrant (#881).
    */
   public async embed(model: string, input: string[]): Promise<{ embeddings: number[][] }> {
+    const cap = (arr: string[], max: number) =>
+      arr.map((s) => (s.length > max ? s.slice(0, max) : s))
+
+    const safeInput = cap(input, OllamaService.EMBED_MAX_INPUT_CHARS)
+
+    const teiResult = await this._embedWithTei(safeInput)
+    if (teiResult) return teiResult
+
     await this._ensureDependencies()
     if (!this.baseUrl || !this.openai) {
       throw new Error('AI service is not initialized.')
     }
 
-    const cap = (arr: string[], max: number) =>
-      arr.map((s) => (s.length > max ? s.slice(0, max) : s))
-
-    // Generous pre-cap (#881): fine for the native path (num_ctx=8192) but can still exceed a
-    // 2048-context fallback on dense content. The context-length retry below is the hard backstop.
-    const safeInput = cap(input, OllamaService.EMBED_MAX_INPUT_CHARS)
-
     try {
       return await this._embedWithFallback(model, safeInput)
     } catch (err) {
       if (!OllamaService.isContextLengthError(err)) throw err
-      // One or more chunks exceeded the model's context even after the pre-cap — typically an
-      // older Ollama that ignores num_ctx for embeddings, or the OpenAI-compat fallback path.
-      // Retry once, truncated hard enough to fit a 2048-token context at any density, so the
-      // chunk is embedded (truncated) instead of dropped and the job doesn't storm.
       const hardCapped = cap(input, OllamaService.EMBED_CONTEXT_SAFE_CHARS)
       const reduced = hardCapped.reduce(
         (n, s, i) => (s.length < safeInput[i].length ? n + 1 : n),

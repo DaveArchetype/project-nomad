@@ -75,10 +75,10 @@ perform_update() {
     log "Recreating containers individually (excluding updater)..."
     
     # List of services to update (excluding updater)
-    SERVICES_TO_UPDATE="admin worker mysql redis dozzle"
+    SERVICES_TO_UPDATE="admin worker mysql redis dozzle tei"
     
     local current_progress=65
-    local progress_per_service=6  # (95 - 65) / 5 services ≈ 6% per service
+    local progress_per_service=5  # (95 - 65) / 6 services = 5% per service
     
     for service in $SERVICES_TO_UPDATE; do
         log "Updating service: $service"
