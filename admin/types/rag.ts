@@ -20,6 +20,7 @@ export type ProcessAndEmbedFileResponse = {
   hasMoreBatches?: boolean
   articlesProcessed?: number
   totalArticles?: number
+  cancelled?: boolean
 }
 export type ProcessZIMFileResponse = ProcessAndEmbedFileResponse
 

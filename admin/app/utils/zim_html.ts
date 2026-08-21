@@ -51,8 +51,8 @@ export function tableToText($: cheerio.CheerioAPI, table: any): string {
  * Skips non-content sections (References, See also, ...) at emit time and
  * renders tables as delimited text rather than concatenated cell soup. (#902)
  */
-export function extractStructuredContent(html: string): StructuredContent {
-  const $ = cheerio.load(html)
+export function extractStructuredContent(input: string | cheerio.CheerioAPI): StructuredContent {
+  const $ = typeof input === 'string' ? cheerio.load(input) : input
 
   const title = $('h1').first().text().trim() || $('title').text().trim()
 

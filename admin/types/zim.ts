@@ -73,13 +73,21 @@ export type RemoteZimFileEntry = {
   issued?: string
 }
 
-export type ExtractZIMContentOptions = {
+export type StreamZIMContentOptions = {
   strategy?: ExtractZIMChunkingStrategy
-  maxArticles?: number
-  onProgress?: (processedArticles: number, totalArticles: number) => void
-  // Batch processing options to avoid lock timeouts
-  startOffset?: number // Article index to start from for resuming
-  batchSize?: number // Max articles to process in this batch
+  startOffset?: number
+}
+
+export type StreamZIMArticleCallback = (
+  chunks: ZIMContentChunk[],
+  articlesSeen: number,
+  totalArticles: number
+) => Promise<boolean | void>
+
+export type StreamZIMContentResult = {
+  articlesProcessed: number
+  totalArticles: number
+  cancelled: boolean
 }
 
 export type ExtractZIMChunkingStrategy = 'structured' | 'simple'

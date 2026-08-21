@@ -99,9 +99,7 @@ export default class QueueWork extends BaseCommand {
             const zimService = new ZimService(dockerService)
             await zimService.onWikipediaDownloadComplete(job.data.url, false)
           } catch (e: any) {
-            this.logger.error(
-              `[${queueName}] Failed to update Wikipedia status: ${e.message}`
-            )
+            this.logger.error(`[${queueName}] Failed to update Wikipedia status: ${e.message}`)
           }
         }
 
@@ -115,9 +113,8 @@ export default class QueueWork extends BaseCommand {
         if (job?.name === RunDownloadJob.key && meta?.auto === true && isTerminal) {
           try {
             const { default: InstalledResource } = await import('#models/installed_resource')
-            const { recordResourceUpdateFailure } = await import(
-              '../../app/utils/content_auto_update_backoff.js'
-            )
+            const { recordResourceUpdateFailure } =
+              await import('../../app/utils/content_auto_update_backoff.js')
             const resource = await InstalledResource.query()
               .where('resource_id', meta.resource_id)
               .where('resource_type', job.data.filetype)
@@ -213,14 +210,17 @@ export default class QueueWork extends BaseCommand {
    * higher stalled tolerance keeps a transient lock-renewal miss from killing
    * the continuation chain ("job stalled more than allowable limit").
    */
-  private getStallOptionsForQueue(
-    queueName: string
-  ): { lockDuration: number; maxStalledCount?: number } {
-    if (
-      queueName === DownloadDrugDataJob.queue ||
-      queueName === IngestDrugDataJob.queue
-    ) {
+  private getStallOptionsForQueue(queueName: string): {
+    lockDuration: number
+    maxStalledCount?: number
+  } {
+    if (queueName === DownloadDrugDataJob.queue || queueName === IngestDrugDataJob.queue) {
       return { lockDuration: 1_800_000, maxStalledCount: 3 }
+    }
+    if (queueName === EmbedFileJob.queue) {
+      // Single-job ZIM ingestions run for days; the job re-anchors its lock at
+      // every flush, so a generous lockDuration keeps long CPU stretches safe.
+      return { lockDuration: 1_800_000 }
     }
     return { lockDuration: 300000 }
   }

@@ -4,7 +4,14 @@ import { inject } from '@adonisjs/core'
 import logger from '@adonisjs/core/services/logger'
 import { TokenChunker } from '@chonkiejs/core'
 import sharp from 'sharp'
-import { deleteFileIfExists, determineFileType, getFile, getFileStatsIfExists, listDirectoryContentsRecursive, ZIM_STORAGE_PATH } from '../utils/fs.js'
+import {
+  deleteFileIfExists,
+  determineFileType,
+  getFile,
+  getFileStatsIfExists,
+  listDirectoryContentsRecursive,
+  ZIM_STORAGE_PATH,
+} from '../utils/fs.js'
 import { PDFParse } from 'pdf-parse'
 import { createWorker } from 'tesseract.js'
 import { fromBuffer } from 'pdf2pic'
@@ -25,9 +32,18 @@ import { decideWarnings } from '../utils/kb_warning_decision.js'
 import type { FileWarning, FileWarningsResult, StoredFileInfo } from '../../types/rag.js'
 import type { KbIngestStateValue } from '../../types/kb_ingest_state.js'
 import { ZIMExtractionService } from './zim_extraction_service.js'
-import { ZIM_BATCH_SIZE } from '../../constants/zim_extraction.js'
+import {
+  ZIM_FLUSH_CHUNK_COUNT,
+  ZIM_FLUSH_ARTICLE_INTERVAL,
+  ZIM_QDRANT_UPSERT_BATCH,
+} from '../../constants/zim_extraction.js'
 import { EMBEDDING_MODEL_NAME } from '../../constants/ollama.js'
-import { ProcessAndEmbedFileResponse, ProcessZIMFileResponse, RAGResult, RerankedRAGResult } from '../../types/rag.js'
+import {
+  ProcessAndEmbedFileResponse,
+  ProcessZIMFileResponse,
+  RAGResult,
+  RerankedRAGResult,
+} from '../../types/rag.js'
 
 export type EmbedSingleFileFailureCode =
   | 'not_found'
@@ -61,24 +77,26 @@ export class RagService {
   public static TARGET_TOKENS_PER_CHUNK = 1500 // Target 1500 tokens per chunk for embedding
   public static PREFIX_TOKEN_BUDGET = 10 // Reserve ~10 tokens for prefixes
   public static CHAR_TO_TOKEN_RATIO = 2 // Conservative chars-per-token estimate; technical docs
-                                         // (numbers, symbols, abbreviations) tokenize denser
-                                         // than plain prose (~3), so 2 avoids context overflows
+  // (numbers, symbols, abbreviations) tokenize denser
+  // than plain prose (~3), so 2 avoids context overflows
   // Nomic Embed Text v1.5 uses task-specific prefixes for optimal performance
   public static SEARCH_DOCUMENT_PREFIX = 'search_document: '
   public static SEARCH_QUERY_PREFIX = 'search_query: '
-  public static EMBEDDING_BATCH_SIZE = 8 // Conservative batch size for low-end hardware
+  public static EMBEDDING_BATCH_SIZE = 32
 
   constructor(
     private dockerService: DockerService,
     private ollamaService: OllamaService
-  ) { }
+  ) {}
 
   private async _initializeQdrantClient() {
     if (!this.qdrantInitPromise) {
       this.qdrantInitPromise = (async () => {
         const qdrantUrl = await this.dockerService.getServiceURL(SERVICE_NAMES.QDRANT)
         if (!qdrantUrl) {
-          throw new Error('Qdrant vector database is offline. Restart the AI Assistant service in Settings to restore the Knowledge Base.')
+          throw new Error(
+            'Qdrant vector database is offline. Restart the AI Assistant service in Settings to restore the Knowledge Base.'
+          )
         }
         this.qdrant = new QdrantClient({ url: qdrantUrl })
       })().catch((err) => {
@@ -102,7 +120,8 @@ export class RagService {
       this.ensuredCollections.clear()
       return {
         online: false,
-        message: 'Qdrant vector database is offline. Restart the AI Assistant service in Settings to restore the Knowledge Base.',
+        message:
+          'Qdrant vector database is offline. Restart the AI Assistant service in Settings to restore the Knowledge Base.',
       }
     }
   }
@@ -166,15 +185,17 @@ export class RagService {
    * - Control characters (except newlines, tabs, and carriage returns)
    */
   private sanitizeText(text: string): string {
-    return text
-      // Null bytes
-      .replace(/\x00/g, '')
-      // Problematic control characters (keep \n, \r, \t)
-      .replace(/[\x01-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '')
-      // Invalid Unicode surrogates
-      .replace(/[\uD800-\uDFFF]/g, '')
-      // Trim extra whitespace
-      .trim()
+    return (
+      text
+        // Null bytes
+        .replace(/\x00/g, '')
+        // Problematic control characters (keep \n, \r, \t)
+        .replace(/[\x01-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '')
+        // Invalid Unicode surrogates
+        .replace(/[\uD800-\uDFFF]/g, '')
+        // Trim extra whitespace
+        .trim()
+    )
   }
 
   /**
@@ -228,33 +249,33 @@ export class RagService {
    * TODO: We could probably move this to a separate QueryPreprocessor class if it grows more complex, but for now it's manageable here.
    */
   private static QUERY_EXPANSION_DICTIONARY: Record<string, string> = {
-    'bob': 'bug out bag',
-    'bov': 'bug out vehicle',
-    'bol': 'bug out location',
-    'edc': 'every day carry',
-    'mre': 'meal ready to eat',
-    'shtf': 'shit hits the fan',
-    'teotwawki': 'the end of the world as we know it',
-    'opsec': 'operational security',
-    'ifak': 'individual first aid kit',
-    'ghb': 'get home bag',
-    'ghi': 'get home in',
-    'wrol': 'without rule of law',
-    'emp': 'electromagnetic pulse',
-    'ham': 'ham amateur radio',
-    'nbr': 'nuclear biological radiological',
-    'cbrn': 'chemical biological radiological nuclear',
-    'sar': 'search and rescue',
-    'comms': 'communications radio',
-    'fifo': 'first in first out',
-    'mylar': 'mylar bag food storage',
-    'paracord': 'paracord 550 cord',
-    'ferro': 'ferro rod fire starter',
-    'bivvy': 'bivvy bivy emergency shelter',
-    'bdu': 'battle dress uniform',
-    'gmrs': 'general mobile radio service',
-    'frs': 'family radio service',
-    'nbc': 'nuclear biological chemical',
+    bob: 'bug out bag',
+    bov: 'bug out vehicle',
+    bol: 'bug out location',
+    edc: 'every day carry',
+    mre: 'meal ready to eat',
+    shtf: 'shit hits the fan',
+    teotwawki: 'the end of the world as we know it',
+    opsec: 'operational security',
+    ifak: 'individual first aid kit',
+    ghb: 'get home bag',
+    ghi: 'get home in',
+    wrol: 'without rule of law',
+    emp: 'electromagnetic pulse',
+    ham: 'ham amateur radio',
+    nbr: 'nuclear biological radiological',
+    cbrn: 'chemical biological radiological nuclear',
+    sar: 'search and rescue',
+    comms: 'communications radio',
+    fifo: 'first in first out',
+    mylar: 'mylar bag food storage',
+    paracord: 'paracord 550 cord',
+    ferro: 'ferro rod fire starter',
+    bivvy: 'bivvy bivy emergency shelter',
+    bdu: 'battle dress uniform',
+    gmrs: 'general mobile radio service',
+    frs: 'family radio service',
+    nbc: 'nuclear biological chemical',
   }
 
   private preprocessQuery(query: string): string {
@@ -296,9 +317,62 @@ export class RagService {
     return [...new Set(keywords)]
   }
 
+  private tokenChunker: TokenChunker | null = null
+
+  private async getTokenChunker(): Promise<TokenChunker> {
+    if (!this.tokenChunker) {
+      // TokenChunker uses character-based tokenization (1 char = 1 token)
+      // We need to convert our embedding model's token counts to character counts
+      // since nomic-embed-text tokenizer uses ~3 chars per token
+      this.tokenChunker = await TokenChunker.create({
+        chunkSize: Math.floor(RagService.TARGET_TOKENS_PER_CHUNK * RagService.CHAR_TO_TOKEN_RATIO),
+        chunkOverlap: Math.floor(150 * RagService.CHAR_TO_TOKEN_RATIO),
+      })
+    }
+    return this.tokenChunker
+  }
+
+  private async ensureEmbeddingModel(): Promise<boolean> {
+    if (this.embeddingModelVerified) {
+      return true
+    }
+
+    const allModels = await this.ollamaService.getModels(true)
+    const embeddingModel =
+      allModels.find((model) => model.name === EMBEDDING_MODEL_NAME) ??
+      allModels.find((model) => model.name.toLowerCase().includes('nomic-embed-text'))
+
+    if (!embeddingModel) {
+      try {
+        const downloadResult = await this.ollamaService.downloadModel(EMBEDDING_MODEL_NAME)
+        if (!downloadResult.success) {
+          throw new Error(downloadResult.message || 'Unknown error during model download')
+        }
+      } catch (modelError) {
+        logger.error(
+          `[RAG] Embedding model ${EMBEDDING_MODEL_NAME} not found locally and failed to download:`,
+          modelError
+        )
+        this.embeddingModelVerified = false
+        return false
+      }
+    }
+    this.resolvedEmbeddingModel = embeddingModel?.name ?? EMBEDDING_MODEL_NAME
+    this.embeddingModelVerified = true
+    return true
+  }
+
   public async embedAndStoreText(
     text: string,
     metadata: Record<string, any> = {},
+    onProgress?: (percent: number) => Promise<void>
+  ): Promise<{ chunks: number } | null> {
+    return this.embedAndStoreChunks([text], [metadata], onProgress)
+  }
+
+  public async embedAndStoreChunks(
+    texts: string[],
+    metadatas: Record<string, any>[],
     onProgress?: (percent: number) => Promise<void>
   ): Promise<{ chunks: number } | null> {
     try {
@@ -307,74 +381,56 @@ export class RagService {
         RagService.EMBEDDING_DIMENSION
       )
 
-      if (!this.embeddingModelVerified) {
-        const allModels = await this.ollamaService.getModels(true)
-        const embeddingModel =
-          allModels.find((model) => model.name === EMBEDDING_MODEL_NAME) ??
-          allModels.find((model) => model.name.toLowerCase().includes('nomic-embed-text'))
-
-        if (!embeddingModel) {
-          try {
-            const downloadResult = await this.ollamaService.downloadModel(EMBEDDING_MODEL_NAME)
-            if (!downloadResult.success) {
-              throw new Error(downloadResult.message || 'Unknown error during model download')
-            }
-          } catch (modelError) {
-            logger.error(
-              `[RAG] Embedding model ${EMBEDDING_MODEL_NAME} not found locally and failed to download:`,
-              modelError
-            )
-            this.embeddingModelVerified = false
-            return null
-          }
-        }
-        this.resolvedEmbeddingModel = embeddingModel?.name ?? EMBEDDING_MODEL_NAME
-        this.embeddingModelVerified = true
+      if (!(await this.ensureEmbeddingModel())) {
+        return null
       }
 
-      // TokenChunker uses character-based tokenization (1 char = 1 token)
-      // We need to convert our embedding model's token counts to character counts
-      // since nomic-embed-text tokenizer uses ~3 chars per token
-      const targetCharsPerChunk = Math.floor(RagService.TARGET_TOKENS_PER_CHUNK * RagService.CHAR_TO_TOKEN_RATIO)
-      const overlapChars = Math.floor(150 * RagService.CHAR_TO_TOKEN_RATIO)
+      const chunker = await this.getTokenChunker()
 
-      const chunker = await TokenChunker.create({
-        chunkSize: targetCharsPerChunk,
-        chunkOverlap: overlapChars,
-      })
+      const prefixedChunks: string[] = []
+      const chunkOwners: Array<{
+        text: string
+        metadata: Record<string, any>
+        chunkIndex: number
+        totalChunks: number
+      }> = []
 
-      const chunkResults = await chunker.chunk(text)
+      for (const [t, text] of texts.entries()) {
+        const chunkResults = await chunker.chunk(text)
+        if (!chunkResults || chunkResults.length === 0) {
+          continue
+        }
 
-      if (!chunkResults || chunkResults.length === 0) {
+        for (let i = 0; i < chunkResults.length; i++) {
+          let chunkText = chunkResults[i].text
+
+          // Final safety check: ensure chunk + prefix fits
+          const prefixText = RagService.SEARCH_DOCUMENT_PREFIX
+          const estimatedTokens = this.estimateTokenCount(prefixText + chunkText)
+
+          if (estimatedTokens > RagService.MAX_SAFE_TOKENS) {
+            const prefixTokens = this.estimateTokenCount(prefixText)
+            const maxTokensForText = RagService.MAX_SAFE_TOKENS - prefixTokens
+            logger.warn(
+              `[RAG] Chunk ${i} of text ${t} estimated at ${estimatedTokens} tokens (${chunkText.length} chars), truncating to ${maxTokensForText} tokens`
+            )
+            chunkText = this.truncateToTokenLimit(chunkText, maxTokensForText)
+          }
+
+          prefixedChunks.push(RagService.SEARCH_DOCUMENT_PREFIX + chunkText)
+          chunkOwners.push({
+            text: chunkText,
+            metadata: metadatas[t] ?? {},
+            chunkIndex: i,
+            totalChunks: chunkResults.length,
+          })
+        }
+      }
+
+      if (prefixedChunks.length === 0) {
         throw new Error('No text chunks generated for embedding.')
       }
 
-      // Extract text from chunk results
-      const chunks = chunkResults.map((chunk) => chunk.text)
-
-      // Prepare all chunk texts with prefix and truncation
-      const prefixedChunks: string[] = []
-      for (let i = 0; i < chunks.length; i++) {
-        let chunkText = chunks[i]
-
-        // Final safety check: ensure chunk + prefix fits
-        const prefixText = RagService.SEARCH_DOCUMENT_PREFIX
-        const withPrefix = prefixText + chunkText
-        const estimatedTokens = this.estimateTokenCount(withPrefix)
-
-        if (estimatedTokens > RagService.MAX_SAFE_TOKENS) {
-          const prefixTokens = this.estimateTokenCount(prefixText)
-          const maxTokensForText = RagService.MAX_SAFE_TOKENS - prefixTokens
-          logger.warn(
-            `[RAG] Chunk ${i} estimated at ${estimatedTokens} tokens (${chunkText.length} chars), truncating to ${maxTokensForText} tokens`
-          )
-          chunkText = this.truncateToTokenLimit(chunkText, maxTokensForText)
-        }
-
-        prefixedChunks.push(RagService.SEARCH_DOCUMENT_PREFIX + chunkText)
-      }
-
-      // Batch embed chunks for performance
       const embeddings: number[][] = []
       const batchSize = RagService.EMBEDDING_BATCH_SIZE
       const totalBatches = Math.ceil(prefixedChunks.length / batchSize)
@@ -383,9 +439,14 @@ export class RagService {
         const batchStart = batchIdx * batchSize
         const batch = prefixedChunks.slice(batchStart, batchStart + batchSize)
 
-        logger.debug(`[RAG] Embedding batch ${batchIdx + 1}/${totalBatches} (${batch.length} chunks)`)
+        logger.debug(
+          `[RAG] Embedding batch ${batchIdx + 1}/${totalBatches} (${batch.length} chunks)`
+        )
 
-        const response = await this.ollamaService.embed(this.resolvedEmbeddingModel ?? EMBEDDING_MODEL_NAME, batch)
+        const response = await this.ollamaService.embed(
+          this.resolvedEmbeddingModel ?? EMBEDDING_MODEL_NAME,
+          batch
+        )
 
         embeddings.push(...response.embeddings)
 
@@ -396,9 +457,11 @@ export class RagService {
       }
 
       const timestamp = Date.now()
-      const points = chunks.map((chunkText, index) => {
+      const points = chunkOwners.map((owner, index) => {
+        const metadata = owner.metadata
+
         // Sanitize text to prevent JSON encoding errors
-        const sanitizedText = this.sanitizeText(chunkText)
+        const sanitizedText = this.sanitizeText(owner.text)
 
         // Extract keywords from content
         const contentKeywords = this.extractKeywords(sanitizedText)
@@ -411,18 +474,11 @@ export class RagService {
           structuralKeywords = this.extractKeywords(metadata.article_title as string)
         }
 
-        // Combine and dedup keywords
         const allKeywords = [...new Set([...structuralKeywords, ...contentKeywords])]
 
-        logger.debug(`[RAG] Extracted keywords for chunk ${index}: [${allKeywords.join(', ')}]`)
-        if (structuralKeywords.length > 0) {
-          logger.debug(`[RAG]   - Structural: [${structuralKeywords.join(', ')}], Content: [${contentKeywords.join(', ')}]`)
-        }
-
         // Sanitize source metadata as well
-        const sanitizedSource = typeof metadata.source === 'string'
-          ? this.sanitizeText(metadata.source)
-          : 'unknown'
+        const sanitizedSource =
+          typeof metadata.source === 'string' ? this.sanitizeText(metadata.source) : 'unknown'
 
         return {
           id: randomUUID(), // qdrant requires either uuid or unsigned int
@@ -430,22 +486,25 @@ export class RagService {
           payload: {
             ...metadata,
             text: sanitizedText,
-            chunk_index: index,
-            total_chunks: chunks.length,
+            chunk_index: owner.chunkIndex,
+            total_chunks: owner.totalChunks,
             keywords: allKeywords.join(' '), // store as space-separated string for text search
             char_count: sanitizedText.length,
             created_at: timestamp,
-            source: sanitizedSource
+            source: sanitizedSource,
           },
         }
       })
 
-      await this.qdrant!.upsert(RagService.CONTENT_COLLECTION_NAME, { points })
+      for (let i = 0; i < points.length; i += ZIM_QDRANT_UPSERT_BATCH) {
+        await this.qdrant!.upsert(RagService.CONTENT_COLLECTION_NAME, {
+          points: points.slice(i, i + ZIM_QDRANT_UPSERT_BATCH),
+        })
+      }
 
-      logger.debug(`[RAG] Successfully embedded and stored ${chunks.length} chunks`)
-      logger.debug(`[RAG] First chunk preview: "${chunks[0].substring(0, 100)}..."`)
+      logger.debug(`[RAG] Successfully embedded and stored ${points.length} chunks`)
 
-      return { chunks: chunks.length }
+      return { chunks: points.length }
     } catch (error) {
       console.error(error)
       logger.error('[RAG] Error embedding text:', error)
@@ -521,112 +580,146 @@ export class RagService {
   }
 
   /**
-   * Process a ZIM file: extract content with metadata and embed each chunk.
-   * Returns early with complete result since ZIM processing is self-contained.
-   * Supports batch processing to prevent lock timeouts on large ZIM files.
+   * Process a ZIM file in a single streaming pass: extract article chunks and
+   * flush them to Ollama/Qdrant in bulk once enough texts have accumulated.
    */
   private async processZIMFile(
     filepath: string,
     deleteAfterEmbedding: boolean,
-    batchOffset?: number,
-    onProgress?: (percent: number) => Promise<void>,
-    collection?: string
+    options: {
+      startOffset?: number
+      onProgress?: (percent: number) => Promise<void>
+      onFlush?: (articlesSeen: number, chunksEmbedded: number) => Promise<boolean | void>
+      collection?: string
+    } = {}
   ): Promise<ProcessZIMFileResponse> {
+    const { startOffset, onProgress, onFlush, collection } = options
     const zimExtractionService = new ZIMExtractionService()
 
-    // Process in batches to avoid lock timeout
-    const startOffset = batchOffset || 0
+    logger.info(`[RAG] Streaming ZIM content (resume offset=${startOffset || 0})`)
 
-    logger.info(
-      `[RAG] Extracting ZIM content (batch: offset=${startOffset}, size=${ZIM_BATCH_SIZE})`
-    )
-
-    const { chunks: zimChunks, totalArticles } = await zimExtractionService.extractZIMContent(
-      filepath,
-      { startOffset, batchSize: ZIM_BATCH_SIZE }
-    )
-
-    logger.info(
-      `[RAG] Extracted ${zimChunks.length} chunks from ZIM file with enhanced metadata (file totalArticles=${totalArticles})`
-    )
-
-    // Process each chunk individually with its metadata
     let totalChunks = 0
-    for (let i = 0; i < zimChunks.length; i++) {
-      const zimChunk = zimChunks[i]
-      const result = await this.embedAndStoreText(zimChunk.text, {
-        source: filepath,
-        content_type: 'zim_article',
-        // Without this the ZIM path writes points with no `collection` at all, so
-        // getKnowledgeCollections() (which facets on it) never sees them.
-        ...(collection ? { collection } : {}),
+    let totalArticles = 0
+    let lastFlushedAt = startOffset || 0
+    let pendingTexts: string[] = []
+    let pendingMetadatas: Record<string, any>[] = []
 
-        // Article-level context
-        article_title: zimChunk.articleTitle,
-        article_path: zimChunk.articlePath,
+    const flush = async (articlesSeen: number): Promise<boolean> => {
+      if (pendingTexts.length > 0) {
+        const result = await this.embedAndStoreChunks(pendingTexts, pendingMetadatas)
+        if (result) {
+          totalChunks += result.chunks
+        } else {
+          logger.warn(`[RAG] Flush at article ${articlesSeen} failed to embed; chunks skipped`)
+        }
+        pendingTexts = []
+        pendingMetadatas = []
+      }
+      lastFlushedAt = articlesSeen
 
-        // Section-level context
-        section_title: zimChunk.sectionTitle,
-        full_title: zimChunk.fullTitle,
-        hierarchy: zimChunk.hierarchy,
-        section_level: zimChunk.sectionLevel,
-
-        // Use the same document ID for all chunks from the same article for grouping in search results
-        document_id: zimChunk.documentId,
-
-        // Archive metadata
-        archive_title: zimChunk.archiveMetadata.title,
-        archive_creator: zimChunk.archiveMetadata.creator,
-        archive_publisher: zimChunk.archiveMetadata.publisher,
-        archive_date: zimChunk.archiveMetadata.date,
-        archive_language: zimChunk.archiveMetadata.language,
-        archive_description: zimChunk.archiveMetadata.description,
-
-        // Extraction metadata - not overly relevant for search, but could be useful for debugging and future features...
-        extraction_strategy: zimChunk.strategy,
-      })
-
-      if (result) {
-        totalChunks += result.chunks
+      if (onProgress && totalArticles > 0) {
+        await onProgress(Math.min(99, Math.round((articlesSeen / totalArticles) * 100)))
       }
 
-      if (onProgress) {
-        await onProgress(((i + 1) / zimChunks.length) * 100)
+      if (onFlush) {
+        const shouldContinue = await onFlush(articlesSeen, totalChunks)
+        if (shouldContinue === false) {
+          return false
+        }
+      }
+      return true
+    }
+
+    const streamResult = await zimExtractionService.streamZIMContent(
+      filepath,
+      { startOffset },
+      async (zimChunks, articlesSeen, total) => {
+        totalArticles = total
+
+        for (const zimChunk of zimChunks) {
+          pendingTexts.push(zimChunk.text)
+          pendingMetadatas.push({
+            source: filepath,
+            content_type: 'zim_article',
+            // Without this the ZIM path writes points with no `collection` at all, so
+            // getKnowledgeCollections() (which facets on it) never sees them.
+            ...(collection ? { collection } : {}),
+
+            // Article-level context
+            article_title: zimChunk.articleTitle,
+            article_path: zimChunk.articlePath,
+
+            // Section-level context
+            section_title: zimChunk.sectionTitle,
+            full_title: zimChunk.fullTitle,
+            hierarchy: zimChunk.hierarchy,
+            section_level: zimChunk.sectionLevel,
+
+            // Use the same document ID for all chunks from the same article for grouping in search results
+            document_id: zimChunk.documentId,
+
+            // Archive metadata
+            archive_title: zimChunk.archiveMetadata.title,
+            archive_creator: zimChunk.archiveMetadata.creator,
+            archive_publisher: zimChunk.archiveMetadata.publisher,
+            archive_date: zimChunk.archiveMetadata.date,
+            archive_language: zimChunk.archiveMetadata.language,
+            archive_description: zimChunk.archiveMetadata.description,
+
+            // Extraction metadata - not overly relevant for search, but could be useful for debugging and future features...
+            extraction_strategy: zimChunk.strategy,
+          })
+        }
+
+        if (
+          pendingTexts.length >= ZIM_FLUSH_CHUNK_COUNT ||
+          articlesSeen - lastFlushedAt >= ZIM_FLUSH_ARTICLE_INTERVAL
+        ) {
+          return await flush(articlesSeen)
+        }
+        return true
+      }
+    )
+
+    if (streamResult.cancelled) {
+      logger.info(
+        `[RAG] ZIM stream cancelled at article offset; ${totalChunks} chunks embedded so far`
+      )
+      return {
+        success: false,
+        cancelled: true,
+        message: 'ZIM processing cancelled.',
+        chunks: totalChunks,
+        totalArticles: streamResult.totalArticles,
       }
     }
 
-    // Count unique articles processed in this batch. hasMoreBatches gates on the article
-    // count — zimChunks.length counts section-level chunks (multiple per article under the
-    // 'structured' strategy), so comparing it to ZIM_BATCH_SIZE (an article limit) caps
-    // processing at the first batch for any real archive.
-    const articlesInBatch = new Set(zimChunks.map((c) => c.documentId)).size
-    const hasMoreBatches = articlesInBatch >= ZIM_BATCH_SIZE
+    const continued = await flush(streamResult.articlesProcessed + (startOffset || 0))
+    if (!continued) {
+      return {
+        success: false,
+        cancelled: true,
+        message: 'ZIM processing cancelled.',
+        chunks: totalChunks,
+        totalArticles: streamResult.totalArticles,
+      }
+    }
 
     logger.info(
-      `[RAG] Successfully embedded ${totalChunks} total chunks from ${articlesInBatch} articles (hasMore: ${hasMoreBatches})`
+      `[RAG] Successfully embedded ${totalChunks} total chunks from ${streamResult.articlesProcessed} articles`
     )
 
-    // Only delete the file when:
-    // 1. deleteAfterEmbedding is true (caller wants deletion)
-    // 2. No more batches remain (this is the final batch)
-    // This prevents race conditions where early batches complete after later ones
-    const shouldDelete = deleteAfterEmbedding && !hasMoreBatches
-    if (shouldDelete) {
-      logger.info(`[RAG] Final batch complete, deleting ZIM file: ${filepath}`)
+    if (deleteAfterEmbedding) {
+      logger.info(`[RAG] ZIM processing complete, deleting file: ${filepath}`)
       await deleteFileIfExists(filepath)
-    } else if (!hasMoreBatches) {
-      logger.info(`[RAG] Final batch complete, but file deletion was not requested`)
     }
 
     return {
       success: true,
-      message: hasMoreBatches
-        ? 'ZIM batch processed successfully. More batches remain.'
-        : 'ZIM file processed and embedded successfully with enhanced metadata.',
+      message: 'ZIM file processed and embedded successfully with enhanced metadata.',
       chunks: totalChunks,
-      hasMoreBatches,
-      articlesProcessed: articlesInBatch,
-      totalArticles,
+      articlesProcessed: streamResult.articlesProcessed,
+      totalArticles: streamResult.totalArticles,
     }
   }
 
@@ -699,9 +792,7 @@ export class RagService {
     })
 
     // If no spine found, fall back to all manifest items
-    const contentFiles = spineOrder.length > 0
-      ? spineOrder
-      : Array.from(manifestItems.values())
+    const contentFiles = spineOrder.length > 0 ? spineOrder : Array.from(manifestItems.values())
 
     // Extract text from each content file in order
     const textParts: string[] = []
@@ -720,7 +811,9 @@ export class RagService {
     }
 
     const fullText = textParts.join('\n\n')
-    logger.debug(`[RAG] EPUB extracted ${textParts.length} chapters, ${fullText.length} characters total`)
+    logger.debug(
+      `[RAG] EPUB extracted ${textParts.length} chapters, ${fullText.length} characters total`
+    )
     return fullText
   }
 
@@ -732,13 +825,20 @@ export class RagService {
     collection?: string
   ): Promise<{ success: boolean; message: string; chunks?: number }> {
     if (!extractedText || extractedText.trim().length === 0) {
-      return { success: false, message: 'Process completed succesfully, but no text was found to embed.' }
+      return {
+        success: false,
+        message: 'Process completed succesfully, but no text was found to embed.',
+      }
     }
 
-    const embedResult = await this.embedAndStoreText(extractedText, {
-      source: filepath,
-      ...(collection ? { collection } : {})
-    }, onProgress)
+    const embedResult = await this.embedAndStoreText(
+      extractedText,
+      {
+        source: filepath,
+        ...(collection ? { collection } : {}),
+      },
+      onProgress
+    )
 
     if (!embedResult) {
       return { success: false, message: 'Failed to embed and store the extracted text.' }
@@ -759,17 +859,21 @@ export class RagService {
   /**
    * Main pipeline to process and embed an uploaded file into the RAG knowledge base.
    * This includes text extraction, chunking, embedding, and storing in Qdrant.
-   * 
+   *
    * Orchestrates file type detection and delegates to specialized processors.
-   * For ZIM files, supports batch processing via batchOffset parameter.
+   * ZIM files stream in a single pass; options.startOffset resumes a prior run.
    */
   public async processAndEmbedFile(
     filepath: string,
     deleteAfterEmbedding: boolean = false,
-    batchOffset?: number,
-    onProgress?: (percent: number) => Promise<void>,
-    collection?: string
+    options: {
+      startOffset?: number
+      onProgress?: (percent: number) => Promise<void>
+      onFlush?: (articlesSeen: number, chunksEmbedded: number) => Promise<boolean | void>
+      collection?: string
+    } = {}
   ): Promise<ProcessAndEmbedFileResponse> {
+    const { onProgress, collection } = options
     try {
       const fileType = determineFileType(filepath)
       logger.debug(`[RAG] Processing file: ${filepath} (detected type: ${fileType})`)
@@ -787,7 +891,7 @@ export class RagService {
       // Process based on file type
       // ZIM files are handled specially since they have their own embedding workflow
       if (fileType === 'zim') {
-        return await this.processZIMFile(filepath, deleteAfterEmbedding, batchOffset, onProgress, collection)
+        return await this.processZIMFile(filepath, deleteAfterEmbedding, options)
       }
 
       // Extract text based on file type
@@ -815,12 +919,16 @@ export class RagService {
 
       // Extraction done — scale remaining embedding progress from 15% to 100%
       if (onProgress) await onProgress(15)
-      const scaledProgress = onProgress
-        ? (p: number) => onProgress(15 + p * 0.85)
-        : undefined
+      const scaledProgress = onProgress ? (p: number) => onProgress(15 + p * 0.85) : undefined
 
       // Embed extracted text and cleanup
-      return await this.embedTextAndCleanup(extractedText, filepath, deleteAfterEmbedding, scaledProgress, collection)
+      return await this.embedTextAndCleanup(
+        extractedText,
+        filepath,
+        deleteAfterEmbedding,
+        scaledProgress,
+        collection
+      )
     } catch (error) {
       logger.error('[RAG] Error processing and embedding file:', error)
       return { success: false, message: 'Error processing and embedding file.' }
@@ -867,9 +975,7 @@ export class RagService {
           allModels.find((model) => model.name.toLowerCase().includes('nomic-embed-text'))
 
         if (!embeddingModel) {
-          logger.warn(
-            `[RAG] ${EMBEDDING_MODEL_NAME} not found. Cannot perform similarity search.`
-          )
+          logger.warn(`[RAG] ${EMBEDDING_MODEL_NAME} not found. Cannot perform similarity search.`)
           this.embeddingModelVerified = false
           return []
         }
@@ -900,7 +1006,10 @@ export class RagService {
         return []
       }
 
-      const response = await this.ollamaService.embed(this.resolvedEmbeddingModel ?? EMBEDDING_MODEL_NAME, [prefixedQuery])
+      const response = await this.ollamaService.embed(
+        this.resolvedEmbeddingModel ?? EMBEDDING_MODEL_NAME,
+        [prefixedQuery]
+      )
 
       // Perform semantic search with a higher limit to enable reranking
       const searchLimit = limit * 3 // Get more results for reranking
@@ -913,7 +1022,9 @@ export class RagService {
         limit: searchLimit,
         score_threshold: scoreThreshold,
         with_payload: true,
-        ...(collection ? { filter: { must: [{ key: 'collection', match: { value: collection } }] } } : {}),
+        ...(collection
+          ? { filter: { must: [{ key: 'collection', match: { value: collection } }] } }
+          : {}),
       })
 
       logger.debug(`[RAG] Found ${searchResults.length} results above threshold ${scoreThreshold}`)
@@ -1091,9 +1202,7 @@ export class RagService {
    * Uses greedy selection: for each result, apply 0.85^n penalty where n is the
    * number of results already selected from the same source.
    */
-  private applySourceDiversity(
-    results: Array<RerankedRAGResult>
-  ) {
+  private applySourceDiversity(results: Array<RerankedRAGResult>) {
     const sourceCounts = new Map<string, number>()
     const DIVERSITY_PENALTY = 0.85
 
@@ -1123,7 +1232,10 @@ export class RagService {
    */
   public async hasDocuments(): Promise<boolean> {
     try {
-      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
+      await this._ensureCollection(
+        RagService.CONTENT_COLLECTION_NAME,
+        RagService.EMBEDDING_DIMENSION
+      )
       const collectionInfo = await this.qdrant!.getCollection(RagService.CONTENT_COLLECTION_NAME)
       return (collectionInfo.points_count ?? 0) > 0
     } catch {
@@ -1162,9 +1274,17 @@ export class RagService {
       // in particular) have no row to attach to. The state machine is the
       // authoritative "what's on disk?" view; Qdrant is "what made it into
       // the vector store?". Both are needed to render the KB UI honestly.
-      const stateByPath = new Map<string, { state: KbIngestStateValue; chunks_embedded: number; collection: string | null }>()
+      const stateByPath = new Map<
+        string,
+        { state: KbIngestStateValue; chunks_embedded: number; collection: string | null }
+      >()
       try {
-        const stateRows = await KbIngestState.query().select('file_path', 'state', 'chunks_embedded', 'collection')
+        const stateRows = await KbIngestState.query().select(
+          'file_path',
+          'state',
+          'chunks_embedded',
+          'collection'
+        )
         for (const row of stateRows) {
           sources.add(row.file_path)
           stateByPath.set(row.file_path, {
@@ -1237,7 +1357,10 @@ export class RagService {
     collection: string | null
   ): Promise<{ success: boolean; message: string }> {
     try {
-      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
+      await this._ensureCollection(
+        RagService.CONTENT_COLLECTION_NAME,
+        RagService.EMBEDDING_DIMENSION
+      )
 
       await this.qdrant!.setPayload(RagService.CONTENT_COLLECTION_NAME, {
         payload: { collection },
@@ -1252,7 +1375,10 @@ export class RagService {
       row.collection = collection
       await row.save()
 
-      return { success: true, message: collection ? `Moved to "${collection}".` : 'Moved to Uncategorized.' }
+      return {
+        success: true,
+        message: collection ? `Moved to "${collection}".` : 'Moved to Uncategorized.',
+      }
     } catch (error) {
       logger.error('[RAG] Error updating file collection:', error)
       return { success: false, message: 'Error updating file collection.' }
@@ -1272,7 +1398,10 @@ export class RagService {
       if (!oldName || !newName || oldName === newName) {
         return { success: false, message: 'Invalid collection names.' }
       }
-      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
+      await this._ensureCollection(
+        RagService.CONTENT_COLLECTION_NAME,
+        RagService.EMBEDDING_DIMENSION
+      )
 
       await this.qdrant!.setPayload(RagService.CONTENT_COLLECTION_NAME, {
         payload: { collection: newName },
@@ -1301,7 +1430,10 @@ export class RagService {
       if (!name) {
         return { success: false, message: 'Invalid collection name.' }
       }
-      await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
+      await this._ensureCollection(
+        RagService.CONTENT_COLLECTION_NAME,
+        RagService.EMBEDDING_DIMENSION
+      )
 
       await this.qdrant!.setPayload(RagService.CONTENT_COLLECTION_NAME, {
         payload: { collection: null },
@@ -1334,7 +1466,15 @@ export class RagService {
   }
 
   private static readonly VIEWABLE_TEXT_EXTENSIONS: ReadonlySet<string> = new Set([
-    'md', 'txt', 'csv', 'json', 'yaml', 'yml', 'toml', 'xml', 'html',
+    'md',
+    'txt',
+    'csv',
+    'json',
+    'yaml',
+    'yml',
+    'toml',
+    'xml',
+    'html',
   ])
 
   /**
@@ -1473,7 +1613,9 @@ export class RagService {
         // false "ingestion stalled" warnings. Suppress Warning B in that case. (#913)
         const expectedChunks =
           fileSizeBytes > 0
-            ? await KbRatioRegistry.estimateChunks(fileName, fileSizeBytes, { ignoreCatchAll: true })
+            ? await KbRatioRegistry.estimateChunks(fileName, fileSizeBytes, {
+                ignoreCatchAll: true,
+              })
             : null
 
         const warnings = decideWarnings({ fileSizeBytes, chunksInQdrant, expectedChunks })
@@ -1508,17 +1650,19 @@ export class RagService {
       logger.info(`[RAG] Deleted all points for source: ${source}`)
 
       /** Delete the physical file only if it lives inside the uploads directory.
-      * resolve() normalises path traversal sequences (e.g. "/../..") before the
-      * check to prevent path traversal vulns
-      * The trailing sep is to ensure a prefix like "kb_uploads_{something_incorrect}" can't slip through.
-      */
+       * resolve() normalises path traversal sequences (e.g. "/../..") before the
+       * check to prevent path traversal vulns
+       * The trailing sep is to ensure a prefix like "kb_uploads_{something_incorrect}" can't slip through.
+       */
       const uploadsAbsPath = join(process.cwd(), RagService.UPLOADS_STORAGE_PATH)
       const resolvedSource = resolve(source)
       if (resolvedSource.startsWith(uploadsAbsPath + sep)) {
         await deleteFileIfExists(resolvedSource)
         logger.info(`[RAG] Deleted uploaded file from disk: ${resolvedSource}`)
       } else {
-        logger.warn(`[RAG] File was removed from knowledge base but doesn't live in Nomad's uploads directory, so it can't be safely removed. Skipping deletion of physical file...`)
+        logger.warn(
+          `[RAG] File was removed from knowledge base but doesn't live in Nomad's uploads directory, so it can't be safely removed. Skipping deletion of physical file...`
+        )
       }
 
       // Drop the ingest state row last so the file disappears entirely. Without
@@ -1633,7 +1777,10 @@ export class RagService {
       const alreadyEmbeddedRaw = await KVStore.getValue('rag.docsEmbedded')
       if (alreadyEmbeddedRaw && !force) {
         logger.info('[RAG] Nomad docs have already been discovered and queued. Skipping.')
-        return { success: true, message: 'Nomad docs have already been discovered and queued. Skipping.' }
+        return {
+          success: true,
+          message: 'Nomad docs have already been discovered and queued. Skipping.',
+        }
       }
 
       const filesToEmbed: Array<{ path: string; source: string }> = []
@@ -1665,17 +1812,17 @@ export class RagService {
           })
           logger.info(`[RAG] Successfully dispatched job for ${fileInfo.source}`)
         } catch (fileError) {
-          logger.error(
-            `[RAG] Error dispatching job for file ${fileInfo.source}:`,
-            fileError
-          )
+          logger.error(`[RAG] Error dispatching job for file ${fileInfo.source}:`, fileError)
         }
       }
 
       // Update KV store to mark docs as discovered so we don't redo this unnecessarily
       await KVStore.setValue('rag.docsEmbedded', true)
 
-      return { success: true, message: `Nomad docs discovery completed. Dispatched ${filesToEmbed.length} embedding jobs.` }
+      return {
+        success: true,
+        message: `Nomad docs discovery completed. Dispatched ${filesToEmbed.length} embedding jobs.`,
+      }
     } catch (error) {
       logger.error('Error discovering Nomad docs:', error)
       return { success: false, message: 'Error discovering Nomad docs.' }
@@ -1794,7 +1941,8 @@ export class RagService {
       return {
         success: false,
         code: 'inflight',
-        message: 'A job for this file is already in progress. Wait for it to finish before re-queuing.',
+        message:
+          'A job for this file is already in progress. Wait for it to finish before re-queuing.',
       }
     }
 
@@ -1831,10 +1979,7 @@ export class RagService {
    * by reembedAll() where the file must remain so it can be re-ingested.
    */
   private async _deletePointsBySource(source: string): Promise<void> {
-    await this._ensureCollection(
-      RagService.CONTENT_COLLECTION_NAME,
-      RagService.EMBEDDING_DIMENSION
-    )
+    await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
     await this.qdrant!.delete(RagService.CONTENT_COLLECTION_NAME, {
       filter: { must: [{ key: 'source', match: { value: source } }] },
     })
@@ -1851,7 +1996,10 @@ export class RagService {
     const { QueueService } = await import('#services/queue_service')
     const queue = QueueService.getInstance().getQueue(EmbedFileJob.queue)
     const counts = await queue.getJobCounts('waiting', 'active', 'delayed', 'paused')
-    return (counts.waiting || 0) + (counts.active || 0) + (counts.delayed || 0) + (counts.paused || 0) > 0
+    return (
+      (counts.waiting || 0) + (counts.active || 0) + (counts.delayed || 0) + (counts.paused || 0) >
+      0
+    )
   }
 
   /**
@@ -2012,7 +2160,8 @@ export class RagService {
       if (await this._hasInflightEmbedJobs()) {
         return {
           success: false,
-          message: 'Embed jobs are already in progress. Wait for the queue to drain (or clean up failed jobs) before triggering a bulk re-embed.',
+          message:
+            'Embed jobs are already in progress. Wait for the queue to drain (or clean up failed jobs) before triggering a bulk re-embed.',
         }
       }
 
@@ -2045,7 +2194,10 @@ export class RagService {
         try {
           await this._deletePointsBySource(filePath)
         } catch (err) {
-          logger.error(`[RAG] Failed to delete prior points for ${filePath}; skipping dispatch:`, err)
+          logger.error(
+            `[RAG] Failed to delete prior points for ${filePath}; skipping dispatch:`,
+            err
+          )
           failedPaths.push(filePath)
           continue
         }
@@ -2060,7 +2212,10 @@ export class RagService {
         } catch (fileError) {
           // Old points already deleted but the new job never made it onto the
           // queue. Logged + surfaced so an operator can rerun a sync.
-          logger.error(`[RAG] Re-embed dispatch failed for ${filePath} after delete; file is now unindexed until next sync:`, fileError)
+          logger.error(
+            `[RAG] Re-embed dispatch failed for ${filePath} after delete; file is now unindexed until next sync:`,
+            fileError
+          )
           failedPaths.push(filePath)
         }
       }
@@ -2109,7 +2264,8 @@ export class RagService {
       if (await this._hasInflightEmbedJobs()) {
         return {
           success: false,
-          message: 'Embed jobs are already in progress. Wait for the queue to drain (or clean up failed jobs) before triggering a reset.',
+          message:
+            'Embed jobs are already in progress. Wait for the queue to drain (or clean up failed jobs) before triggering a reset.',
         }
       }
 
