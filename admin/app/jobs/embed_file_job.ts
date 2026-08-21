@@ -385,7 +385,7 @@ export class EmbedFileJob {
 
     return Promise.all(
       jobs.map(async (job) => {
-        const data = job.data as EmbedJobWithProgress & {
+        const data = job.data as EmbedFileJobParams & {
           status?: string
           lastBatchAt?: number
           startedAt?: number
