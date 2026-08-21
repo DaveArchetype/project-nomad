@@ -610,66 +610,59 @@ export class OllamaService {
     if (!teiUrl) return null
 
     const cleanInput = input.map((s) => (s.length === 0 ? ' ' : s))
+    const payload = { model: 'nomic-ai/nomic-embed-text-v1.5', input: cleanInput }
 
-    try {
-      const response = await axios.post(
-        `${teiUrl}/v1/embeddings`,
-        { model: 'nomic-ai/nomic-embed-text-v1.5', input: cleanInput },
-        { timeout: 60_000 }
-      )
-      if (Array.isArray(response.data?.data)) {
-        const sorted = response.data.data.slice().sort((a: any, b: any) => a.index - b.index)
+    const parseResponse = (data: any): { embeddings: number[][] } | null => {
+      if (Array.isArray(data?.data)) {
+        const sorted = data.data.slice().sort((a: any, b: any) => a.index - b.index)
         return { embeddings: sorted.map((d: any) => d.embedding) }
       }
-      if (Array.isArray(response.data?.embeddings)) {
-        return { embeddings: response.data.embeddings }
-      }
-      if (Array.isArray(response.data)) {
-        return { embeddings: response.data }
-      }
-      return null
-    } catch (err: any) {
-      const status = err?.response?.status
-      if (status === 429) {
-        await new Promise((r) => setTimeout(r, 5000))
-        try {
-          const retry = await axios.post(
-            `${teiUrl}/v1/embeddings`,
-            { model: 'nomic-ai/nomic-embed-text-v1.5', input: cleanInput },
-            { timeout: 60_000 }
-          )
-          if (Array.isArray(retry.data?.data)) {
-            const sorted = retry.data.data.slice().sort((a: any, b: any) => a.index - b.index)
-            return { embeddings: sorted.map((d: any) => d.embedding) }
-          }
-          if (Array.isArray(retry.data?.embeddings)) {
-            return { embeddings: retry.data.embeddings }
-          }
-          if (Array.isArray(retry.data)) {
-            return { embeddings: retry.data }
-          }
-          return null
-        } catch (retryErr: any) {
-          logger.warn(
-            '[OllamaService] TEI embed retry failed, falling back to Ollama: %s',
-            retryErr instanceof Error ? retryErr.message : String(retryErr)
-          )
-          this.teiUrl = null
-          this.teiLastCheckAt = Date.now()
-          return null
-        }
-      }
-      logger.warn(
-        '[OllamaService] TEI embed failed (status %s), falling back to Ollama: %s',
-        status ?? 'unknown',
-        err instanceof Error ? err.message : String(err)
-      )
-      if (status !== 422) {
-        this.teiUrl = null
-        this.teiLastCheckAt = Date.now()
-      }
+      if (Array.isArray(data?.embeddings)) return { embeddings: data.embeddings }
+      if (Array.isArray(data)) return { embeddings: data }
       return null
     }
+
+    const maxRetries = 5
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await axios.post(`${teiUrl}/v1/embeddings`, payload, {
+          timeout: 120_000,
+        })
+        return parseResponse(response.data)
+      } catch (err: any) {
+        const status = err?.response?.status
+        if (status === 429 && attempt < maxRetries) {
+          const waitMs = 3000 * (attempt + 1)
+          await new Promise((r) => setTimeout(r, waitMs))
+          continue
+        }
+        if (status === 422 && attempt < maxRetries) {
+          const truncated = cleanInput.map((s) => s.slice(0, 2000))
+          try {
+            const response = await axios.post(
+              `${teiUrl}/v1/embeddings`,
+              { model: 'nomic-ai/nomic-embed-text-v1.5', input: truncated },
+              { timeout: 120_000 }
+            )
+            return parseResponse(response.data)
+          } catch {
+            // fall through to error handling
+          }
+        }
+        if (status !== 422 && status !== 429) {
+          this.teiUrl = null
+          this.teiLastCheckAt = Date.now()
+        }
+        logger.warn(
+          '[OllamaService] TEI embed failed (status %s, attempt %d), falling back to Ollama: %s',
+          status ?? 'unknown',
+          attempt + 1,
+          err instanceof Error ? err.message : String(err)
+        )
+        return null
+      }
+    }
+    return null
   }
 
   /**
