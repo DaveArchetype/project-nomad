@@ -413,13 +413,11 @@ export class EmbedFileJob {
 
         const currentChunks = data.chunksSoFar ?? data.chunks ?? 0
         const startedAt = data.startedAt
-        const lastBatchAt = data.lastBatchAt
         const now = Date.now()
 
         let chunksPerMinute: number | null = null
         if (!isPaused && currentChunks > 0 && startedAt) {
-          const recentStart = lastBatchAt && now - lastBatchAt < 120_000 ? lastBatchAt : startedAt
-          const elapsedMs = now - recentStart
+          const elapsedMs = now - startedAt
           if (elapsedMs > 5000) {
             chunksPerMinute = Math.round((currentChunks / elapsedMs) * 60_000)
           }
