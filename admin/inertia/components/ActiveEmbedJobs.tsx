@@ -115,8 +115,8 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
             const chunksDone = typeof job.chunks === 'number' ? job.chunks : 0
             const hasChunkInfo = chunksDone > 0 || (job.chunksEstimated ?? 0) > 0
             const chunksPerMin = computeChunksPerMin(job.jobId)
-            const showResume = canResume(health)
             const isPaused = job.paused === true
+            const showResume = canResume(health) && !isPaused
             return (
               <div
                 key={job.jobId}
