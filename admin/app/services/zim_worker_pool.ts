@@ -63,29 +63,29 @@ function workerFn() {
     /^navigation$/i,
   ]
 
-  function isNonContentHeading(heading: string) {
+  function isNonContentHeading(heading) {
     return NON_CONTENT_HEADING_PATTERNS.some((p) => p.test(heading))
   }
 
-  function tableToText($: any, table: any) {
-    const rows: string[] = []
+  function tableToText($, table) {
+    const rows = []
     $(table)
       .find('tr')
-      .each((_: any, tr: any) => {
+      .each((_, tr) => {
         const cells = $(tr)
           .find('th, td')
-          .map((__: any, cell: any) => $(cell).text().replace(/\s+/g, ' ').trim())
+          .map((__, cell) => $(cell).text().replace(/\s+/g, ' ').trim())
           .get()
-          .filter((c: string) => c.length > 0)
+          .filter((c) => c.length > 0)
         if (cells.length > 0) rows.push(cells.join(' | '))
       })
     return rows.join('\n')
   }
 
-  function extractStructuredContent($: any) {
+  function extractStructuredContent($) {
     const title = $('h1').first().text().trim() || $('title').text().trim()
-    const sections: Array<{ heading: string; text: string; level: number }> = []
-    let currentSection = { heading: 'Introduction', content: [] as string[], level: 2, skip: false }
+    const sections = []
+    let currentSection = { heading: 'Introduction', content: [], level: 2, skip: false }
 
     const flushSection = () => {
       if (!currentSection.skip && currentSection.content.length > 0) {
@@ -99,7 +99,7 @@ function workerFn() {
 
     $('body')
       .find('h2, h3, h4, p, ul, ol, dl, table')
-      .each((_: any, element: any) => {
+      .each((_, element) => {
         const $el = $(element)
         const tagName = element.tagName ? element.tagName.toLowerCase() : ''
 
@@ -129,7 +129,7 @@ function workerFn() {
     return { title, sections }
   }
 
-  function hasStructuredHeadings($: any) {
+  function hasStructuredHeadings($) {
     const headings = $('h2, h3').toArray()
     if (headings.length < 2) return false
     let sectionsWithContent = 0
@@ -151,7 +151,7 @@ function workerFn() {
     return sectionsWithContent >= 2
   }
 
-  function extractTextFromHTML($: any) {
+  function extractTextFromHTML($) {
     try {
       const text = $('body').length ? $('body').text() : $.root().text()
       return text
@@ -163,20 +163,17 @@ function workerFn() {
     }
   }
 
-  let cheerioLoad: ((html: string) => any) | null = null
+  let cheerioLoad = null
   const cheerioPromise = import('cheerio')
-    .then((m: any) => {
+    .then((m) => {
       cheerioLoad = m.load || (m.default && m.default.load)
     })
-    .catch((err: any) => {
-      // If cheerio fails to load, every article will get an error response.
-      // This is fatal but better than hanging forever.
+    .catch((err) => {
       cheerioLoad = null
-      // Store error so message handler can report it
-      ;(cheerioPromise as any).__error = err
+      cheerioPromise.__error = err
     })
 
-  parentPort.on('message', (msg: any) => {
+  parentPort.on('message', (msg) => {
     cheerioPromise.then(() => {
       const { id, htmlBuffer, articlePath, articleTitle, documentId, strategy } = msg
       try {
@@ -190,11 +187,11 @@ function workerFn() {
         }
 
         const chosenStrategy = strategy || (hasStructuredHeadings($) ? 'structured' : 'simple')
-        let chunks: any[]
+        let chunks
 
         if (chosenStrategy === 'structured') {
           const structured = extractStructuredContent($)
-          chunks = structured.sections.map((s: any) => ({
+          chunks = structured.sections.map((s) => ({
             text: s.text,
             articleTitle,
             articlePath,
@@ -225,7 +222,7 @@ function workerFn() {
 
         const nonEmpty = chunks.filter((c) => c.text.trim().length > 0)
         parentPort.postMessage({ id, chunks: nonEmpty })
-      } catch (err: any) {
+      } catch (err) {
         parentPort.postMessage({ id, error: err.message, chunks: [] })
       }
     })
@@ -255,6 +252,7 @@ export interface PendingRequest {
  */
 export class ZIMWorkerPool {
   private workers: Worker[] = []
+  private workerAlive: boolean[] = []
   private nextWorker = 0
   private nextId = 0
   private pending = new Map<number, PendingRequest>()
@@ -266,6 +264,9 @@ export class ZIMWorkerPool {
         eval: true,
         workerData: { archiveMetadata },
       })
+
+      const workerIndex = i
+      this.workerAlive.push(true)
 
       worker.on('message', (msg: any) => {
         const entry = this.pending.get(msg.id)
@@ -280,13 +281,18 @@ export class ZIMWorkerPool {
       })
 
       worker.on('error', (err) => {
-        logger.error(`[ZIMWorkerPool] Worker ${i} error: ${err.message}`)
+        logger.error(`[ZIMWorkerPool] Worker ${workerIndex} error: ${err.message}`)
+        this.markWorkerDead(workerIndex, err)
       })
 
       worker.on('exit', (code) => {
         if (code !== 0 && !this.terminated) {
-          logger.warn(`[ZIMWorkerPool] Worker ${i} exited with code ${code}`)
+          logger.warn(`[ZIMWorkerPool] Worker ${workerIndex} exited with code ${code}`)
         }
+        this.markWorkerDead(
+          workerIndex,
+          new Error(`Worker ${workerIndex} exited with code ${code}`)
+        )
       })
 
       this.workers.push(worker)
@@ -295,6 +301,21 @@ export class ZIMWorkerPool {
 
   get size(): number {
     return this.workers.length
+  }
+
+  get healthyWorkerCount(): number {
+    return this.workerAlive.filter(Boolean).length
+  }
+
+  private markWorkerDead(workerIndex: number, err: Error): void {
+    if (!this.workerAlive[workerIndex]) return
+    this.workerAlive[workerIndex] = false
+
+    for (const [id, entry] of this.pending) {
+      clearTimeout(entry.timer)
+      this.pending.delete(id)
+      entry.reject(err)
+    }
   }
 
   processArticle(
@@ -309,9 +330,20 @@ export class ZIMWorkerPool {
       return Promise.reject(new Error('Worker pool has been terminated'))
     }
 
+    if (this.healthyWorkerCount === 0) {
+      return Promise.reject(
+        new Error('All worker threads have died — worker pool is no longer usable')
+      )
+    }
+
     const id = this.nextId++
-    const worker = this.workers[this.nextWorker]
-    this.nextWorker = (this.nextWorker + 1) % this.workers.length
+    const workerIndex = this.nextAliveWorker()
+    if (workerIndex === -1) {
+      return Promise.reject(
+        new Error('No alive worker threads available — worker pool is no longer usable')
+      )
+    }
+    const worker = this.workers[workerIndex]
 
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -324,6 +356,16 @@ export class ZIMWorkerPool {
       this.pending.set(id, { resolve, reject, timer })
       worker.postMessage({ id, htmlBuffer, articlePath, articleTitle, documentId, strategy })
     })
+  }
+
+  private nextAliveWorker(): number {
+    const total = this.workers.length
+    for (let attempt = 0; attempt < total; attempt++) {
+      const idx = this.nextWorker
+      this.nextWorker = (this.nextWorker + 1) % total
+      if (this.workerAlive[idx]) return idx
+    }
+    return -1
   }
 
   async terminate(): Promise<void> {

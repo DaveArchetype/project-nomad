@@ -694,8 +694,8 @@ export class RagService {
           }
         }
       })()
-      embedPromise.catch(() => {})
-      inFlight.push(embedPromise)
+      const handledPromise = embedPromise.catch(() => {})
+      inFlight.push(handledPromise)
 
       return !cancelled
     }
@@ -705,6 +705,10 @@ export class RagService {
       { startOffset, useWorkers: true },
       async (zimChunks, articlesSeen, total) => {
         totalArticles = total
+
+        if (onProgress && totalArticles > 0) {
+          await onProgress(Math.min(99, Math.round((articlesSeen / totalArticles) * 100)))
+        }
 
         for (const zimChunk of zimChunks) {
           pendingTexts.push(zimChunk.text)
