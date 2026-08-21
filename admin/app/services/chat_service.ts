@@ -8,6 +8,10 @@ import { OllamaService } from './ollama_service.js'
 import { SYSTEM_PROMPTS } from '../../constants/ollama.js'
 import { toTitleCase } from '../utils/misc.js'
 
+const SUGGESTIONS_CACHE_TTL_MS = 60 * 60 * 1000
+
+type SuggestionsCache = { suggestions: string[]; generatedAt: number }
+
 @inject()
 export class ChatService {
   constructor(private ollamaService: OllamaService) {}
@@ -32,21 +36,22 @@ export class ChatService {
 
   async getChatSuggestions() {
     try {
+      const cached = await this._readSuggestionsCache()
+      if (cached) {
+        return cached
+      }
+
       const models = await this.ollamaService.getModels()
       if (!models || models.length === 0) {
         return [] // If no models are available, return empty suggestions
       }
 
-      // Prefer the user's selected chat model. Fall back to the smallest
-      // installed model — picking the largest by file size is unsafe: if any
-      // installed model exceeds available VRAM (e.g. llama3.1:405b on a 96 GB
-      // GPU), Ollama spends minutes trying to load it and the request 500s.
-      // Suggestions are short prompts that don't benefit from a flagship model.
-      const lastModel = await KVStore.getValue('chat.lastModel')
-      const preferred = lastModel ? models.find((m) => m.name === lastModel) : undefined
-      const chosen =
-        preferred ??
-        models.reduce((prev, current) => (prev.size < current.size ? prev : current))
+      // Always use the smallest installed model for suggestions. They are trivial
+      // prompts that don't benefit from a flagship model, and loading a large
+      // model (e.g. llama3.1:405b) just to generate 3 questions wastes VRAM and
+      // time — if it exceeds available VRAM, Ollama spends minutes trying to load
+      // it and the request 500s.
+      const chosen = models.reduce((prev, current) => (prev.size < current.size ? prev : current))
 
       if (!chosen) {
         return []
@@ -58,21 +63,20 @@ export class ChatService {
           {
             role: 'user',
             content: SYSTEM_PROMPTS.chat_suggestions,
-          }
+          },
         ],
         stream: false,
       })
 
+      let suggestions: string[] = []
       if (response && response.message && response.message.content) {
         const content = response.message.content.trim()
-        
+
         // Handle both comma-separated and newline-separated formats
-        let suggestions: string[] = []
-        
         // Try splitting by commas first
         if (content.includes(',')) {
           suggestions = content.split(',').map((s) => s.trim())
-        } 
+        }
         // Fall back to newline separation
         else {
           suggestions = content
@@ -83,16 +87,19 @@ export class ChatService {
             // Remove surrounding quotes if present
             .map((s) => s.replace(/^["']|["']$/g, ''))
         }
-        
+
         // Filter out empty strings and limit to 3 suggestions
-        const filtered =  suggestions
+        suggestions = suggestions
           .filter((s) => s.length > 0)
           .slice(0, 3)
-
-        return filtered.map((s) => toTitleCase(s))
-      } else {
-        return []
+          .map((s) => toTitleCase(s))
       }
+
+      if (suggestions.length > 0) {
+        await this._writeSuggestionsCache(suggestions)
+      }
+
+      return suggestions
     } catch (error) {
       logger.error(
         `[ChatService] Failed to get chat suggestions: ${
@@ -100,6 +107,36 @@ export class ChatService {
         }`
       )
       return []
+    }
+  }
+
+  private async _readSuggestionsCache(): Promise<string[] | null> {
+    try {
+      const raw = await KVStore.getValue('chat.suggestionsCache')
+      if (!raw) return null
+      const parsed = JSON.parse(raw) as SuggestionsCache
+      if (!parsed || !Array.isArray(parsed.suggestions) || typeof parsed.generatedAt !== 'number') {
+        return null
+      }
+      if (Date.now() - parsed.generatedAt > SUGGESTIONS_CACHE_TTL_MS) {
+        return null
+      }
+      return parsed.suggestions
+    } catch {
+      return null
+    }
+  }
+
+  private async _writeSuggestionsCache(suggestions: string[]): Promise<void> {
+    try {
+      const payload: SuggestionsCache = { suggestions, generatedAt: Date.now() }
+      await KVStore.setValue('chat.suggestionsCache', JSON.stringify(payload))
+    } catch (err) {
+      logger.warn(
+        `[ChatService] Failed to persist suggestions cache: ${
+          err instanceof Error ? err.message : err
+        }`
+      )
     }
   }
 
@@ -239,7 +276,12 @@ export class ChatService {
     }
   }
 
-  async generateTitle(sessionId: number, userMessage: string, assistantMessage: string, model: string) {
+  async generateTitle(
+    sessionId: number,
+    userMessage: string,
+    assistantMessage: string,
+    model: string
+  ) {
     try {
       let title: string
 

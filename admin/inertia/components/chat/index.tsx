@@ -95,6 +95,7 @@ export default function Chat({
     enabled: suggestionsEnabled && !activeSessionId,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
+    staleTime: 30 * 60 * 1000,
   })
 
   const activeSession = sessions.sessions.find((s) => s.id === activeSessionId)
