@@ -13,7 +13,6 @@ import {
   estimateBatchSchema,
   fileSourceSchema,
   getJobStatusSchema,
-  resumeJobSchema,
 } from '#validators/rag'
 import logger from '@adonisjs/core/services/logger'
 import { sanitizeCollectionName } from '../../constants/kb_collections.js'
@@ -181,7 +180,7 @@ export default class RagController {
   }
 
   public async resumeJob({ request, response }: HttpContext) {
-    const { jobId } = await request.validateUsing(resumeJobSchema)
+    const jobId = request.param('jobId')
     const result = await EmbedFileJob.retryJob(jobId)
     if (!result.success) {
       const status =

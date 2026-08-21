@@ -64,7 +64,7 @@ export default function HorizontalBarChart({
         <div key={index} className="space-y-2">
           <div className="flex justify-between items-baseline gap-2">
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              <span className="font-semibold text-desert-green truncate">{item.label}</span>
+              <span className="font-semibold text-desert-green wrap-break-word">{item.label}</span>
               {item.type && (
                 <span className="shrink-0 text-xs px-2 py-0.5 rounded bg-desert-stone-lighter text-desert-stone-dark font-mono">
                   {item.type}
