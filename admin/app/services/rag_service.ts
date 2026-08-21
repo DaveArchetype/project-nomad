@@ -362,6 +362,38 @@ export class RagService {
     return true
   }
 
+  /**
+   * If a chat request recently set the `rag.embedPausedUntil` KV flag, block
+   * until it expires so background embedding batches don't compete with chat
+   * inference for GPU/Ollama time. Re-reads the flag each iteration so new
+   * chat requests extend the pause (sliding window). Failures are swallowed
+   * and logged — a pause-check error must never block embedding.
+   */
+  private async _waitForEmbedPause(): Promise<void> {
+    try {
+      let logged = false
+      while (true) {
+        const pausedUntilStr = await KVStore.getValue('rag.embedPausedUntil')
+        if (!pausedUntilStr) return
+        const pausedUntil = Number.parseInt(pausedUntilStr, 10)
+        if (Number.isNaN(pausedUntil)) return
+        const remaining = pausedUntil - Date.now()
+        if (remaining <= 0) return
+        if (!logged) {
+          logger.info(
+            `[RAG] Embedding paused for chat. Waiting ~${Math.round(remaining / 1000)}s before next batch...`
+          )
+          logged = true
+        }
+        await new Promise((r) => setTimeout(r, Math.min(remaining, 5000)))
+      }
+    } catch (err) {
+      logger.warn(
+        `[RAG] Failed to check embed pause: ${err instanceof Error ? err.message : String(err)}`
+      )
+    }
+  }
+
   public async embedAndStoreText(
     text: string,
     metadata: Record<string, any> = {},
@@ -438,6 +470,8 @@ export class RagService {
       for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
         const batchStart = batchIdx * batchSize
         const batch = prefixedChunks.slice(batchStart, batchStart + batchSize)
+
+        await this._waitForEmbedPause()
 
         logger.debug(
           `[RAG] Embedding batch ${batchIdx + 1}/${totalBatches} (${batch.length} chunks)`

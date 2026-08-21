@@ -13,6 +13,9 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { RAG_CONTEXT_LIMITS, SYSTEM_PROMPTS } from '../../constants/ollama.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import logger from '@adonisjs/core/services/logger'
+
+const EMBED_PAUSE_AFTER_CHAT_MS = 15 * 60 * 1000
+
 type Message = { role: 'system' | 'user' | 'assistant'; content: string }
 
 @inject()
@@ -23,7 +26,7 @@ export default class OllamaController {
     private ollamaService: OllamaService,
     private ragService: RagService,
     private nomadMdService: NomadMdService
-  ) { }
+  ) {}
 
   async availableModels({ request }: HttpContext) {
     const reqData = await request.validateUsing(getAvailableModelsSchema)
@@ -51,6 +54,12 @@ export default class OllamaController {
 
   async chat({ request, response }: HttpContext) {
     const reqData = await request.validateUsing(chatSchema)
+
+    // Pause background embedding for 5 minutes so the chat's query embedding
+    // and inference don't compete with the embed job for GPU/Ollama time.
+    // Each new chat request extends the window (sliding); the embed job's
+    // batch loop checks this flag between batches and sleeps until it expires.
+    await KVStore.setValue('rag.embedPausedUntil', String(Date.now() + EMBED_PAUSE_AFTER_CHAT_MS))
 
     // Flush SSE headers immediately so the client connection is open while
     // pre-processing (query rewriting, RAG lookup) runs in the background.
@@ -97,7 +106,9 @@ export default class OllamaController {
           collectionFilter ?? undefined
         )
 
-        logger.debug(`[RAG] Retrieved ${relevantDocs.length} relevant documents for query: "${rewrittenQuery}"`)
+        logger.debug(
+          `[RAG] Retrieved ${relevantDocs.length} relevant documents for query: "${rewrittenQuery}"`
+        )
 
         // If relevant context is found, inject as a system message with adaptive limits
         if (relevantDocs.length > 0) {
@@ -155,7 +166,9 @@ export default class OllamaController {
       if (estimatedSystemTokens > 3000) {
         const needed = estimatedSystemTokens + 2048 // leave room for conversation + response
         numCtx = [8192, 16384, 32768, 65536].find((n) => n >= needed) ?? 65536
-        logger.debug(`[OllamaController] Large system prompt (~${estimatedSystemTokens} tokens), requesting num_ctx: ${numCtx}`)
+        logger.debug(
+          `[OllamaController] Large system prompt (~${estimatedSystemTokens} tokens), requesting num_ctx: ${numCtx}`
+        )
       }
 
       // Check if the model supports "thinking" capability for enhanced response generation.
@@ -165,10 +178,13 @@ export default class OllamaController {
       const thinkingCapability = await this.ollamaService.checkModelHasThinking(reqData.model)
       let thinkingEnabled = false
       if (thinkingCapability) {
-        thinkingEnabled = reqData.think ?? ((await KVStore.getValue('ai.autoThinking')) ?? false)
+        thinkingEnabled = reqData.think ?? (await KVStore.getValue('ai.autoThinking')) ?? false
       }
-      const think: boolean | 'medium' =
-        thinkingEnabled ? (reqData.model.startsWith('gpt-oss') ? 'medium' : true) : false
+      const think: boolean | 'medium' = thinkingEnabled
+        ? reqData.model.startsWith('gpt-oss')
+          ? 'medium'
+          : true
+        : false
 
       // Separate sessionId and the resolved thinking preference from the Ollama request payload —
       // Ollama rejects unknown fields, and `think` is re-derived above (not forwarded raw).
@@ -185,7 +201,9 @@ export default class OllamaController {
       }
 
       if (reqData.stream) {
-        logger.debug(`[OllamaController] Initiating streaming response for model: "${reqData.model}" with think: ${think}`)
+        logger.debug(
+          `[OllamaController] Initiating streaming response for model: "${reqData.model}" with think: ${think}`
+        )
         // Headers already flushed above.
         // Abort the upstream generation if the client disconnects — otherwise an abandoned
         // request keeps decoding server-side and, with Ollama's default OLLAMA_NUM_PARALLEL=1,
@@ -209,7 +227,9 @@ export default class OllamaController {
           }
         } catch (err) {
           if (abortController.signal.aborted) {
-            logger.debug('[OllamaController] Client disconnected; aborted upstream Ollama generation')
+            logger.debug(
+              '[OllamaController] Client disconnected; aborted upstream Ollama generation'
+            )
             return
           }
           throw err
@@ -221,24 +241,37 @@ export default class OllamaController {
           await this.chatService.addMessage(sessionId, 'assistant', fullContent)
           const messageCount = await this.chatService.getMessageCount(sessionId)
           if (messageCount <= 2 && userContent) {
-            this.chatService.generateTitle(sessionId, userContent, fullContent, reqData.model).catch((err) => {
-              logger.error(`[OllamaController] Title generation failed: ${err instanceof Error ? err.message : err}`)
-            })
+            this.chatService
+              .generateTitle(sessionId, userContent, fullContent, reqData.model)
+              .catch((err) => {
+                logger.error(
+                  `[OllamaController] Title generation failed: ${err instanceof Error ? err.message : err}`
+                )
+              })
           }
         }
         return
       }
 
       // Non-streaming (legacy) path
-      const result = await this.ollamaService.chat({ ...ollamaRequest, think, thinkingCapable: thinkingCapability, numCtx })
+      const result = await this.ollamaService.chat({
+        ...ollamaRequest,
+        think,
+        thinkingCapable: thinkingCapability,
+        numCtx,
+      })
 
       if (sessionId && result?.message?.content) {
         await this.chatService.addMessage(sessionId, 'assistant', result.message.content)
         const messageCount = await this.chatService.getMessageCount(sessionId)
         if (messageCount <= 2 && userContent) {
-          this.chatService.generateTitle(sessionId, userContent, result.message.content, reqData.model).catch((err) => {
-            logger.error(`[OllamaController] Title generation failed: ${err instanceof Error ? err.message : err}`)
-          })
+          this.chatService
+            .generateTitle(sessionId, userContent, result.message.content, reqData.model)
+            .catch((err) => {
+              logger.error(
+                `[OllamaController] Title generation failed: ${err instanceof Error ? err.message : err}`
+              )
+            })
         }
       }
 
@@ -273,7 +306,9 @@ export default class OllamaController {
 
     const ollamaService = await Service.query().where('service_name', SERVICE_NAMES.OLLAMA).first()
     if (!ollamaService) {
-      return response.status(404).send({ success: false, message: 'Ollama service record not found.' })
+      return response
+        .status(404)
+        .send({ success: false, message: 'Ollama service record not found.' })
     }
 
     // Clear path: null or empty URL removes remote config. If a local nomad_ollama container
@@ -350,9 +385,7 @@ export default class OllamaController {
   private async _stopLocalOllamaContainer(): Promise<void> {
     try {
       const containers = await this.dockerService.docker.listContainers({ all: true })
-      const ollamaContainer = containers.find((c) =>
-        c.Names.includes(`/${SERVICE_NAMES.OLLAMA}`)
-      )
+      const ollamaContainer = containers.find((c) => c.Names.includes(`/${SERVICE_NAMES.OLLAMA}`))
       if (!ollamaContainer || ollamaContainer.State !== 'running') {
         return
       }
@@ -370,9 +403,7 @@ export default class OllamaController {
   private async _startLocalOllamaContainerIfExists(): Promise<boolean> {
     try {
       const containers = await this.dockerService.docker.listContainers({ all: true })
-      const ollamaContainer = containers.find((c) =>
-        c.Names.includes(`/${SERVICE_NAMES.OLLAMA}`)
-      )
+      const ollamaContainer = containers.find((c) => c.Names.includes(`/${SERVICE_NAMES.OLLAMA}`))
       if (!ollamaContainer) {
         return false
       }
@@ -409,7 +440,7 @@ export default class OllamaController {
     }
   }
 
-  async installedModels({ }: HttpContext) {
+  async installedModels({}: HttpContext) {
     const models = await this.ollamaService.getModels()
     // Enrich each model with its thinking capability so the chat picker knows which models
     // to show the per-model thinking toggle for. checkModelHasThinking memoizes /api/show
@@ -443,7 +474,7 @@ export default class OllamaController {
     messages: Message[],
     model: string
   ): Promise<string | null> {
-    const lastUserMessage = [...messages].reverse().find(msg => msg.role === 'user')
+    const lastUserMessage = [...messages].reverse().find((msg) => msg.role === 'user')
 
     try {
       // Skip the entire RAG pipeline if there are no documents to search
@@ -462,18 +493,19 @@ export default class OllamaController {
       // entities and topics from earlier turns ("the bars" → "Hershey's bars
       // chocolate poisoning dog"); without it, embeddings match nothing and
       // the assistant loses the thread.
-      const userMessages = recentMessages.filter(msg => msg.role === 'user')
+      const userMessages = recentMessages.filter((msg) => msg.role === 'user')
       if (userMessages.length < 2) {
         return lastUserMessage?.content || null
       }
 
       const conversationContext = recentMessages
-        .map(msg => {
+        .map((msg) => {
           const role = msg.role === 'user' ? 'User' : 'Assistant'
           // Truncate assistant messages to first 200 chars to keep context manageable
-          const content = msg.role === 'assistant'
-            ? msg.content.slice(0, 200) + (msg.content.length > 200 ? '...' : '')
-            : msg.content
+          const content =
+            msg.role === 'assistant'
+              ? msg.content.slice(0, 200) + (msg.content.length > 200 ? '...' : '')
+              : msg.content
           return `${role}: "${content}"`
         })
         .join('\n')
@@ -504,4 +536,3 @@ export default class OllamaController {
     }
   }
 }
-

@@ -4,6 +4,7 @@ export const KV_STORE_SCHEMA = {
   'chat.suggestionsCache': 'string',
   'rag.docsEmbedded': 'boolean',
   'rag.defaultIngestPolicy': 'string',
+  'rag.embedPausedUntil': 'string',
   'system.updateAvailable': 'boolean',
   'system.latestVersion': 'string',
   'system.earlyAccess': 'boolean',
