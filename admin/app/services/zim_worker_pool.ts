@@ -63,29 +63,34 @@ function workerFn() {
     /^navigation$/i,
   ]
 
-  function isNonContentHeading(heading) {
+  function isNonContentHeading(heading: string) {
     return NON_CONTENT_HEADING_PATTERNS.some((p) => p.test(heading))
   }
 
-  function tableToText($, table) {
-    const rows = []
+  function tableToText($: any, table: any) {
+    const rows: string[] = []
     $(table)
       .find('tr')
-      .each((_, tr) => {
+      .each((_: any, tr: any) => {
         const cells = $(tr)
           .find('th, td')
-          .map((__, cell) => $(cell).text().replace(/\s+/g, ' ').trim())
+          .map((__: any, cell: any) => $(cell).text().replace(/\s+/g, ' ').trim())
           .get()
-          .filter((c) => c.length > 0)
+          .filter((c: string) => c.length > 0)
         if (cells.length > 0) rows.push(cells.join(' | '))
       })
     return rows.join('\n')
   }
 
-  function extractStructuredContent($) {
+  function extractStructuredContent($: any) {
     const title = $('h1').first().text().trim() || $('title').text().trim()
-    const sections = []
-    let currentSection = { heading: 'Introduction', content: [], level: 2, skip: false }
+    const sections: any[] = []
+    let currentSection: { heading: string; content: string[]; level: number; skip: boolean } = {
+      heading: 'Introduction',
+      content: [],
+      level: 2,
+      skip: false,
+    }
 
     const flushSection = () => {
       if (!currentSection.skip && currentSection.content.length > 0) {
@@ -99,7 +104,7 @@ function workerFn() {
 
     $('body')
       .find('h2, h3, h4, p, ul, ol, dl, table')
-      .each((_, element) => {
+      .each((_: any, element: any) => {
         const $el = $(element)
         const tagName = element.tagName ? element.tagName.toLowerCase() : ''
 
@@ -129,7 +134,7 @@ function workerFn() {
     return { title, sections }
   }
 
-  function hasStructuredHeadings($) {
+  function hasStructuredHeadings($: any) {
     const headings = $('h2, h3').toArray()
     if (headings.length < 2) return false
     let sectionsWithContent = 0
@@ -151,7 +156,7 @@ function workerFn() {
     return sectionsWithContent >= 2
   }
 
-  function extractTextFromHTML($) {
+  function extractTextFromHTML($: any) {
     try {
       const text = $('body').length ? $('body').text() : $.root().text()
       return text
@@ -163,17 +168,17 @@ function workerFn() {
     }
   }
 
-  let cheerioLoad = null
-  const cheerioPromise = import('cheerio')
-    .then((m) => {
+  let cheerioLoad: any = null
+  const cheerioPromise: any = import('cheerio')
+    .then((m: any) => {
       cheerioLoad = m.load || (m.default && m.default.load)
     })
-    .catch((err) => {
+    .catch((err: any) => {
       cheerioLoad = null
       cheerioPromise.__error = err
     })
 
-  parentPort.on('message', (msg) => {
+  parentPort.on('message', (msg: any) => {
     cheerioPromise.then(() => {
       const { id, htmlBuffer, articlePath, articleTitle, documentId, strategy } = msg
       try {
