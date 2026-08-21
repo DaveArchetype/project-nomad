@@ -20,6 +20,8 @@ export type EmbedJobWithProgress = {
   chunks?: number
   /** Registry-based estimate of the file's total chunk count, for progress display. */
   chunksEstimated?: number | null
+  /** Chunks embedded per minute, computed server-side from the last batch window. */
+  chunksPerMinute?: number | null
 }
 
 export type ProcessAndEmbedFileResponse = {

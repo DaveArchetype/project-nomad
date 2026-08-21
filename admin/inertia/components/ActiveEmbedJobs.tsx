@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import useEmbedJobs from '~/hooks/useEmbedJobs'
 import HorizontalBarChart from './HorizontalBarChart'
@@ -13,11 +13,6 @@ interface ActiveEmbedJobsProps {
   withHeader?: boolean
 }
 
-interface ChunkRateSnapshot {
-  chunks: number
-  timestamp: number
-}
-
 const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
   const { data: jobs } = useEmbedJobs()
   const queryClient = useQueryClient()
@@ -28,38 +23,6 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
     const id = setInterval(() => setTick(Date.now()), 5000)
     return () => clearInterval(id)
   }, [])
-
-  const rateRef = useRef<Map<string, ChunkRateSnapshot[]>>(new Map())
-  useEffect(() => {
-    if (!jobs || jobs.length === 0) {
-      rateRef.current.clear()
-      return
-    }
-    const now = Date.now()
-    const next = new Map<string, ChunkRateSnapshot[]>()
-    for (const job of jobs) {
-      const chunks = typeof job.chunks === 'number' ? job.chunks : 0
-      const prev = rateRef.current.get(job.jobId) ?? []
-      const recent = prev.filter((s) => now - s.timestamp < 60_000)
-      const last = recent[recent.length - 1]
-      if (!last || last.chunks !== chunks) {
-        recent.push({ chunks, timestamp: now })
-      }
-      next.set(job.jobId, recent)
-    }
-    rateRef.current = next
-  }, [jobs])
-
-  const computeChunksPerMin = (jobId: string): number | null => {
-    const snapshots = rateRef.current.get(jobId)
-    if (!snapshots || snapshots.length < 2) return null
-    const first = snapshots[0]
-    const last = snapshots[snapshots.length - 1]
-    const deltaChunks = last.chunks - first.chunks
-    const deltaMs = last.timestamp - first.timestamp
-    if (deltaMs <= 0) return null
-    return Math.round((deltaChunks / deltaMs) * 60_000)
-  }
 
   const resumeMutation = useMutation({
     mutationFn: (jobId: string) => api.resumeEmbedJob(jobId),
@@ -128,7 +91,7 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
             const lastActivityMs = job.lastBatchAt ?? job.startedAt
             const chunksDone = typeof job.chunks === 'number' ? job.chunks : 0
             const hasChunkInfo = chunksDone > 0 || (job.chunksEstimated ?? 0) > 0
-            const chunksPerMin = computeChunksPerMin(job.jobId)
+            const chunksPerMin = job.chunksPerMinute ?? null
             const isPaused = job.paused === true
             const chatPaused = job.chatPausedUntil != null && job.chatPausedUntil > tick
             const showResume = canResume(health) && !isPaused
