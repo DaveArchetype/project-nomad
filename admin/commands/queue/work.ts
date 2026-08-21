@@ -269,12 +269,12 @@ export default class QueueWork extends BaseCommand {
           try {
             await job.remove()
           } catch {
-            const redis = queue.client
+            const redis = await queue.client
             await redis.del(`bull:${queueName}:${job.id}:lock`)
             try {
               await job.remove()
             } catch {
-              this.logger.warn(
+              this.logger.info(
                 `[${queueName}] Could not remove stuck job ${job.id}, leaving for BullMQ stall recovery`
               )
               continue
