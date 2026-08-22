@@ -270,9 +270,9 @@ export default class QueueWork extends BaseCommand {
           const jobName = job.name
           const jobData = { ...job.data }
           try {
-            await queue.add(jobName, jobData, { jobId })
+            await queue.add(jobName, jobData, { jobId: `r${jobId}` })
             await job.remove()
-            this.logger.info(`[${queueName}] Requeued stuck job ${jobId} (${jobName})`)
+            this.logger.info(`[${queueName}] Requeued stuck job ${jobId} -> r${jobId} (${jobName})`)
           } catch (err) {
             this.logger.info(
               `[${queueName}] Could not requeue stuck job ${jobId}: ${err instanceof Error ? err.message : String(err)}`
