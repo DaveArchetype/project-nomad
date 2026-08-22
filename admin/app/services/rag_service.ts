@@ -84,7 +84,6 @@ export class RagService {
   // Nomic Embed Text v1.5 uses task-specific prefixes for optimal performance
   public static SEARCH_DOCUMENT_PREFIX = 'search_document: '
   public static SEARCH_QUERY_PREFIX = 'search_query: '
-  public static EMBEDDING_BATCH_SIZE = 256
 
   constructor(
     private dockerService: DockerService,
