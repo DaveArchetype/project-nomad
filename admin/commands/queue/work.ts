@@ -1,6 +1,7 @@
 import { BaseCommand, flags } from '@adonisjs/core/ace'
 import type { CommandOptions } from '@adonisjs/core/types/ace'
 import { Worker, Queue } from 'bullmq'
+import { Redis } from 'ioredis'
 import queueConfig from '#config/queue'
 import { RunDownloadJob } from '#jobs/run_download_job'
 import { RunExtractPmtilesJob } from '#jobs/run_extract_pmtiles_job'
@@ -262,7 +263,10 @@ export default class QueueWork extends BaseCommand {
           await queue.close()
           continue
         }
-        const redis = await queue.client
+        const redis = new Redis({
+          ...queueConfig.connection.options,
+          maxRetriesPerRequest: null,
+        })
         let requeued = 0
         for (const job of activeJobs) {
           const jobId = job.id
@@ -293,6 +297,7 @@ export default class QueueWork extends BaseCommand {
           )
         }
         await queue.close()
+        await redis.quit()
       } catch (err) {
         this.logger.error(
           `[${queueName}] Failed to requeue stuck jobs: ${err instanceof Error ? err.message : String(err)}`
