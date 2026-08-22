@@ -266,24 +266,18 @@ export default class QueueWork extends BaseCommand {
           `[${queueName}] Found ${activeJobs.length} stuck active job(s), requeuing...`
         )
         for (const job of activeJobs) {
+          const jobId = job.id
+          const jobName = job.name
+          const jobData = { ...job.data }
           try {
+            await queue.add(jobName, jobData, { jobId })
             await job.remove()
-          } catch {
-            const redis = await queue.client
-            await redis.del(`bull:${queueName}:${job.id}:lock`)
-            try {
-              await job.remove()
-            } catch {
-              this.logger.info(
-                `[${queueName}] Could not remove stuck job ${job.id}, leaving for BullMQ stall recovery`
-              )
-              continue
-            }
+            this.logger.info(`[${queueName}] Requeued stuck job ${jobId} (${jobName})`)
+          } catch (err) {
+            this.logger.info(
+              `[${queueName}] Could not requeue stuck job ${jobId}: ${err instanceof Error ? err.message : String(err)}`
+            )
           }
-          await queue.add(job.name, job.data, {
-            jobId: job.id,
-          })
-          this.logger.info(`[${queueName}] Requeued job ${job.id} (${job.name})`)
         }
         await queue.close()
       } catch (err) {
