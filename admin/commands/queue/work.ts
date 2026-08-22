@@ -262,22 +262,35 @@ export default class QueueWork extends BaseCommand {
           await queue.close()
           continue
         }
-        this.logger.info(
-          `[${queueName}] Found ${activeJobs.length} stuck active job(s), requeuing...`
-        )
+        const redis = await queue.client
+        let requeued = 0
         for (const job of activeJobs) {
           const jobId = job.id
+          const lockKey = `bull:${queueName}:${jobId}:lock`
+          const lockTtl = await redis.ttl(lockKey)
+          if (lockTtl > 0) {
+            this.logger.info(
+              `[${queueName}] Job ${jobId} has active lock (TTL ${lockTtl}s), skipping`
+            )
+            continue
+          }
           const jobName = job.name
           const jobData = { ...job.data }
           try {
             await queue.add(jobName, jobData, { jobId: `r${jobId}` })
             await job.remove()
             this.logger.info(`[${queueName}] Requeued stuck job ${jobId} -> r${jobId} (${jobName})`)
+            requeued++
           } catch (err) {
             this.logger.info(
               `[${queueName}] Could not requeue stuck job ${jobId}: ${err instanceof Error ? err.message : String(err)}`
             )
           }
+        }
+        if (requeued === 0 && activeJobs.length > 0) {
+          this.logger.info(
+            `[${queueName}] ${activeJobs.length} active job(s) have valid locks, leaving for BullMQ stall recovery`
+          )
         }
         await queue.close()
       } catch (err) {
