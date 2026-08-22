@@ -87,7 +87,7 @@ export class ZIMExtractionService {
             opts.workerCount && opts.workerCount > 0
               ? opts.workerCount
               : ZIMWorkerPool.getDefaultWorkerCount()
-          pool = new ZIMWorkerPool(numWorkers, archiveMetadata)
+          pool = new ZIMWorkerPool(numWorkers, archiveMetadata, filePath)
           logger.info(
             `[ZIMExtractionService]: Using ${numWorkers} worker threads for parallel article extraction`
           )
@@ -102,10 +102,14 @@ export class ZIMExtractionService {
 
       try {
         if (pool) {
-          // Streaming dispatch/drain queue: the main thread reads raw HTML
-          // buffers from the libzim native iterator (sequential, can't be
-          // parallelized) and dispatches each article to a worker immediately
-          // — no waiting for a full batch. Worker results complete out of
+          // Streaming dispatch/drain queue: the main thread only enumerates
+          // dirent entries from the libzim native iterator (sequential, can't
+          // be parallelized, but cheap — no decompression happens here) and
+          // dispatches each article path to a worker immediately — no
+          // waiting for a full batch. Each worker opens its own Archive
+          // handle on the same file and does the actual decompression
+          // itself, so that work runs in parallel across workers instead of
+          // serially on the main thread. Worker results complete out of
           // order, so an in-order commit queue (Map<articlesSeen, result> +
           // nextCommitArticlesSeen cursor) guarantees onArticle is invoked in
           // ascending article order. This is the critical safety property:
@@ -152,18 +156,6 @@ export class ZIMExtractionService {
             }
             articlesSeen++
 
-            let htmlBuffer: Buffer
-            try {
-              htmlBuffer = Buffer.from(entry.item.data.data)
-            } catch (readErr) {
-              logger.warn(
-                `[ZIMExtractionService]: Failed to read article ${entry.path}: %s`,
-                readErr instanceof Error ? readErr.message : String(readErr)
-              )
-              skipped.add(articlesSeen)
-              continue
-            }
-
             // Backpressure: when at capacity, await the oldest in-flight
             // promise before dispatching the next article. Bounds memory.
             if (inFlight.length >= maxInFlight) {
@@ -185,13 +177,7 @@ export class ZIMExtractionService {
             const articleSeenForThis = articlesSeen
             const articlePath = entry.path
             const promise = pool
-              .processArticle(
-                htmlBuffer,
-                articlePath,
-                entry.title || entry.path,
-                randomUUID(),
-                opts.strategy
-              )
+              .processArticle(articlePath, entry.title || entry.path, randomUUID(), opts.strategy)
               .catch((err) => {
                 logger.warn(
                   `[ZIMExtractionService]: Worker error for article ${articlePath}: %s`,

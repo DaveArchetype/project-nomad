@@ -8,11 +8,16 @@ import type { ZIMArchiveMetadata, ZIMContentChunk } from '../../types/zim.js'
  * `new Worker(source, { eval: true })` so it works identically in dev (ts-node)
  * and prod (compiled JS) without file-path resolution issues.
  *
- * Everything the worker needs is self-contained: cheerio is loaded via dynamic
- * `import()`, and the extraction logic (HTML cleaning, structured/simple
- * strategy selection, section splitting) is inlined as a faithful copy of
- * ZIMExtractionService + zim_html.ts. The only external input is
- * `archiveMetadata` passed via `workerData`.
+ * Everything the worker needs is self-contained: cheerio and @openzim/libzim
+ * are loaded via dynamic `import()`, and the extraction logic (HTML cleaning,
+ * structured/simple strategy selection, section splitting) is inlined as a
+ * faithful copy of ZIMExtractionService + zim_html.ts. Each worker opens its
+ * own read-only `Archive` handle on the same ZIM file (`workerData.filePath`)
+ * so that article decompression — the actual CPU-heavy work for large
+ * archives — happens in parallel across worker threads instead of serially
+ * on the main thread. The main thread only enumerates dirent metadata
+ * (path/title/mimetype) via `archive.iterByPath()`, which is cheap, and
+ * dispatches `articlePath` to a worker to do the decompression + parsing.
  *
  * KEEP IN SYNC with:
  *   - ZIMExtractionService.loadCleanedHTML / chooseChunkingStrategy / hasStructuredHeadings / extractTextFromHTML
@@ -22,6 +27,7 @@ import type { ZIMArchiveMetadata, ZIMContentChunk } from '../../types/zim.js'
 function workerFn() {
   const { parentPort, workerData } = require('node:worker_threads')
   const archiveMetadata = workerData.archiveMetadata
+  const filePath = workerData.filePath
 
   const HTML_SELECTORS_TO_REMOVE = [
     'script',
@@ -169,22 +175,36 @@ function workerFn() {
   }
 
   let cheerioLoad: any = null
-  const cheerioPromise: any = import('cheerio')
-    .then((m: any) => {
+  let archive: any = null
+  const initPromise: any = Promise.all([
+    import('cheerio').then((m: any) => {
       cheerioLoad = m.load || (m.default && m.default.load)
-    })
-    .catch((err: any) => {
-      cheerioLoad = null
-      cheerioPromise.__error = err
-    })
+    }),
+    import('@openzim/libzim').then((m: any) => {
+      const ArchiveCtor = m.Archive || (m.default && m.default.Archive)
+      archive = new ArchiveCtor(filePath)
+    }),
+  ]).catch((err: any) => {
+    initPromise.__error = err
+  })
 
   parentPort.on('message', (msg: any) => {
-    cheerioPromise.then(() => {
-      const { id, htmlBuffer, articlePath, articleTitle, documentId, strategy } = msg
+    initPromise.then(() => {
+      const { id, articlePath, articleTitle, documentId, strategy } = msg
       try {
         if (!cheerioLoad) {
           throw new Error('cheerio module not loaded in worker')
         }
+        if (!archive) {
+          throw new Error('ZIM archive not opened in worker')
+        }
+
+        // Each worker owns its own read-only Archive handle into the same
+        // underlying ZIM file, so decompression (the actual CPU-heavy work
+        // for large archives) happens in parallel across worker threads
+        // instead of serially on the main thread.
+        const entry = archive.getEntryByPath(articlePath)
+        const htmlBuffer = Buffer.from(entry.item.data.data)
 
         const $ = cheerioLoad(htmlBuffer.toString('utf-8'))
         for (const selector of HTML_SELECTORS_TO_REMOVE) {
@@ -243,13 +263,17 @@ export interface PendingRequest {
 }
 
 /**
- * Pool of `worker_threads` that parallelize ZIM article extraction (cheerio
- * HTML parsing + structured/simple content splitting) across CPU cores.
+ * Pool of `worker_threads` that parallelize ZIM article extraction — both the
+ * libzim decompression and the cheerio HTML parsing/section splitting —
+ * across CPU cores.
  *
- * The main thread reads raw HTML buffers from the libzim native iterator
- * (which can't be parallelized) and dispatches them to workers. Each worker
- * loads cheerio, cleans the HTML, extracts sections, and returns ready-to-chunk
- * text. This turns the single-threaded CPU bottleneck into N-core parallelism.
+ * The main thread only enumerates dirent entries via the libzim native
+ * iterator (path/title/mimetype — cheap metadata, can't be parallelized) and
+ * dispatches article paths to workers. Each worker opens its own `Archive`
+ * handle on the same ZIM file, decompresses the article itself, cleans the
+ * HTML with cheerio, extracts sections, and returns ready-to-chunk text.
+ * This turns what would otherwise be a single-threaded decompression
+ * bottleneck into N-core parallelism.
  *
  * Workers are created with `eval: true` using a serialized function, so no
  * separate worker file is needed — this avoids TS/JS path resolution issues
@@ -263,11 +287,11 @@ export class ZIMWorkerPool {
   private pending = new Map<number, PendingRequest>()
   private terminated = false
 
-  constructor(numWorkers: number, archiveMetadata: ZIMArchiveMetadata) {
+  constructor(numWorkers: number, archiveMetadata: ZIMArchiveMetadata, filePath: string) {
     for (let i = 0; i < numWorkers; i++) {
       const worker = new Worker(workerSource, {
         eval: true,
-        workerData: { archiveMetadata },
+        workerData: { archiveMetadata, filePath },
       })
 
       const workerIndex = i
@@ -324,7 +348,6 @@ export class ZIMWorkerPool {
   }
 
   processArticle(
-    htmlBuffer: Buffer,
     articlePath: string,
     articleTitle: string,
     documentId: string,
@@ -359,7 +382,7 @@ export class ZIMWorkerPool {
       }, timeoutMs)
 
       this.pending.set(id, { resolve, reject, timer })
-      worker.postMessage({ id, htmlBuffer, articlePath, articleTitle, documentId, strategy })
+      worker.postMessage({ id, articlePath, articleTitle, documentId, strategy })
     })
   }
 
