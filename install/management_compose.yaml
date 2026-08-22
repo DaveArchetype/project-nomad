@@ -195,7 +195,20 @@ services:
     # than Ollama for embedding workloads. OllamaService.embed() auto-detects this
     # container and routes embeddings here; if TEI is down, it falls back to Ollama.
     # The model is downloaded from HuggingFace on first start (~550MB).
-    image: ghcr.io/huggingface/text-embeddings-inference:1.5
+    #
+    # IMPORTANT: TEI ships separate CUDA images per GPU compute capability (it compiles
+    # dedicated flash-attention/cutlass kernels per architecture). The unsuffixed tag
+    # (e.g. "1.9") targets Ampere 8.0 (A100/A30) ONLY. Using it on a different GPU
+    # silently falls back to a much slower dispatch path — symptoms look like: GPU
+    # stuck at 100% utilization but VRAM usage barely rising, and wildly inconsistent
+    # throughput. Pick the tag matching your GPU's compute capability:
+    #   Turing (T4, RTX 2000 series)         -> turing-1.9
+    #   Ampere 8.0 (A100, A30)                -> 1.9
+    #   Ampere 8.6 (RTX 3090, A10, A40, ...)  -> 86-1.9   (default here)
+    #   Ada Lovelace (RTX 4000 series)        -> 89-1.9
+    #   Hopper (H100)                          -> hopper-1.9
+    # See https://huggingface.co/docs/text-embeddings-inference/supported_models
+    image: ghcr.io/huggingface/text-embeddings-inference:86-1.9
     pull_policy: always
     container_name: nomad_tei
     restart: unless-stopped
