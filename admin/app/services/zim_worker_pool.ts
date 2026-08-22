@@ -225,7 +225,7 @@ function workerFn() {
           ]
         }
 
-        const nonEmpty = chunks.filter((c) => c.text.trim().length > 0)
+        const nonEmpty = chunks.filter((c) => c.text.trim().length >= 200)
         parentPort.postMessage({ id, chunks: nonEmpty })
       } catch (err) {
         parentPort.postMessage({ id, error: err.message, chunks: [] })
