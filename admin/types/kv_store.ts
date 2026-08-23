@@ -20,12 +20,12 @@ export const KV_STORE_SCHEMA = {
   // embeddingBatchSize chunks). Higher keeps the GPU fed. Default 16.
   'rag.embedConcurrency': 'string',
   // Concurrent flushes in flight during ZIM streaming (memory-bounded
-  // backpressure). Default 8.
+  // backpressure). Default 4.
   'rag.maxConcurrentEmbeds': 'string',
   // Concurrent Qdrant upsert batches. Default 8 (was sequential = 1).
   'rag.qdrantUpsertConcurrency': 'string',
   // Chunks per embed request. Capped by TEI --max-client-batch-size (512).
-  // Default 256.
+  // Default 8.
   'rag.embeddingBatchSize': 'string',
   // ZIM HTML-parse worker threads. 0 = auto-detect (min(cores-1, 8)).
   // Default 0.

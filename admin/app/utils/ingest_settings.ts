@@ -13,7 +13,7 @@ export const INGEST_SETTINGS_DEFAULTS: IngestSettings = {
   embedConcurrency: 16,
   maxConcurrentEmbeds: 4,
   qdrantUpsertConcurrency: 8,
-  embeddingBatchSize: 256,
+  embeddingBatchSize: 8,
   zimWorkerCount: 0,
   qdrantIndexingThreshold: null,
 }

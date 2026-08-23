@@ -16,7 +16,7 @@ import Switch from '~/components/inputs/Switch'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import Input from '~/components/inputs/Input'
-import { IconSearch, IconRefresh } from '@tabler/icons-react'
+import { IconSearch, IconRefresh, IconChevronDown } from '@tabler/icons-react'
 import { formatBytes } from '~/lib/util'
 import useDebounce from '~/hooks/useDebounce'
 import ActiveModelDownloads from '~/components/ActiveModelDownloads'
@@ -137,6 +137,7 @@ export default function ModelsPage(props: {
   const [qdrantIndexingThreshold, setQdrantIndexingThreshold] = useState(
     props.models.settings.qdrantIndexingThreshold
   )
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
 
   async function handleSaveRemoteOllama() {
     setRemoteOllamaError(null)
@@ -301,8 +302,8 @@ export default function ModelsPage(props: {
     <SettingsLayout>
       <Head title={`${aiAssistantName} Settings | Project NOMAD`} />
       <div className="xl:pl-72 w-full">
-        <main className="px-12 py-6">
-          <h1 className="text-4xl font-semibold mb-4">{aiAssistantName}</h1>
+        <main className="px-4 sm:px-6 lg:px-12 py-6">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold mb-4">{aiAssistantName}</h1>
           <p className="text-text-muted mb-4">
             Easily manage the {aiAssistantName}'s settings and installed models. We recommend
             starting with smaller models first to see how they perform on your system before moving
@@ -340,7 +341,7 @@ export default function ModelsPage(props: {
             )}
 
           <StyledSectionHeader title="Settings" className="mt-8 mb-4" />
-          <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
+          <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-4 sm:p-6">
             <div className="space-y-4">
               <Switch
                 checked={chatSuggestionsEnabled}
@@ -383,185 +384,214 @@ export default function ModelsPage(props: {
                   })
                 }
               />
-              <Input
-                name="embedPauseAfterChatMinutes"
-                label="Embedding pause after chat (minutes)"
-                type="number"
-                helpText="When you send a chat message, background knowledge-base embedding pauses for this many minutes so inference doesn't compete with the embed job. 0 = resume immediately. Default 15."
-                placeholder="15"
-                value={embedPauseAfterChatMinutes}
-                onChange={(e) => setEmbedPauseAfterChatMinutes(e.target.value)}
-                onBlur={() =>
-                  updateSettingMutation.mutate({
-                    key: 'rag.embedPauseAfterChatMinutes',
-                    value: embedPauseAfterChatMinutes,
-                  })
-                }
-              />
             </div>
           </div>
 
-          <StyledSectionHeader title="Ingestion Performance" className="mt-12 mb-4" />
-          <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
-            <div className="space-y-4">
-              <Input
-                name="embedConcurrency"
-                label="Embed concurrency"
-                type="number"
-                helpText="Concurrent embed requests sent to TEI per flush (each carries the batch size below). Higher keeps the GPU fed. Lower if you see HTTP 429s or OOM. Default 4."
-                placeholder="4"
-                value={embedConcurrency}
-                onChange={(e) => setEmbedConcurrency(e.target.value)}
-                onBlur={() =>
-                  updateSettingMutation.mutate({
-                    key: 'rag.embedConcurrency',
-                    value: embedConcurrency,
-                  })
-                }
+          <div className="mt-12">
+            <button
+              type="button"
+              onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+              className="w-full flex items-center justify-between p-4 bg-surface-primary rounded-lg border-2 border-border-subtle hover:bg-surface-secondary transition-colors"
+            >
+              <div className="flex items-center gap-3 text-left">
+                <div className="w-1 h-6 bg-desert-green" />
+                <div>
+                  <h2 className="text-2xl font-bold text-desert-green">
+                    Advanced Indexing &amp; Embedding
+                  </h2>
+                  <p className="text-sm text-text-muted mt-1">
+                    Fine-tune how knowledge-base content is chunked, embedded, and stored. Defaults
+                    work well for most systems — only change these if you understand the tradeoffs.
+                  </p>
+                </div>
+              </div>
+              <IconChevronDown
+                className={`w-6 h-6 text-desert-green shrink-0 transition-transform ml-4 ${
+                  showAdvancedSettings ? 'rotate-180' : ''
+                }`}
               />
-              <Input
-                name="maxConcurrentEmbeds"
-                label="Max concurrent embed flushes"
-                type="number"
-                helpText="Concurrent flushes in flight during ZIM streaming (memory-bounded backpressure). Higher overlaps CPU extraction with GPU embedding. Default 2."
-                placeholder="2"
-                value={maxConcurrentEmbeds}
-                onChange={(e) => setMaxConcurrentEmbeds(e.target.value)}
-                onBlur={() =>
-                  updateSettingMutation.mutate({
-                    key: 'rag.maxConcurrentEmbeds',
-                    value: maxConcurrentEmbeds,
-                  })
-                }
-              />
-              <Input
-                name="qdrantUpsertConcurrency"
-                label="Qdrant upsert concurrency"
-                type="number"
-                helpText="Concurrent Qdrant upsert batches. Higher parallelizes vector writes. Default 8 (was sequential)."
-                placeholder="8"
-                value={qdrantUpsertConcurrency}
-                onChange={(e) => setQdrantUpsertConcurrency(e.target.value)}
-                onBlur={() =>
-                  updateSettingMutation.mutate({
-                    key: 'rag.qdrantUpsertConcurrency',
-                    value: qdrantUpsertConcurrency,
-                  })
-                }
-              />
-              <Input
-                name="embeddingBatchSize"
-                label="Embedding batch size"
-                type="number"
-                helpText="Chunks per embed request. With 6000-token chunks, 8 per batch keeps TEI within its 65536 max-batch-tokens. Default 8."
-                placeholder="8"
-                value={embeddingBatchSize}
-                onChange={(e) => setEmbeddingBatchSize(e.target.value)}
-                onBlur={() =>
-                  updateSettingMutation.mutate({
-                    key: 'rag.embeddingBatchSize',
-                    value: embeddingBatchSize,
-                  })
-                }
-              />
-              <Input
-                name="zimWorkerCount"
-                label="ZIM worker threads"
-                type="number"
-                helpText="Threads for parallel HTML parsing during ZIM ingestion. 0 = auto-detect (min(CPU cores - 1, 8)). Default 0."
-                placeholder="0"
-                value={zimWorkerCount}
-                onChange={(e) => setZimWorkerCount(e.target.value)}
-                onBlur={() =>
-                  updateSettingMutation.mutate({
-                    key: 'rag.zimWorkerCount',
-                    value: zimWorkerCount,
-                  })
-                }
-              />
-              <Input
-                name="qdrantIndexingThreshold"
-                label="Qdrant indexing threshold"
-                type="number"
-                helpText="Defers HNSW indexing during bulk ingest for faster writes (applied live, non-destructive). Set very high (e.g. 1000000) during ingestion, then clear or set to 20000 afterward to trigger indexing. Empty = Qdrant default (20000)."
-                placeholder=""
-                value={qdrantIndexingThreshold}
-                onChange={(e) => setQdrantIndexingThreshold(e.target.value)}
-                onBlur={() =>
-                  updateSettingMutation.mutate({
-                    key: 'rag.qdrantIndexingThreshold',
-                    value: qdrantIndexingThreshold,
-                  })
-                }
-              />
-            </div>
+            </button>
+
+            {showAdvancedSettings && (
+              <div className="bg-surface-primary rounded-lg border-2 border-border-subtle border-t-0 p-4 sm:p-6 space-y-4">
+                <Input
+                  name="embedPauseAfterChatMinutes"
+                  label="Embedding pause after chat (minutes)"
+                  type="number"
+                  helpText="When you send a chat message, background embedding pauses for this many minutes so chat inference isn't slowed by embedding work. 0 = resume immediately. Default 15."
+                  placeholder="15"
+                  value={embedPauseAfterChatMinutes}
+                  onChange={(e) => setEmbedPauseAfterChatMinutes(e.target.value)}
+                  onBlur={() =>
+                    updateSettingMutation.mutate({
+                      key: 'rag.embedPauseAfterChatMinutes',
+                      value: embedPauseAfterChatMinutes,
+                    })
+                  }
+                />
+                <Input
+                  name="embeddingBatchSize"
+                  label="Embedding batch size"
+                  type="number"
+                  helpText="Chunks per embed request sent to TEI/Ollama. Each chunk is ~2000 tokens after capping. TEI auto-sub-batches to respect its token limit, so higher values are safe but may increase latency. Default 8."
+                  placeholder="8"
+                  value={embeddingBatchSize}
+                  onChange={(e) => setEmbeddingBatchSize(e.target.value)}
+                  onBlur={() =>
+                    updateSettingMutation.mutate({
+                      key: 'rag.embeddingBatchSize',
+                      value: embeddingBatchSize,
+                    })
+                  }
+                />
+                <Input
+                  name="embedConcurrency"
+                  label="Embed concurrency"
+                  type="number"
+                  helpText="Concurrent embed requests sent to TEI per flush. Each request carries up to the batch size above. Higher keeps the GPU fed; lower if you see HTTP 429s or OOM. Default 16."
+                  placeholder="16"
+                  value={embedConcurrency}
+                  onChange={(e) => setEmbedConcurrency(e.target.value)}
+                  onBlur={() =>
+                    updateSettingMutation.mutate({
+                      key: 'rag.embedConcurrency',
+                      value: embedConcurrency,
+                    })
+                  }
+                />
+                <Input
+                  name="maxConcurrentEmbeds"
+                  label="Max concurrent embed flushes"
+                  type="number"
+                  helpText="Concurrent flushes in flight during ZIM streaming. Higher overlaps CPU article extraction with GPU embedding, but uses more memory. Default 4."
+                  placeholder="4"
+                  value={maxConcurrentEmbeds}
+                  onChange={(e) => setMaxConcurrentEmbeds(e.target.value)}
+                  onBlur={() =>
+                    updateSettingMutation.mutate({
+                      key: 'rag.maxConcurrentEmbeds',
+                      value: maxConcurrentEmbeds,
+                    })
+                  }
+                />
+                <Input
+                  name="qdrantUpsertConcurrency"
+                  label="Qdrant upsert concurrency"
+                  type="number"
+                  helpText="Concurrent batched writes to the Qdrant vector database. Higher parallelizes vector storage; lower if Qdrant is overwhelmed. Default 8."
+                  placeholder="8"
+                  value={qdrantUpsertConcurrency}
+                  onChange={(e) => setQdrantUpsertConcurrency(e.target.value)}
+                  onBlur={() =>
+                    updateSettingMutation.mutate({
+                      key: 'rag.qdrantUpsertConcurrency',
+                      value: qdrantUpsertConcurrency,
+                    })
+                  }
+                />
+                <Input
+                  name="zimWorkerCount"
+                  label="ZIM worker threads"
+                  type="number"
+                  helpText="Threads for parallel HTML parsing during ZIM ingestion. 0 = auto-detect (min(CPU cores - 1, 8)). Default 0."
+                  placeholder="0"
+                  value={zimWorkerCount}
+                  onChange={(e) => setZimWorkerCount(e.target.value)}
+                  onBlur={() =>
+                    updateSettingMutation.mutate({
+                      key: 'rag.zimWorkerCount',
+                      value: zimWorkerCount,
+                    })
+                  }
+                />
+                <Input
+                  name="qdrantIndexingThreshold"
+                  label="Qdrant indexing threshold"
+                  type="number"
+                  helpText="Defers HNSW indexing during bulk ingest for faster writes. Set very high (e.g. 1000000) during large ingests, then clear or set to 20000 afterward to trigger indexing. Empty = Qdrant default (20000)."
+                  placeholder=""
+                  value={qdrantIndexingThreshold}
+                  onChange={(e) => setQdrantIndexingThreshold(e.target.value)}
+                  onBlur={() =>
+                    updateSettingMutation.mutate({
+                      key: 'rag.qdrantIndexingThreshold',
+                      value: qdrantIndexingThreshold,
+                    })
+                  }
+                />
+              </div>
+            )}
           </div>
 
           <StyledSectionHeader title="Installed Models" className="mt-12 mb-4" />
-          <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
+          <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-4 sm:p-6">
             {props.models.installedModels.length === 0 ? (
               <p className="text-text-muted">
                 No models installed. Browse the model catalog below to get started.
               </p>
             ) : (
-              <table className="min-w-full divide-y divide-border-subtle">
-                <thead>
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
-                      Model
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
-                      Parameters
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
-                      Disk Size
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-text-muted uppercase tracking-wider">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border-subtle">
-                  {props.models.installedModels.map((model) => (
-                    <tr key={model.name} className="hover:bg-surface-secondary">
-                      <td className="px-4 py-3">
-                        <span className="text-sm font-medium text-text-primary">{model.name}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-sm text-text-secondary">
-                          {model.details?.parameter_size || 'N/A'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-sm text-text-secondary">
-                          {formatBytes(model.size)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <StyledButton
-                          variant="danger"
-                          size="sm"
-                          onClick={() => confirmDeleteModel(model.name)}
-                          icon="IconTrash"
-                        >
-                          Delete
-                        </StyledButton>
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-border-subtle">
+                  <thead>
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        Model
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        Parameters
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
+                        Disk Size
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-text-muted uppercase tracking-wider">
+                        Action
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-border-subtle">
+                    {props.models.installedModels.map((model) => (
+                      <tr key={model.name} className="hover:bg-surface-secondary">
+                        <td className="px-4 py-3">
+                          <span className="text-sm font-medium text-text-primary">
+                            {model.name}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-sm text-text-secondary">
+                            {model.details?.parameter_size || 'N/A'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-sm text-text-secondary">
+                            {formatBytes(model.size)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <StyledButton
+                            variant="danger"
+                            size="sm"
+                            onClick={() => confirmDeleteModel(model.name)}
+                            icon="IconTrash"
+                          >
+                            Delete
+                          </StyledButton>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
 
           <StyledSectionHeader title="Remote Connection" className="mt-8 mb-4" />
-          <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
+          <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-4 sm:p-6">
             <p className="text-sm text-text-secondary mb-4">
               Connect to any OpenAI-compatible API server — Ollama, LM Studio, llama.cpp, and others
               are all supported. For remote Ollama instances, the host must be started with{' '}
               <code className="bg-surface-secondary px-1 rounded">OLLAMA_HOST=0.0.0.0</code>.
             </p>
-            <div className="flex items-end gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
               <div className="flex-1">
                 <Input
                   name="remoteOllamaUrl"
@@ -582,7 +612,7 @@ export default function ModelsPage(props: {
                 onClick={handleSaveRemoteOllama}
                 loading={remoteOllamaSaving}
                 disabled={remoteOllamaSaving || !remoteOllamaUrl}
-                className="mb-0.5"
+                className="mb-0.5 w-full sm:w-auto"
               >
                 Save &amp; Test
               </StyledButton>
@@ -592,7 +622,7 @@ export default function ModelsPage(props: {
                   onClick={handleClearRemoteOllama}
                   loading={remoteOllamaSaving}
                   disabled={remoteOllamaSaving}
-                  className="mb-0.5"
+                  className="mb-0.5 w-full sm:w-auto"
                 >
                   Clear
                 </StyledButton>
@@ -610,7 +640,7 @@ export default function ModelsPage(props: {
             message="If you are connected to an OpenAI API host (e.g. LM Studio), please download models directly in that application."
             className="mb-4"
           />
-          <div className="flex justify-start items-center gap-3 mt-4">
+          <div className="flex flex-col sm:flex-row justify-start items-stretch sm:items-center gap-3 mt-4">
             <Input
               name="search"
               label=""
@@ -620,7 +650,7 @@ export default function ModelsPage(props: {
                 setQueryUI(e.target.value)
                 debouncedSetQuery(e.target.value)
               }}
-              className="w-1/3"
+              className="w-full sm:w-1/3"
               leftIcon={<IconSearch className="w-5 h-5 text-text-muted" />}
             />
             <StyledButton

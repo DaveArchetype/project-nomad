@@ -626,6 +626,31 @@ class API {
     })()
   }
 
+  async verifyRAGFile(source: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{
+        ok: boolean
+        state: string | null
+        chunksInQdrant: number
+        chunksEmbeddedRecorded: number
+        isZim: boolean
+        totalArticles: number | null
+        resumeOffset: number | null
+        message: string
+      }>('/rag/files/verify', { source })
+      return response.data
+    })()
+  }
+
+  async resumeRAGFile(source: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string }>('/rag/files/resume', {
+        source,
+      })
+      return response.data
+    })()
+  }
+
   async getKbFileWarnings() {
     return catchInternal(async () => {
       const response = await this.client.get<FileWarningsResult>('/rag/file-warnings')

@@ -16,6 +16,12 @@ export interface KbFileActions {
   >
   qdrantOffline: boolean
   inflightSources: Set<string>
+  verifyMutation: UseMutationResult<any, Error, string>
+  resumeMutation: UseMutationResult<{ message: string } | undefined, Error, string>
+  verifyResult: { source: string; ok: boolean; message: string; resumeOffset: number | null } | null
+  setVerifyResult: (
+    r: { source: string; ok: boolean; message: string; resumeOffset: number | null } | null
+  ) => void
 }
 
 export interface KbFileCardProps extends KbFileActions {
@@ -76,4 +82,10 @@ export interface StoredFilesSectionProps {
     Error,
     { source: string; collection: string }
   >
+  verifyMutation: UseMutationResult<any, Error, string>
+  resumeMutation: UseMutationResult<{ message: string } | undefined, Error, string>
+  verifyResult: { source: string; ok: boolean; message: string; resumeOffset: number | null } | null
+  setVerifyResult: (
+    r: { source: string; ok: boolean; message: string; resumeOffset: number | null } | null
+  ) => void
 }

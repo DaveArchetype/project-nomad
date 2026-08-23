@@ -530,6 +530,16 @@ router
       summary: 'Delete a knowledge collection',
       tags: ['rag'],
     })
+    documented(router.post('/files/verify', [RagController, 'verifyFile']), {
+      summary: 'Verify embeddings for a RAG file',
+      tags: ['rag'],
+      request: fileSourceSchema,
+    })
+    documented(router.post('/files/resume', [RagController, 'resumeFile']), {
+      summary: 'Resume a stalled ZIM ingestion from the last batch',
+      tags: ['rag'],
+      request: fileSourceSchema,
+    })
   })
   .prefix('/api/rag')
 

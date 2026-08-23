@@ -109,6 +109,10 @@ export default function KnowledgeBaseModal({
             deleteMutation={kb.deleteMutation}
             embedMutation={kb.embedMutation}
             updateCollectionMutation={kb.updateCollectionMutation}
+            verifyMutation={kb.verifyMutation}
+            resumeMutation={kb.resumeMutation}
+            verifyResult={kb.verifyResult}
+            setVerifyResult={kb.setVerifyResult}
           />
         </div>
       </div>

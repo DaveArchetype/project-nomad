@@ -287,6 +287,37 @@ export class EmbedFileJob {
       }
 
       const totalChunks = baseChunks + (result.chunks || 0)
+
+      if (
+        isZim &&
+        result.totalArticles &&
+        result.totalArticles > 0 &&
+        result.articlesProcessed !== undefined &&
+        result.articlesProcessed < result.totalArticles * 0.95
+      ) {
+        logger.error(
+          `[EmbedFileJob] ZIM ${fileName} completed but only processed ${result.articlesProcessed}/${result.totalArticles} articles (${totalChunks} chunks) — marking as stalled, not indexed`
+        )
+        await job.updateData({
+          ...job.data,
+          status: 'failed',
+          failedAt: Date.now(),
+          error: `Partial ingestion: only ${result.articlesProcessed}/${result.totalArticles} articles were processed`,
+          chunks: totalChunks,
+        })
+        try {
+          await KbIngestState.markStalled(filePath)
+        } catch (stateErr) {
+          logger.warn(
+            `[EmbedFileJob] Failed to persist stalled state for ${fileName}: %s`,
+            stateErr instanceof Error ? stateErr.message : String(stateErr)
+          )
+        }
+        throw new Error(
+          `ZIM ingestion incomplete: only ${result.articlesProcessed}/${result.totalArticles} articles processed. The file has been marked as stalled — use Verify then Resume to continue from where it left off.`
+        )
+      }
+
       await this.safeUpdateProgress(job, 100)
       await job.updateData({
         ...job.data,

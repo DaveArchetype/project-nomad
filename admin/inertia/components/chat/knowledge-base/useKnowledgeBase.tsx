@@ -66,6 +66,13 @@ export interface UseKnowledgeBaseResult {
   resetMutation: ReturnType<typeof useMutation<unknown, Error, void>>
   bulkBusy: boolean
 
+  verifyMutation: ReturnType<typeof useMutation<any, Error, string>>
+  resumeMutation: ReturnType<typeof useMutation<{ message: string } | undefined, Error, string>>
+  verifyResult: { source: string; ok: boolean; message: string; resumeOffset: number | null } | null
+  setVerifyResult: (
+    r: { source: string; ok: boolean; message: string; resumeOffset: number | null } | null
+  ) => void
+
   handleUpload: () => Promise<void>
   handleConfirmCancelAll: () => void
   handleConfirmSync: () => void
@@ -361,6 +368,59 @@ export function useKnowledgeBase(): UseKnowledgeBaseResult {
 
   const bulkBusy = reembedMutation.isPending || resetMutation.isPending
 
+  const [verifyResult, setVerifyResult] = useState<{
+    source: string
+    ok: boolean
+    message: string
+    resumeOffset: number | null
+  } | null>(null)
+
+  const verifyMutation = useMutation({
+    mutationFn: (source: string) => api.verifyRAGFile(source),
+    onSuccess: (data) => {
+      if (data) {
+        setVerifyResult({
+          source: verifyMutation.variables ?? '',
+          ok: data.ok,
+          message: data.message,
+          resumeOffset: data.resumeOffset,
+        })
+        addNotification({
+          type: data.ok ? 'success' : 'error',
+          message: data.message,
+        })
+        if (!data.ok) {
+          queryClient.invalidateQueries({ queryKey: ['storedFiles'] })
+        }
+      }
+    },
+    onError: (error: any) => {
+      addNotification({
+        type: 'error',
+        message: error?.message || 'Verification failed.',
+      })
+    },
+  })
+
+  const resumeMutation = useMutation({
+    mutationFn: (source: string) => api.resumeRAGFile(source),
+    onSuccess: (data) => {
+      addNotification({
+        type: 'success',
+        message: data?.message || 'Resume queued.',
+      })
+      setVerifyResult(null)
+      queryClient.invalidateQueries({ queryKey: ['storedFiles'] })
+      queryClient.invalidateQueries({ queryKey: ['embed-jobs'] })
+    },
+    onError: (error: any) => {
+      addNotification({
+        type: 'error',
+        message: error?.message || 'Failed to resume ingestion.',
+      })
+    },
+  })
+
   const handleUpload = async () => {
     if (files.length === 0) return
     setIsUploading(true)
@@ -495,6 +555,11 @@ export function useKnowledgeBase(): UseKnowledgeBaseResult {
     reembedMutation,
     resetMutation,
     bulkBusy,
+
+    verifyMutation,
+    resumeMutation,
+    verifyResult,
+    setVerifyResult,
 
     handleUpload,
     handleConfirmCancelAll,

@@ -23,6 +23,10 @@ export default function KbFileTable({
   updateCollectionMutation,
   qdrantOffline,
   inflightSources,
+  verifyMutation,
+  resumeMutation,
+  verifyResult,
+  setVerifyResult,
 }: KbFileTableProps) {
   return (
     <StyledTable<KbFileGroup>
@@ -163,42 +167,67 @@ export default function KbFileTable({
             const actionPendingForThisRow =
               embedMutation.isPending && embedMutation.variables?.source === record.source
             const isInflight = inflightSources.has(record.source)
+            const isVerifying =
+              verifyMutation.isPending && verifyMutation.variables === record.source
+            const isResuming =
+              resumeMutation.isPending && resumeMutation.variables === record.source
+            const rowVerifyResult =
+              verifyResult?.source === record.source ? verifyResult : null
+            const canVerify =
+              !isInflight &&
+              (record.state === 'indexed' || record.state === 'stalled' || record.state === null)
 
             const canView =
               record.isUserUpload && isViewableExtension(record.displayName) && record.size !== null
             const canDownload = record.isUserUpload && record.size !== null
 
             return (
-              <div className="flex flex-wrap justify-end items-center gap-2">
-                {isInflight ? (
-                  <StyledButton variant="secondary" size="sm" disabled loading>
-                    Indexing…
-                  </StyledButton>
-                ) : action ? (
-                  <StyledButton
-                    variant={action.variant}
-                    size="sm"
-                    icon={action.icon}
-                    onClick={() => {
-                      if (action.kind === 'reembed') {
-                        setConfirmReembed({
-                          source: record.source,
-                          displayName: record.displayName,
-                        })
-                      } else {
-                        embedMutation.mutate({
-                          source: record.source,
-                          force: action.force,
-                        })
-                      }
-                    }}
-                    disabled={qdrantOffline || deleteMutation.isPending || embedMutation.isPending}
-                    loading={actionPendingForThisRow}
-                  >
-                    {action.label}
-                  </StyledButton>
-                ) : null}
-                {canView && (
+              <div className="flex flex-col items-end gap-2">
+                <div className="flex flex-wrap justify-end items-center gap-2">
+                  {isInflight ? (
+                    <StyledButton variant="secondary" size="sm" disabled loading>
+                      Indexing…
+                    </StyledButton>
+                  ) : action ? (
+                    <StyledButton
+                      variant={action.variant}
+                      size="sm"
+                      icon={action.icon}
+                      onClick={() => {
+                        if (action.kind === 'reembed') {
+                          setConfirmReembed({
+                            source: record.source,
+                            displayName: record.displayName,
+                          })
+                        } else {
+                          embedMutation.mutate({
+                            source: record.source,
+                            force: action.force,
+                          })
+                        }
+                      }}
+                      disabled={qdrantOffline || deleteMutation.isPending || embedMutation.isPending}
+                      loading={actionPendingForThisRow}
+                    >
+                      {action.label}
+                    </StyledButton>
+                  ) : null}
+                  {canVerify && (
+                    <StyledButton
+                      variant="ghost"
+                      size="sm"
+                      icon="IconCircleCheck"
+                      onClick={() => {
+                        setVerifyResult(null)
+                        verifyMutation.mutate(record.source)
+                      }}
+                      disabled={qdrantOffline || isVerifying || isResuming}
+                      loading={isVerifying}
+                    >
+                      Verify
+                    </StyledButton>
+                  )}
+                  {canView && (
                   <StyledButton
                     variant="ghost"
                     size="sm"
@@ -231,6 +260,36 @@ export default function KbFileTable({
                   Delete
                 </StyledButton>
               </div>
+              {rowVerifyResult && (
+                <div
+                  className={`flex flex-wrap items-center gap-2 text-xs rounded px-3 py-2 border ${
+                    rowVerifyResult.ok
+                      ? 'text-green-700 bg-green-50 border-green-200 dark:text-green-300 dark:bg-green-950/40 dark:border-green-800'
+                      : 'text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-300 dark:bg-amber-950/40 dark:border-amber-800'
+                  }`}
+                >
+                  <span>{rowVerifyResult.message}</span>
+                  {!rowVerifyResult.ok && rowVerifyResult.resumeOffset !== null && (
+                    <StyledButton
+                      variant="secondary"
+                      size="sm"
+                      icon="IconPlayerPlay"
+                      onClick={() => resumeMutation.mutate(record.source)}
+                      disabled={isResuming || qdrantOffline}
+                      loading={isResuming}
+                    >
+                      Resume from article {rowVerifyResult.resumeOffset.toLocaleString()}
+                    </StyledButton>
+                  )}
+                  <button
+                    type="button"
+                    className="text-text-muted hover:text-text-primary transition-colors"
+                    onClick={() => setVerifyResult(null)}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
             )
           },
         },

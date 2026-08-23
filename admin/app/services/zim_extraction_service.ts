@@ -145,6 +145,9 @@ export class ZIMExtractionService {
             }
           }
 
+          let consecutiveWorkerErrors = 0
+          const MAX_CONSECUTIVE_WORKER_ERRORS = 10
+
           for (const entry of archive.iterByPath()) {
             if (!this.isArticleEntry(entry)) {
               continue
@@ -156,6 +159,14 @@ export class ZIMExtractionService {
             }
             articlesSeen++
 
+            if (pool.healthyWorkerCount === 0) {
+              logger.error(
+                '[ZIMExtractionService]: All worker threads have died — aborting stream to prevent silent partial indexing'
+              )
+              cancelled = true
+              break
+            }
+
             // Backpressure: when at capacity, await the oldest in-flight
             // promise before dispatching the next article. Bounds memory.
             if (inFlight.length >= maxInFlight) {
@@ -163,12 +174,22 @@ export class ZIMExtractionService {
               try {
                 const res = await oldest.promise
                 completed.set(oldest.articlesSeen, res)
+                consecutiveWorkerErrors = 0
               } catch (err) {
                 logger.warn(
                   `[ZIMExtractionService]: Worker error for article ${oldest.articlesSeen}: %s`,
                   err instanceof Error ? err.message : String(err)
                 )
                 completed.set(oldest.articlesSeen, [])
+                consecutiveWorkerErrors++
+                if (consecutiveWorkerErrors >= MAX_CONSECUTIVE_WORKER_ERRORS) {
+                  logger.error(
+                    '[ZIMExtractionService]: %d consecutive worker errors — aborting stream to prevent silent partial indexing',
+                    consecutiveWorkerErrors
+                  )
+                  cancelled = true
+                  break
+                }
               }
               await drainCommitted()
               if (cancelled) break

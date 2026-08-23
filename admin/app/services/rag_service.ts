@@ -2162,6 +2162,212 @@ export class RagService {
   }
 
   /**
+   * Verify that a file marked as "indexed" actually has the expected number of
+   * vectors in Qdrant. For ZIM files, also checks that the article count in the
+   * archive matches what was processed. Returns details that let the UI offer
+   * a "resume from last batch" action if verification fails.
+   */
+  public async verifyFileEmbeddings(source: string): Promise<{
+    ok: boolean
+    state: string | null
+    chunksInQdrant: number
+    chunksEmbeddedRecorded: number
+    isZim: boolean
+    totalArticles: number | null
+    resumeOffset: number | null
+    message: string
+  }> {
+    try {
+      await this._ensureCollection(
+        RagService.CONTENT_COLLECTION_NAME,
+        RagService.EMBEDDING_DIMENSION
+      )
+
+      const stateRow = await KbIngestState.findBy('file_path', source)
+      const state = stateRow?.state ?? null
+      const chunksEmbeddedRecorded = stateRow?.chunks_embedded ?? 0
+
+      const facetResult = await this.qdrant!.facet(RagService.CONTENT_COLLECTION_NAME, {
+        key: 'source',
+        limit: RagService.FACET_SOURCE_LIMIT,
+        exact: true,
+      })
+      let chunksInQdrant = 0
+      for (const hit of facetResult.hits) {
+        if (hit.value === source) {
+          chunksInQdrant = hit.count
+          break
+        }
+      }
+
+      const isZim = determineFileType(source) === 'zim'
+      let totalArticles: number | null = null
+      let resumeOffset: number | null = null
+
+      if (isZim) {
+        try {
+          const { Archive } = await import('@openzim/libzim')
+          const archive = new Archive(source)
+          totalArticles = Number(archive.articleCount)
+        } catch {
+          logger.warn(`[RAG] Could not open ZIM to read article count: ${source}`)
+        }
+
+        const { EmbedFileJob } = await import('#jobs/embed_file_job')
+        const { QueueService } = await import('#services/queue_service')
+        const queue = QueueService.getInstance().getQueue(EmbedFileJob.queue)
+        const jobId = EmbedFileJob.getJobId(source)
+        const job = await queue.getJob(jobId)
+        if (job?.data) {
+          resumeOffset = (job.data as any).resumeOffset ?? null
+        }
+      }
+
+      const chunkMismatch =
+        chunksInQdrant === 0 && chunksEmbeddedRecorded > 0
+          ? true
+          : Math.abs(chunksInQdrant - chunksEmbeddedRecorded) >
+            Math.max(100, chunksEmbeddedRecorded * 0.05)
+
+      const articleMismatch =
+        isZim &&
+        totalArticles !== null &&
+        resumeOffset !== null &&
+        resumeOffset < totalArticles * 0.95
+
+      if (chunkMismatch || articleMismatch) {
+        return {
+          ok: false,
+          state,
+          chunksInQdrant,
+          chunksEmbeddedRecorded,
+          isZim,
+          totalArticles,
+          resumeOffset,
+          message: articleMismatch
+            ? `Verification failed: ZIM has ${totalArticles?.toLocaleString()} articles but ingestion only reached article ${resumeOffset?.toLocaleString()}. ${chunksInQdrant.toLocaleString()} chunks in Qdrant.`
+            : `Verification failed: ${chunksInQdrant.toLocaleString()} chunks in Qdrant vs ${chunksEmbeddedRecorded.toLocaleString()} recorded. The file may have been partially indexed.`,
+        }
+      }
+
+      return {
+        ok: true,
+        state,
+        chunksInQdrant,
+        chunksEmbeddedRecorded,
+        isZim,
+        totalArticles,
+        resumeOffset,
+        message: `Verification passed: ${chunksInQdrant.toLocaleString()} chunks in Qdrant.`,
+      }
+    } catch (error) {
+      logger.error('[RAG] Error verifying file embeddings:', error)
+      return {
+        ok: false,
+        state: null,
+        chunksInQdrant: 0,
+        chunksEmbeddedRecorded: 0,
+        isZim: determineFileType(source) === 'zim',
+        totalArticles: null,
+        resumeOffset: null,
+        message: `Verification error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      }
+    }
+  }
+
+  /**
+   * Resume a ZIM ingestion from the last persisted resume offset. Does NOT
+   * delete existing Qdrant points — the already-embedded chunks stay in place
+   * and the job continues from where it left off. The resume offset is read
+   * from the last BullMQ job data for this file.
+   */
+  public async resumeFileIngestion(source: string): Promise<EmbedSingleFileResult> {
+    const isZim = determineFileType(source) === 'zim'
+    if (!isZim) {
+      return {
+        success: false,
+        code: 'not_found',
+        message: 'Resume is only available for ZIM files.',
+      }
+    }
+
+    const stateRow = await KbIngestState.query().where('file_path', source).first()
+    if (!stateRow) {
+      return {
+        success: false,
+        code: 'not_found',
+        message: 'File is not a tracked knowledge-base source.',
+      }
+    }
+
+    const { EmbedFileJob } = await import('#jobs/embed_file_job')
+    const { QueueService } = await import('#services/queue_service')
+    const queue = QueueService.getInstance().getQueue(EmbedFileJob.queue)
+
+    const inflight = await queue.getJobs(['waiting', 'active', 'delayed', 'paused'])
+    if (inflight.some((j) => j.data?.filePath === source)) {
+      return {
+        success: false,
+        code: 'inflight',
+        message:
+          'A job for this file is already in progress. Wait for it to finish before resuming.',
+      }
+    }
+
+    const jobId = EmbedFileJob.getJobId(source)
+    const priorJob = await queue.getJob(jobId)
+    const priorData = priorJob?.data as any
+    const resumeOffset = priorData?.resumeOffset ?? 0
+    const chunksSoFar = priorData?.chunksSoFar ?? stateRow.chunks_embedded ?? 0
+    const totalArticles = priorData?.totalArticles
+
+    if (resumeOffset === 0) {
+      return {
+        success: false,
+        code: 'not_found',
+        message:
+          'No resume offset found for this file. Use Re-embed to start from scratch instead.',
+      }
+    }
+
+    const fileName = source.split(/[/\\]/).pop() || source
+    const collection = stateRow.collection ?? undefined
+
+    try {
+      await priorJob?.remove().catch(() => {})
+    } catch {
+      // If the old job can't be removed (already gone), that's fine —
+      // dispatch with force to bypass the jobId dedupe.
+    }
+
+    const result = await EmbedFileJob.dispatch(
+      {
+        filePath: source,
+        fileName,
+        resumeOffset,
+        chunksSoFar,
+        totalArticles,
+        isFinalBatch: true,
+        ...(collection ? { collection } : {}),
+      },
+      { force: true }
+    )
+
+    if (!result.created) {
+      return {
+        success: false,
+        code: 'inflight',
+        message: 'A job for this file already exists. Wait for it to finish.',
+      }
+    }
+
+    return {
+      success: true,
+      message: `Resuming ingestion from article ${resumeOffset.toLocaleString()} (${chunksSoFar.toLocaleString()} chunks already embedded).`,
+    }
+  }
+
+  /**
    * Delete all Qdrant points whose `source` payload matches the given path.
    * Unlike deleteFileBySource(), this does NOT touch the file on disk — used
    * by reembedAll() where the file must remain so it can be re-ingested.

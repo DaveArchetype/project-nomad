@@ -571,6 +571,8 @@ export class OllamaService {
   private teiCheckPromise: Promise<string | null> | null = null
   private teiLastCheckAt = 0
   private static readonly TEI_CHECK_INTERVAL_MS = 30_000
+  private static readonly TEI_MAX_BATCH_TOKENS = 60_000
+  private static readonly TEI_CHAR_TO_TOKEN_RATIO = 2
 
   private async _getTeiUrl(): Promise<string | null> {
     const now = Date.now()
@@ -610,7 +612,6 @@ export class OllamaService {
     if (!teiUrl) return null
 
     const cleanInput = input.map((s) => (s.length === 0 ? ' ' : s))
-    const payload = { model: 'nomic-ai/nomic-embed-text-v1.5', input: cleanInput }
 
     const parseResponse = (data: any): { embeddings: number[][] } | null => {
       if (Array.isArray(data?.data)) {
@@ -621,6 +622,49 @@ export class OllamaService {
       if (Array.isArray(data)) return { embeddings: data }
       return null
     }
+
+    const estimateTokens = (s: string): number =>
+      Math.ceil(s.length / OllamaService.TEI_CHAR_TO_TOKEN_RATIO)
+
+    const subBatches: string[][] = []
+    let currentBatch: string[] = []
+    let currentTokens = 0
+    for (const chunk of cleanInput) {
+      const chunkTokens = estimateTokens(chunk)
+      if (
+        currentBatch.length > 0 &&
+        currentTokens + chunkTokens > OllamaService.TEI_MAX_BATCH_TOKENS
+      ) {
+        subBatches.push(currentBatch)
+        currentBatch = []
+        currentTokens = 0
+      }
+      currentBatch.push(chunk)
+      currentTokens += chunkTokens
+    }
+    if (currentBatch.length > 0) subBatches.push(currentBatch)
+
+    if (subBatches.length > 1) {
+      logger.debug(
+        `[OllamaService] TEI sub-batching ${cleanInput.length} chunks into ${subBatches.length} requests (max ${OllamaService.TEI_MAX_BATCH_TOKENS} tokens/batch)`
+      )
+    }
+
+    const allEmbeddings: number[][] = []
+    for (const batch of subBatches) {
+      const result = await this._embedSingleTeiBatch(teiUrl, batch, parseResponse)
+      if (!result) return null
+      allEmbeddings.push(...result.embeddings)
+    }
+    return { embeddings: allEmbeddings }
+  }
+
+  private async _embedSingleTeiBatch(
+    teiUrl: string,
+    batch: string[],
+    parseResponse: (data: any) => { embeddings: number[][] } | null
+  ): Promise<{ embeddings: number[][] } | null> {
+    const payload = { model: 'nomic-ai/nomic-embed-text-v1.5', input: batch }
 
     const maxRetries = 5
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -637,7 +681,7 @@ export class OllamaService {
           continue
         }
         if (status === 422 && attempt < maxRetries) {
-          const truncated = cleanInput.map((s) => s.slice(0, 2000))
+          const truncated = batch.map((s) => s.slice(0, 2000))
           try {
             const response = await axios.post(
               `${teiUrl}/v1/embeddings`,

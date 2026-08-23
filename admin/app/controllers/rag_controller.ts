@@ -301,4 +301,25 @@ export default class RagController {
     const fileName = filePath.split(/[/\\]/).at(-1) ?? 'download'
     return response.attachment(filePath, fileName)
   }
+
+  public async verifyFile({ request, response }: HttpContext) {
+    const { source } = await request.validateUsing(fileSourceSchema)
+    const result = await this.ragService.verifyFileEmbeddings(source)
+    return response.status(200).json(result)
+  }
+
+  public async resumeFile({ request, response }: HttpContext) {
+    const { source } = await request.validateUsing(fileSourceSchema)
+    const result = await this.ragService.resumeFileIngestion(source)
+    if (!result.success) {
+      const status = {
+        not_found: 404,
+        inflight: 409,
+        delete_failed: 500,
+        dispatch_failed: 500,
+      }[result.code]
+      return response.status(status).json({ error: result.message, code: result.code })
+    }
+    return response.status(202).json({ message: result.message })
+  }
 }

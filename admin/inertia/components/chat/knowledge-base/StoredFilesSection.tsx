@@ -35,6 +35,10 @@ export default function StoredFilesSection({
   deleteMutation,
   embedMutation,
   updateCollectionMutation,
+  verifyMutation,
+  resumeMutation,
+  verifyResult,
+  setVerifyResult,
 }: StoredFilesSectionProps) {
   const records = groupAndSortKbFiles(
     collectionFilter === 'All'
@@ -135,6 +139,10 @@ export default function StoredFilesSection({
           updateCollectionMutation={updateCollectionMutation}
           qdrantOffline={qdrantOffline}
           inflightSources={inflightSources}
+          verifyMutation={verifyMutation}
+          resumeMutation={resumeMutation}
+          verifyResult={verifyResult}
+          setVerifyResult={setVerifyResult}
         />
       ) : (
         <KbFileTable
@@ -153,6 +161,10 @@ export default function StoredFilesSection({
           updateCollectionMutation={updateCollectionMutation}
           qdrantOffline={qdrantOffline}
           inflightSources={inflightSources}
+          verifyMutation={verifyMutation}
+          resumeMutation={resumeMutation}
+          verifyResult={verifyResult}
+          setVerifyResult={setVerifyResult}
         />
       )}
     </section>
