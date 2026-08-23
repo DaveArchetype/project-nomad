@@ -249,8 +249,11 @@ export class RagService {
         .replace(/\u0000/g, '')
         // Problematic control characters (keep \n, \r, \t)
         .replace(/[\u0001-\u0008\u000B-\u000C\u000E-\u001F\u007F]/g, '')
-        // Invalid Unicode surrogates
+        // Invalid Unicode surrogates (lone surrogates that break JSON parsers)
         .replace(/[\uD800-\uDFFF]/g, '')
+        // Unicode non-characters (U+FDD0..U+FDEF, U+FFFE, U+FFFF, and the
+        // ..FFFE/FFFF in other planes) — some JSON parsers reject these
+        .replace(/[\uFDD0-\uFDEF\uFFFE\uFFFF]/g, '')
         // Trim extra whitespace
         .trim()
     )
@@ -493,7 +496,7 @@ export class RagService {
         }
 
         for (let i = 0; i < chunkResults.length; i++) {
-          let chunkText = chunkResults[i].text
+          let chunkText = this.sanitizeText(chunkResults[i].text)
 
           // Final safety check: ensure chunk + prefix fits
           const prefixText = RagService.SEARCH_DOCUMENT_PREFIX
