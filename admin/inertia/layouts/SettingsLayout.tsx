@@ -19,6 +19,7 @@ import StyledSidebar from '~/components/StyledSidebar'
 import { getServiceLink } from '~/lib/navigation'
 import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 import useCreatorPacks from '~/hooks/useCreatorPacks'
+import useReverseProxyBaseDomain from '~/hooks/useReverseProxyBaseDomain'
 import { SERVICE_NAMES } from '../../constants/service_names'
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
@@ -27,6 +28,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   // Only show the Creator Packs entry on builds that can actually install packs
   // (release-injected key present) — a fork built from source has no key.
   const { configured: creatorPacksConfigured } = useCreatorPacks()
+  const reverseProxyBaseDomain = useReverseProxyBaseDomain()
 
   const navigation = [
     ...(aiAssistantInstallStatus.isInstalled
@@ -54,7 +56,12 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     { name: 'Maps Manager', href: '/settings/maps', icon: IconMapRoute, current: false },
     {
       name: 'Service Logs & Metrics',
-      href: getServiceLink('3501'),
+      href: getServiceLink(
+        '3501',
+        null,
+        reverseProxyBaseDomain ? '/logs' : null,
+        reverseProxyBaseDomain
+      ),
       icon: IconDashboard,
       current: false,
       target: '_blank',
