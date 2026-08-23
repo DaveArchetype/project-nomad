@@ -43,6 +43,12 @@ export default function Chat({
     return () => window.removeEventListener('keydown', closeOnEscape)
   }, [isMobileSidebarOpen])
 
+  useEffect(() => {
+    api.ensureTeiStarted().catch((err) => {
+      console.warn('Failed to ensure TEI started on chat mount:', err)
+    })
+  }, [])
+
   const { data: knownCollections = [] } = useQuery({
     queryKey: ['kbCollections'],
     queryFn: () => api.getKnowledgeCollections(),

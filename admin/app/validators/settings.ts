@@ -139,6 +139,14 @@ export function validateSettingValue(key: KVStoreKey, value: unknown): string | 
       }
       return null
     }
+    case 'rag.teiIdleStopMinutes': {
+      if (value === '' || value === undefined || value === null) return null
+      const num = Number(value)
+      if (!Number.isInteger(num) || num < 0 || num > 1440) {
+        return 'TEI idle stop must be a whole number of minutes between 0 and 1440 (0 = TEI always on).'
+      }
+      return null
+    }
     default:
       return null
   }

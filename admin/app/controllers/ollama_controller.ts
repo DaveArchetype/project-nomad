@@ -71,6 +71,13 @@ export default class OllamaController {
     return response.status(200).json({ unloaded })
   }
 
+  async ensureTeiStarted({ response }: HttpContext) {
+    const { TeiLifecycleService } = await import('#services/tei_lifecycle_service')
+    const teiLifecycle = new TeiLifecycleService()
+    const result = await teiLifecycle.ensureStarted()
+    return response.status(200).json(result)
+  }
+
   async chat({ request, response }: HttpContext) {
     const reqData = await request.validateUsing(chatSchema)
 
@@ -88,6 +95,9 @@ export default class OllamaController {
     if (Number.isFinite(pauseMinutes) && pauseMinutes > 0) {
       await KVStore.setValue('rag.embedPausedUntil', String(Date.now() + pauseMinutes * 60 * 1000))
     }
+
+    const { TeiLifecycleService } = await import('#services/tei_lifecycle_service')
+    await new TeiLifecycleService().stampActivity()
 
     // Flush SSE headers immediately so the client connection is open while
     // pre-processing (query rewriting, RAG lookup) runs in the background.

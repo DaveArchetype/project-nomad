@@ -672,6 +672,8 @@ export class OllamaService {
         const response = await axios.post(`${teiUrl}/v1/embeddings`, payload, {
           timeout: 120_000,
         })
+        const { TeiLifecycleService } = await import('./tei_lifecycle_service.js')
+        await new TeiLifecycleService().stampActivity()
         return parseResponse(response.data)
       } catch (err: any) {
         const status = err?.response?.status

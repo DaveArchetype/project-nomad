@@ -330,6 +330,15 @@ class API {
     })()
   }
 
+  async ensureTeiStarted() {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ started: boolean; alreadyRunning: boolean }>(
+        '/ollama/tei/ensure-started'
+      )
+      return response.data
+    })()
+  }
+
   async getAvailableModels(params: {
     query?: string
     recommendedOnly?: boolean

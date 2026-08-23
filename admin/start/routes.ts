@@ -332,6 +332,10 @@ router
       tags: ['ollama'],
       request: unloadChatModelsSchema,
     })
+    documented(router.post('/tei/ensure-started', [OllamaController, 'ensureTeiStarted']), {
+      summary: 'Start TEI container on demand (frees VRAM when idle)',
+      tags: ['ollama'],
+    })
     documented(router.post('/configure-remote', [OllamaController, 'configureRemote']), {
       summary: 'Configure a remote Ollama endpoint',
       tags: ['ollama'],

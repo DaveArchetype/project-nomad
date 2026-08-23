@@ -210,6 +210,16 @@ export class EmbedFileJob {
 
       logger.info(`[EmbedFileJob] Services ready. Processing file: ${fileName}`)
 
+      try {
+        const { TeiLifecycleService } = await import('#services/tei_lifecycle_service')
+        await new TeiLifecycleService().ensureStarted()
+      } catch (teiErr) {
+        logger.warn(
+          `[EmbedFileJob] Could not ensure TEI started (will fall back to Ollama): %s`,
+          teiErr instanceof Error ? teiErr.message : String(teiErr)
+        )
+      }
+
       // Anchor initial progress to the resume point so a retried ZIM job
       // doesn't flash the gauge back to ~0 before the first flush reports in.
       // For ZIMs, prefer chunks-based progress (chunksSoFar / chunksEstimated)

@@ -78,6 +78,7 @@ export default class SettingsController {
     const embeddingBatchSize = await KVStore.getValue('rag.embeddingBatchSize')
     const zimWorkerCount = await KVStore.getValue('rag.zimWorkerCount')
     const qdrantIndexingThreshold = await KVStore.getValue('rag.qdrantIndexingThreshold')
+    const teiIdleStopMinutes = await KVStore.getValue('rag.teiIdleStopMinutes')
     return inertia.render('settings/models', {
       models: {
         availableModels: availableModels?.models || [],
@@ -95,6 +96,7 @@ export default class SettingsController {
           embeddingBatchSize: embeddingBatchSize ?? '',
           zimWorkerCount: zimWorkerCount ?? '',
           qdrantIndexingThreshold: qdrantIndexingThreshold ?? '',
+          teiIdleStopMinutes: teiIdleStopMinutes ?? '',
         },
       },
     })

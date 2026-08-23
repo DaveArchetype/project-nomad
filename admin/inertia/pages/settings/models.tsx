@@ -39,6 +39,7 @@ export default function ModelsPage(props: {
       embeddingBatchSize: string
       zimWorkerCount: string
       qdrantIndexingThreshold: string
+      teiIdleStopMinutes: string
     }
   }
 }) {
@@ -136,6 +137,9 @@ export default function ModelsPage(props: {
   const [zimWorkerCount, setZimWorkerCount] = useState(props.models.settings.zimWorkerCount)
   const [qdrantIndexingThreshold, setQdrantIndexingThreshold] = useState(
     props.models.settings.qdrantIndexingThreshold
+  )
+  const [teiIdleStopMinutes, setTeiIdleStopMinutes] = useState(
+    props.models.settings.teiIdleStopMinutes
   )
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
 
@@ -516,6 +520,21 @@ export default function ModelsPage(props: {
                     updateSettingMutation.mutate({
                       key: 'rag.qdrantIndexingThreshold',
                       value: qdrantIndexingThreshold,
+                    })
+                  }
+                />
+                <Input
+                  name="teiIdleStopMinutes"
+                  label="TEI idle auto-stop (minutes)"
+                  type="number"
+                  helpText="Stop TEI (frees ~1GB VRAM) after this many minutes of no chat/embedding activity. TEI restarts automatically when you open chat or an embedding job starts. 0 = TEI always on. Default 5."
+                  placeholder="5"
+                  value={teiIdleStopMinutes}
+                  onChange={(e) => setTeiIdleStopMinutes(e.target.value)}
+                  onBlur={() =>
+                    updateSettingMutation.mutate({
+                      key: 'rag.teiIdleStopMinutes',
+                      value: teiIdleStopMinutes,
                     })
                   }
                 />

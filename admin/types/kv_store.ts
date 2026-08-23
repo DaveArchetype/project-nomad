@@ -35,6 +35,8 @@ export const KV_STORE_SCHEMA = {
   // (20000). Set very high (e.g. 1000000) during ingestion, lower back to
   // 20000 afterward to trigger indexing. Default empty.
   'rag.qdrantIndexingThreshold': 'string',
+  'rag.teiIdleStopMinutes': 'string',
+  'rag.lastTeiActivityAt': 'string',
   'system.updateAvailable': 'boolean',
   'system.latestVersion': 'string',
   'system.earlyAccess': 'boolean',

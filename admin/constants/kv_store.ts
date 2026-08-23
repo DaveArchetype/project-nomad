@@ -21,6 +21,7 @@ export const SETTINGS_KEYS: KVStoreKey[] = [
   'rag.embeddingBatchSize',
   'rag.zimWorkerCount',
   'rag.qdrantIndexingThreshold',
+  'rag.teiIdleStopMinutes',
   'autoUpdate.enabled',
   'autoUpdate.windowStart',
   'autoUpdate.windowEnd',
