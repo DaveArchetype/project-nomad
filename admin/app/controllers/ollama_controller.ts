@@ -12,6 +12,7 @@ import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import { RAG_CONTEXT_LIMITS, SYSTEM_PROMPTS } from '../../constants/ollama.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
+import { KIWIX_UI_PATH } from '../../constants/kiwix.js'
 import logger from '@adonisjs/core/services/logger'
 
 const DEFAULT_EMBED_PAUSE_AFTER_CHAT_MINUTES = 15
@@ -23,6 +24,12 @@ export type RagSource = {
   title: string
   contentType?: string
   score?: number
+  snippet: string
+  /** Kiwix-serve URL for ZIM article sources (path-based, same origin as the
+   *  admin UI). Present only for `content_type: 'zim_article'` sources that have
+   *  both a resolvable ZIM slug and an article path. The frontend uses this to
+   *  open an in-chat iframe preview instead of the file viewer. */
+  kiwixUrl?: string
 }
 
 @inject()
@@ -506,6 +513,9 @@ export default class OllamaController {
    * Build a deduplicated list of source files backing the RAG context, so the
    * client can surface provenance (clickable "Sources" chips under the answer).
    * One entry per distinct source, keeping the highest semantic score observed.
+   * Each entry carries a `snippet` — the retrieved passage that was actually
+   * injected as context — so the viewer can display it for sources that aren't
+   * directly viewable as files (ZIM archives, admin docs, README, etc.).
    * Sources without a usable path are dropped (e.g. legacy points missing the
    * `source` payload field).
    */
@@ -526,13 +536,42 @@ export default class OllamaController {
       const score =
         typeof doc.metadata?.semantic_score === 'number' ? doc.metadata.semantic_score : doc.score
       const contentType = doc.metadata?.content_type as string | undefined
+      const snippet = doc.text.slice(0, 2500)
+
+      const kiwixUrl = this._buildKiwixUrl(source, contentType, doc.metadata?.article_path)
 
       const existing = bySource.get(source)
       if (!existing || (score != null && (existing.score == null || score > existing.score))) {
-        bySource.set(source, { source, title, contentType, score })
+        bySource.set(source, { source, title, contentType, score, snippet, kiwixUrl })
       }
     }
     return [...bySource.values()]
+  }
+
+  /**
+   * Build a Kiwix-serve content URL for a ZIM article source. Returns undefined
+   * for non-ZIM sources or when the slug/article path can't be resolved.
+   *
+   * The URL is path-based and same-origin as the admin UI (e.g.
+   * `/kiwix/wikipedia_en_all_maxi_2026-02/A/Article_Title`), matching the
+   * Caddy reverse-proxy route. The frontend opens this in an iframe preview.
+   */
+  private _buildKiwixUrl(
+    source: string,
+    contentType: string | undefined,
+    articlePath: string | undefined
+  ): string | undefined {
+    if (contentType !== 'zim_article') return undefined
+    if (!articlePath || typeof articlePath !== 'string' || articlePath.trim().length === 0) {
+      return undefined
+    }
+
+    const fileName = source.split(/[/\\]/).at(-1) ?? source
+    const slug = fileName.replace(/\.zim$/i, '')
+    if (!slug) return undefined
+
+    const cleanPath = articlePath.replace(/^\/+/, '')
+    return `${KIWIX_UI_PATH}/${slug}/${cleanPath}`
   }
 
   private async rewriteQueryWithContext(

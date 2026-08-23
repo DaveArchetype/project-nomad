@@ -15,6 +15,8 @@ export interface ChatRagSource {
   title: string
   contentType?: string
   score?: number
+  snippet: string
+  kiwixUrl?: string
 }
 
 export interface ChatSession {

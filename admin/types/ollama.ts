@@ -61,5 +61,12 @@ export type NomadChatResponse = {
   message: { content: string; thinking?: string }
   done: boolean
   model: string
-  sources?: Array<{ source: string; title: string; contentType?: string; score?: number }>
+  sources?: Array<{
+    source: string
+    title: string
+    contentType?: string
+    score?: number
+    snippet: string
+    kiwixUrl?: string
+  }>
 }

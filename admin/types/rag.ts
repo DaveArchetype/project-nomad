@@ -53,6 +53,7 @@ export type RAGResult = {
   chunk_index: number
   created_at: number
   article_title?: string
+  article_path?: string
   section_title?: string
   full_title?: string
   hierarchy?: string

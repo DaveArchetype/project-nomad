@@ -5,13 +5,21 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { ChatMessage } from '../../../types/chat'
 import FileViewerModal from './knowledge-base/FileViewerModal'
+import KiwixPreviewModal from './knowledge-base/KiwixPreviewModal'
 
 export interface ChatMessageBubbleProps {
   message: ChatMessage
 }
 
+type SelectedSource = {
+  source: string
+  title?: string
+  snippet?: string
+  kiwixUrl?: string
+}
+
 export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
-  const [viewingSource, setViewingSource] = useState<string | null>(null)
+  const [viewingSource, setViewingSource] = useState<SelectedSource | null>(null)
   return (
     <div
       className={classNames(
@@ -127,7 +135,14 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
               <button
                 key={`${src.source}-${idx}`}
                 type="button"
-                onClick={() => setViewingSource(src.source)}
+                onClick={() =>
+                  setViewingSource({
+                    source: src.source,
+                    title: src.title,
+                    snippet: src.snippet,
+                    kiwixUrl: src.kiwixUrl,
+                  })
+                }
                 title={src.source}
                 className="inline-flex items-center gap-1.5 max-w-full rounded-md border border-border-subtle bg-surface px-2 py-1 text-xs text-text-primary hover:border-desert-green hover:text-desert-green transition-colors"
               >
@@ -138,9 +153,21 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
           </div>
         </div>
       )}
-      {viewingSource && (
-        <FileViewerModal source={viewingSource} onClose={() => setViewingSource(null)} />
-      )}
+      {viewingSource &&
+        (viewingSource.kiwixUrl ? (
+          <KiwixPreviewModal
+            kiwixUrl={viewingSource.kiwixUrl}
+            title={viewingSource.title ?? 'Kiwix article'}
+            onClose={() => setViewingSource(null)}
+          />
+        ) : (
+          <FileViewerModal
+            source={viewingSource.source}
+            displayTitle={viewingSource.title}
+            snippet={viewingSource.snippet}
+            onClose={() => setViewingSource(null)}
+          />
+        ))}
     </div>
   )
 }

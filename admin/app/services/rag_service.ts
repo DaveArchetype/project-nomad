@@ -1307,6 +1307,7 @@ export class RagService {
         created_at: (result.payload?.created_at as number) || 0,
         // Enhanced ZIM metadata (likely be undefined for non-ZIM content)
         article_title: result.payload?.article_title as string | undefined,
+        article_path: result.payload?.article_path as string | undefined,
         section_title: result.payload?.section_title as string | undefined,
         full_title: result.payload?.full_title as string | undefined,
         hierarchy: result.payload?.hierarchy as string | undefined,
@@ -1337,6 +1338,7 @@ export class RagService {
           semantic_score: result.score,
           // Enhanced ZIM metadata (likely be undefined for non-ZIM content)
           article_title: result.article_title,
+          article_path: result.article_path,
           section_title: result.section_title,
           full_title: result.full_title,
           hierarchy: result.hierarchy,

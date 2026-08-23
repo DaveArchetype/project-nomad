@@ -359,7 +359,14 @@ class API {
     onChunk: (content: string, thinking: string, done: boolean) => void,
     signal?: AbortSignal,
     onSources?: (
-      sources: Array<{ source: string; title: string; contentType?: string; score?: number }>
+      sources: Array<{
+        source: string
+        title: string
+        contentType?: string
+        score?: number
+        snippet: string
+        kiwixUrl?: string
+      }>
     ) => void
   ): Promise<void> {
     // Axios doesn't support ReadableStream in browser, so need to use fetch
