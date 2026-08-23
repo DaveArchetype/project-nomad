@@ -337,4 +337,9 @@ export default class RagController {
     }
     return response.status(202).json({ message: result.message })
   }
+
+  public async repairAllFiles({ response }: HttpContext) {
+    const result = await this.ragService.repairAllFiles()
+    return response.status(200).json(result)
+  }
 }

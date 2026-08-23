@@ -77,6 +77,15 @@ export function renderStatePill(record: KbFileGroup): React.ReactNode {
   }
 }
 
+export function renderNoContentPill(): React.ReactNode {
+  const base = 'inline-flex items-center text-xs font-medium rounded px-2 py-0.5 border'
+  return (
+    <span className={`${base} text-text-muted bg-surface-secondary border-border-subtle`}>
+      No text content
+    </span>
+  )
+}
+
 export type RowAction =
   | { kind: 'index'; label: string; force: boolean; variant: 'primary'; icon: DynamicIconName }
   | { kind: 'reembed'; label: string; force: true; variant: 'secondary'; icon: DynamicIconName }

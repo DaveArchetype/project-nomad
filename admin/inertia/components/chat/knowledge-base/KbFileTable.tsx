@@ -3,7 +3,7 @@ import StyledTable from '~/components/StyledTable'
 import CollectionCombobox from '../CollectionCombobox'
 import { formatBytes } from '~/lib/util'
 import type { KbFileGroup } from '~/lib/kb_file_grouping'
-import { renderSortHeader, renderStatePill, pickRowAction } from './helpers'
+import { renderSortHeader, renderStatePill, renderNoContentPill, pickRowAction } from './helpers'
 import { isViewableExtension } from './constants'
 import type { KbFileTableProps } from './types'
 
@@ -40,14 +40,16 @@ export default function KbFileTable({
           className: '!whitespace-normal !max-w-xs !overflow-visible',
           render(record) {
             const warnings = fileWarnings[record.source] ?? []
-            const pill = renderStatePill(record)
+            const hasZeroChunks = warnings.some((w) => w.kind === 'zero_chunks')
+            const pill = hasZeroChunks ? renderNoContentPill() : renderStatePill(record)
+            const visibleWarnings = warnings.filter((w) => w.kind !== 'zero_chunks')
             return (
               <div className="flex flex-col gap-1.5 min-w-0">
                 <span className="text-text-primary break-words">{record.displayName}</span>
-                {(pill || warnings.length > 0) && (
+                {(pill || visibleWarnings.length > 0) && (
                   <div className="flex flex-wrap items-center gap-1.5">
                     {pill}
-                    {warnings.map((w, i) => (
+                    {visibleWarnings.map((w, i) => (
                       <span
                         key={i}
                         className="inline-flex items-center gap-1 self-start text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded px-1.5 py-0.5 whitespace-normal"
@@ -55,7 +57,6 @@ export default function KbFileTable({
                         <span aria-hidden="true" className="shrink-0">
                           ⚠
                         </span>
-                        {w.kind === 'zero_chunks' && <span>No text content</span>}
                         {w.kind === 'partial_stall' && (
                           <span>
                             {w.chunksEmbedded.toLocaleString()}/~{w.chunksExpected.toLocaleString()}{' '}
@@ -164,7 +165,10 @@ export default function KbFileTable({
             }
 
             const warnings = fileWarnings[record.source] ?? []
-            const action = pickRowAction(record, warnings.length > 0)
+            const action = pickRowAction(
+              record,
+              warnings.filter((w) => w.kind !== 'zero_chunks').length > 0
+            )
             const actionPendingForThisRow =
               embedMutation.isPending && embedMutation.variables?.source === record.source
             const isInflight = inflightSources.has(record.source)

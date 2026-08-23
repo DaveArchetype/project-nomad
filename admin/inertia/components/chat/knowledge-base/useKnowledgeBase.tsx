@@ -69,6 +69,7 @@ export interface UseKnowledgeBaseResult {
   verifyMutation: ReturnType<typeof useMutation<any, Error, string>>
   resumeMutation: ReturnType<typeof useMutation<{ message: string } | undefined, Error, string>>
   repairMutation: ReturnType<typeof useMutation<{ message: string } | undefined, Error, string>>
+  repairAllMutation: ReturnType<typeof useMutation<any, Error, void>>
   verifyResult: { source: string; ok: boolean; message: string; resumeOffset: number | null } | null
   setVerifyResult: (
     r: { source: string; ok: boolean; message: string; resumeOffset: number | null } | null
@@ -441,6 +442,39 @@ export function useKnowledgeBase(): UseKnowledgeBaseResult {
     },
   })
 
+  const repairAllMutation = useMutation({
+    mutationFn: () => api.repairAllRAGFiles(),
+    onSuccess: (data) => {
+      if (data) {
+        const parts: string[] = []
+        if (data.synced.length > 0) {
+          parts.push(`${data.synced.length} count synced`)
+        }
+        if (data.scanning.length > 0) {
+          parts.push(`${data.scanning.length} scanning for missing articles`)
+        }
+        if (data.skipped.length > 0) {
+          parts.push(`${data.skipped.length} already OK`)
+        }
+        if (data.errors.length > 0) {
+          parts.push(`${data.errors.length} errors`)
+        }
+        addNotification({
+          type: data.errors.length > 0 ? 'error' : 'success',
+          message: `Repair all complete: ${parts.join(', ')}`,
+        })
+      }
+      queryClient.invalidateQueries({ queryKey: ['storedFiles'] })
+      queryClient.invalidateQueries({ queryKey: ['embed-jobs'] })
+    },
+    onError: (error: any) => {
+      addNotification({
+        type: 'error',
+        message: error?.message || 'Failed to repair all files.',
+      })
+    },
+  })
+
   const handleUpload = async () => {
     if (files.length === 0) return
     setIsUploading(true)
@@ -579,6 +613,7 @@ export function useKnowledgeBase(): UseKnowledgeBaseResult {
     verifyMutation,
     resumeMutation,
     repairMutation,
+    repairAllMutation,
     verifyResult,
     setVerifyResult,
 

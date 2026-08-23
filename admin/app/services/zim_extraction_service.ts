@@ -68,7 +68,24 @@ export class ZIMExtractionService {
 
       const archive = new Archive(filePath)
       const archiveMetadata = this.extractArchiveMetadata(archive)
-      const totalArticles = archive.articleCount
+      const archiveArticleCount = archive.articleCount
+      let totalArticles = archiveArticleCount
+      if (archiveArticleCount > 0 && archiveArticleCount < 100_000) {
+        try {
+          let htmlCount = 0
+          for (const entry of archive.iterByPath()) {
+            if (this.isArticleEntry(entry)) htmlCount++
+          }
+          if (htmlCount > 0 && htmlCount !== archiveArticleCount) {
+            logger.info(
+              `[ZIMExtractionService]: ${archiveArticleCount} total entries, ${htmlCount} HTML articles`
+            )
+            totalArticles = htmlCount
+          }
+        } catch {
+          // If pre-scan fails, fall back to archive.articleCount
+        }
+      }
       logger.info(
         `[ZIMExtractionService]: Archive metadata - Title: ${archiveMetadata.title}, Language: ${archiveMetadata.language}, Articles: ${totalArticles}`
       )
@@ -76,6 +93,7 @@ export class ZIMExtractionService {
       const startOffset = opts.startOffset || 0
       let articlesSeen = 0
       let articlesProcessed = 0
+      let skippedNonArticle = 0
       let cancelled = false
 
       const useWorkers = opts.useWorkers !== false
@@ -150,6 +168,7 @@ export class ZIMExtractionService {
 
           for (const entry of archive.iterByPath()) {
             if (!this.isArticleEntry(entry)) {
+              skippedNonArticle++
               continue
             }
 
@@ -231,6 +250,7 @@ export class ZIMExtractionService {
         } else {
           for (const entry of archive.iterByPath()) {
             if (!this.isArticleEntry(entry)) {
+              skippedNonArticle++
               continue
             }
 
@@ -291,6 +311,16 @@ export class ZIMExtractionService {
       } finally {
         if (pool) {
           await pool.terminate()
+        }
+      }
+
+      if (skippedNonArticle > 0 && totalArticles === archiveArticleCount) {
+        const htmlTotal = archiveArticleCount - skippedNonArticle
+        if (htmlTotal > 0 && htmlTotal !== totalArticles) {
+          logger.info(
+            `[ZIMExtractionService]: Adjusted total from ${totalArticles} to ${htmlTotal} (skipped ${skippedNonArticle} non-HTML entries)`
+          )
+          totalArticles = htmlTotal
         }
       }
 
@@ -447,7 +477,7 @@ export class ZIMExtractionService {
           const articleSeenForThis = articlesSeen
           const articlePath = entry.path
           const promise = pool
-            .processArticle(articlePath, entry.title || entry.path, randomUUID())
+            .processArticle(articlePath, entry.title || entry.path, randomUUID(), undefined)
             .catch((err) => {
               logger.warn(
                 `[ZIMExtractionService]: Worker error for repair article ${articlePath}: %s`,

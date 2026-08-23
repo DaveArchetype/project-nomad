@@ -19,11 +19,7 @@ const ZIM_PREFIX = '/app/storage/zim/'
 const UPLOADS_PREFIX = '/app/storage/kb_uploads/'
 
 export function classifyKbFile(source: string): KbFileBucket {
-  if (
-    ADMIN_DOCS_PREFIXES.some((p) =>
-      p.endsWith('/') ? source.startsWith(p) : source === p
-    )
-  ) {
+  if (ADMIN_DOCS_PREFIXES.some((p) => (p.endsWith('/') ? source.startsWith(p) : source === p))) {
     return 'admin_docs'
   }
   if (source.startsWith(ZIM_PREFIX)) return 'zim'
@@ -80,8 +76,10 @@ const DEFAULT_SORT: KbFileSort = { key: 'name', direction: 'asc' }
 function compareForSort(a: StoredFileInfo, b: StoredFileInfo, sort: KbFileSort): number {
   // Files the scanner couldn't stat sort to the end regardless of direction so
   // they don't pollute the top of size/uploaded-at views.
-  const aMissing = sort.key !== 'name' && (sort.key === 'size' ? a.size === null : a.uploadedAt === null)
-  const bMissing = sort.key !== 'name' && (sort.key === 'size' ? b.size === null : b.uploadedAt === null)
+  const aMissing =
+    sort.key !== 'name' && (sort.key === 'size' ? a.size === null : a.uploadedAt === null)
+  const bMissing =
+    sort.key !== 'name' && (sort.key === 'size' ? b.size === null : b.uploadedAt === null)
   if (aMissing && !bMissing) return 1
   if (!aMissing && bMissing) return -1
 
@@ -144,7 +142,13 @@ export function groupAndSortKbFiles(
       continue
     }
 
-    for (const file of members.sort((a, b) => compareForSort(a, b, sort))) {
+    for (const file of members.sort((a, b) => {
+      const aNoContent = (a.state === 'indexed' || a.state === null) && a.chunksEmbedded === 0
+      const bNoContent = (b.state === 'indexed' || b.state === null) && b.chunksEmbedded === 0
+      if (aNoContent && !bNoContent) return 1
+      if (!aNoContent && bNoContent) return -1
+      return compareForSort(a, b, sort)
+    })) {
       groups.push({
         bucket,
         source: file.source,

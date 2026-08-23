@@ -112,6 +112,7 @@ export default function KnowledgeBaseModal({
             verifyMutation={kb.verifyMutation}
             resumeMutation={kb.resumeMutation}
             repairMutation={kb.repairMutation}
+            repairAllMutation={kb.repairAllMutation}
             verifyResult={kb.verifyResult}
             setVerifyResult={kb.setVerifyResult}
           />

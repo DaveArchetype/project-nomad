@@ -2491,6 +2491,98 @@ export class RagService {
     }
   }
 
+  public async repairAllFiles(): Promise<{
+    synced: string[]
+    scanning: string[]
+    skipped: string[]
+    errors: Array<{ source: string; error: string }>
+  }> {
+    const allStates = await KbIngestState.query()
+    const zimStates = allStates.filter((s) => determineFileType(s.file_path) === 'zim')
+
+    const synced: string[] = []
+    const scanning: string[] = []
+    const skipped: string[] = []
+    const errors: Array<{ source: string; error: string }> = []
+
+    await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
+
+    const facetResult = await this.qdrant!.facet(RagService.CONTENT_COLLECTION_NAME, {
+      key: 'source',
+      limit: RagService.FACET_SOURCE_LIMIT,
+      exact: true,
+    })
+    const qdrantCounts = new Map<string, number>()
+    for (const hit of facetResult.hits) {
+      qdrantCounts.set(hit.value, hit.count)
+    }
+
+    const { getFileStatsIfExists } = await import('../utils/fs.js')
+    const { estimateChunkCount } = await import('../utils/kb_ratio_lookup.js')
+    const KbRatioRegistryMod = await import('#models/kb_ratio_registry')
+    const ratioRows = await KbRatioRegistryMod.default.all().catch(() => [])
+
+    for (const stateRow of zimStates) {
+      const source = stateRow.file_path
+      try {
+        const chunksInQdrant = qdrantCounts.get(source) ?? 0
+        const recordedChunks = stateRow.chunks_embedded ?? 0
+
+        let chunksEstimated: number | null = null
+        try {
+          const fileStats = await getFileStatsIfExists(source)
+          const sizeBytes = Number(fileStats?.size ?? 0)
+          if (sizeBytes > 0) {
+            const fileName = source.split(/[/\\]/).pop() || source
+            chunksEstimated = estimateChunkCount(fileName, sizeBytes, ratioRows)
+          }
+        } catch {
+          // Non-fatal
+        }
+
+        const belowEstimate =
+          chunksEstimated !== null && chunksEstimated > 0 && chunksInQdrant < chunksEstimated * 0.5
+
+        if (chunksInQdrant >= recordedChunks && !belowEstimate) {
+          if (chunksInQdrant !== recordedChunks) {
+            stateRow.chunks_embedded = chunksInQdrant
+            await stateRow.save()
+            synced.push(source)
+            logger.info(
+              `[RAG] Repair-all: synced ${source} count ${recordedChunks} → ${chunksInQdrant}`
+            )
+          } else {
+            skipped.push(source)
+          }
+          continue
+        }
+
+        const fileName = source.split(/[/\\]/).pop() || source
+        const collection = stateRow.collection ?? undefined
+        const { EmbedFileJob } = await import('#jobs/embed_file_job')
+        const jobId = `repair-${EmbedFileJob.getJobId(source)}`
+
+        setImmediate(() => {
+          this._scanAndDispatchRepair(source, fileName, collection, jobId).catch((err) => {
+            logger.error(`[RAG] Repair-all scan failed for ${source}: %s`, err)
+          })
+        })
+        scanning.push(source)
+      } catch (err) {
+        errors.push({
+          source,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
+    }
+
+    logger.info(
+      `[RAG] Repair-all: ${synced.length} synced, ${scanning.length} scanning, ${skipped.length} ok, ${errors.length} errors`
+    )
+
+    return { synced, scanning, skipped, errors }
+  }
+
   public async repairFileIngestion(source: string): Promise<EmbedSingleFileResult> {
     const isZim = determineFileType(source) === 'zim'
     if (!isZim) {

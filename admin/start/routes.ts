@@ -545,6 +545,10 @@ router
       tags: ['rag'],
       request: fileSourceSchema,
     })
+    documented(router.post('/files/repair-all', [RagController, 'repairAllFiles']), {
+      summary: 'Repair all ZIM ingestions: sync stale counts and re-embed missing articles',
+      tags: ['rag'],
+    })
   })
   .prefix('/api/rag')
 

@@ -19,6 +19,7 @@ export interface KbFileActions {
   verifyMutation: UseMutationResult<any, Error, string>
   resumeMutation: UseMutationResult<{ message: string } | undefined, Error, string>
   repairMutation: UseMutationResult<{ message: string } | undefined, Error, string>
+  repairAllMutation: UseMutationResult<any, Error, void>
   verifyResult: { source: string; ok: boolean; message: string; resumeOffset: number | null } | null
   setVerifyResult: (
     r: { source: string; ok: boolean; message: string; resumeOffset: number | null } | null
@@ -86,6 +87,7 @@ export interface StoredFilesSectionProps {
   verifyMutation: UseMutationResult<any, Error, string>
   resumeMutation: UseMutationResult<{ message: string } | undefined, Error, string>
   repairMutation: UseMutationResult<{ message: string } | undefined, Error, string>
+  repairAllMutation: UseMutationResult<any, Error, void>
   verifyResult: { source: string; ok: boolean; message: string; resumeOffset: number | null } | null
   setVerifyResult: (
     r: { source: string; ok: boolean; message: string; resumeOffset: number | null } | null

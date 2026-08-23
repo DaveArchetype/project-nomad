@@ -1,7 +1,7 @@
 import StyledButton from '~/components/StyledButton'
 import CollectionCombobox from '../CollectionCombobox'
 import { formatBytes } from '~/lib/util'
-import { renderStatePill, pickRowAction } from './helpers'
+import { renderStatePill, renderNoContentPill, pickRowAction } from './helpers'
 import { isViewableExtension } from './constants'
 import type { KbFileCardProps } from './types'
 
@@ -25,10 +25,11 @@ export default function KbFileCard({
   setVerifyResult,
 }: KbFileCardProps) {
   const warnings = fileWarnings[record.source] ?? []
-  const pill = renderStatePill(record)
+  const hasZeroChunks = warnings.some((w) => w.kind === 'zero_chunks')
+  const pill = hasZeroChunks ? renderNoContentPill() : renderStatePill(record)
   const isConfirming = confirmDeleteSource === record.source
   const isDeleting = deleteMutation.isPending && confirmDeleteSource === record.source
-  const action = pickRowAction(record, warnings.length > 0)
+  const action = pickRowAction(record, warnings.filter((w) => w.kind !== 'zero_chunks').length > 0)
   const actionPendingForThisRow =
     embedMutation.isPending && embedMutation.variables?.source === record.source
   const isInflight = inflightSources.has(record.source)
@@ -68,20 +69,22 @@ export default function KbFileCard({
         {(pill || warnings.length > 0) && (
           <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
             {pill}
-            {warnings.map((w, i) => (
-              <span
-                key={i}
-                className="inline-flex items-center gap-1.5 self-start text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded px-2 py-0.5"
-              >
-                <span aria-hidden="true">⚠</span>
-                {w.kind === 'zero_chunks' && <span>No text content</span>}
-                {w.kind === 'partial_stall' && (
-                  <span>
-                    {w.chunksEmbedded.toLocaleString()}/~{w.chunksExpected.toLocaleString()} chunks
-                  </span>
-                )}
-              </span>
-            ))}
+            {warnings
+              .filter((w) => w.kind !== 'zero_chunks')
+              .map((w, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1.5 self-start text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded px-2 py-0.5"
+                >
+                  <span aria-hidden="true">⚠</span>
+                  {w.kind === 'partial_stall' && (
+                    <span>
+                      {w.chunksEmbedded.toLocaleString()}/~{w.chunksExpected.toLocaleString()}{' '}
+                      chunks
+                    </span>
+                  )}
+                </span>
+              ))}
           </div>
         )}
       </div>

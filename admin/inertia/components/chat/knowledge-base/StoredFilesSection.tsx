@@ -38,6 +38,7 @@ export default function StoredFilesSection({
   verifyMutation,
   resumeMutation,
   repairMutation,
+  repairAllMutation,
   verifyResult,
   setVerifyResult,
 }: StoredFilesSectionProps) {
@@ -113,6 +114,24 @@ export default function StoredFilesSection({
               className="w-full md:w-auto md:!px-3"
             >
               Sync Storage
+            </StyledButton>
+            <StyledButton
+              variant="success"
+              size="md"
+              icon="IconStethoscope"
+              onClick={() => repairAllMutation.mutate()}
+              disabled={
+                repairAllMutation.isPending ||
+                isUploading ||
+                qdrantOffline ||
+                bulkBusy ||
+                storedFiles.length === 0
+              }
+              loading={repairAllMutation.isPending}
+              title="Sync stale chunk counts and re-embed missing articles for all ZIM files"
+              className="w-full md:w-auto md:!px-3"
+            >
+              Repair All
             </StyledButton>
           </div>
         </div>
