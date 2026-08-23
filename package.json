@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "update": "docker compose -f install/management_compose.yaml build && docker compose -f install/management_compose.yaml up -d"
+    "deploy": "docker compose --env-file .env -f install/management_compose.yaml build && docker compose --env-file .env -f install/management_compose.yaml up -d"
   },
   "author": "Crosstalk Solutions, LLC",
   "license": "Apache-2.0"

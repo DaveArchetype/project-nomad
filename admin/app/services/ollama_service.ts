@@ -666,7 +666,7 @@ export class OllamaService {
   ): Promise<{ embeddings: number[][] } | null> {
     const payload = { model: 'nomic-ai/nomic-embed-text-v1.5', input: batch }
 
-    const maxRetries = 5
+    const maxRetries = 8
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         const response = await axios.post(`${teiUrl}/v1/embeddings`, payload, {
@@ -680,8 +680,16 @@ export class OllamaService {
           typeof responseBody === 'string'
             ? responseBody
             : responseBody?.error || responseBody?.message || JSON.stringify(responseBody)
-        if (status === 429 && attempt < maxRetries) {
+        if ((status === 429 || status === 400) && attempt < maxRetries) {
           const waitMs = 3000 * (attempt + 1)
+          logger.warn(
+            '[OllamaService] TEI embed rate-limited (status %s, attempt %d/%d), retrying in %dms: %s',
+            status,
+            attempt + 1,
+            maxRetries + 1,
+            waitMs,
+            errorDetail
+          )
           await new Promise((r) => setTimeout(r, waitMs))
           continue
         }
@@ -697,19 +705,6 @@ export class OllamaService {
           } catch {
             // fall through to error handling
           }
-        }
-        if (status === 400 && attempt < maxRetries && batch.length > 1) {
-          const half = Math.ceil(batch.length / 2)
-          logger.warn(
-            '[OllamaService] TEI 400 on batch of %d, splitting and retrying: %s',
-            batch.length,
-            errorDetail
-          )
-          const r1 = await this._embedSingleTeiBatch(teiUrl, batch.slice(0, half), parseResponse)
-          if (!r1) return null
-          const r2 = await this._embedSingleTeiBatch(teiUrl, batch.slice(half), parseResponse)
-          if (!r2) return null
-          return { embeddings: [...r1.embeddings, ...r2.embeddings] }
         }
         if (status !== 422 && status !== 429 && status !== 400) {
           this.teiUrl = null
