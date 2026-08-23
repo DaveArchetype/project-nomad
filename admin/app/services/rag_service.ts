@@ -2514,7 +2514,7 @@ export class RagService {
     })
     const qdrantCounts = new Map<string, number>()
     for (const hit of facetResult.hits) {
-      qdrantCounts.set(hit.value, hit.count)
+      if (typeof hit.value === 'string') qdrantCounts.set(hit.value, hit.count)
     }
 
     const { getFileStatsIfExists } = await import('../utils/fs.js')
