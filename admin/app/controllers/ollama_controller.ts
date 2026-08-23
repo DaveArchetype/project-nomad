@@ -18,6 +18,13 @@ const DEFAULT_EMBED_PAUSE_AFTER_CHAT_MINUTES = 15
 
 type Message = { role: 'system' | 'user' | 'assistant'; content: string }
 
+export type RagSource = {
+  source: string
+  title: string
+  contentType?: string
+  score?: number
+}
+
 @inject()
 export default class OllamaController {
   constructor(
@@ -109,6 +116,7 @@ export default class OllamaController {
       const rewrittenQuery = await this.rewriteQueryWithContext(reqData.messages, reqData.model)
 
       logger.debug(`[OllamaController] Rewritten query for RAG: "${rewrittenQuery}"`)
+      let ragSources: RagSource[] = []
       if (rewrittenQuery) {
         const collectionFilter: string | null = request.input('collection', null)
         const relevantDocs = await this.ragService.searchSimilarDocuments(
@@ -165,6 +173,13 @@ export default class OllamaController {
           const firstNonSystemIndex = reqData.messages.findIndex((msg) => msg.role !== 'system')
           const insertIndex = firstNonSystemIndex === -1 ? 0 : firstNonSystemIndex
           reqData.messages.splice(insertIndex, 0, systemMessage)
+
+          // Build a deduplicated list of source files backing the injected RAG
+          // context, so the client can surface provenance (clickable "Sources"
+          // chips under the answer). One entry per distinct source, keeping the
+          // highest semantic score observed. Reflects only what was actually
+          // injected (trimmedDocs), not every retrieved candidate.
+          ragSources = this._collectRagSources(trimmedDocs)
         }
       }
 
@@ -217,6 +232,11 @@ export default class OllamaController {
           `[OllamaController] Initiating streaming response for model: "${reqData.model}" with think: ${think}`
         )
         // Headers already flushed above.
+        // Emit RAG provenance as a leading SSE event before the first Ollama chunk,
+        // so the client can render "Sources" chips while generation streams in.
+        if (ragSources.length > 0) {
+          response.response.write(`data: ${JSON.stringify({ sources: ragSources })}\n\n`)
+        }
         // Abort the upstream generation if the client disconnects — otherwise an abandoned
         // request keeps decoding server-side and, with Ollama's default OLLAMA_NUM_PARALLEL=1,
         // blocks every later chat/RAG request until the model is manually stopped (#1065).
@@ -287,7 +307,7 @@ export default class OllamaController {
         }
       }
 
-      return result
+      return ragSources.length > 0 ? { ...result, sources: ragSources } : result
     } catch (error) {
       if (reqData.stream) {
         response.response.write(`data: ${JSON.stringify({ error: true })}\n\n`)
@@ -480,6 +500,39 @@ export default class OllamaController {
 
     // Fallback: no limits
     return { maxResults: 5, maxTokens: 0 }
+  }
+
+  /**
+   * Build a deduplicated list of source files backing the RAG context, so the
+   * client can surface provenance (clickable "Sources" chips under the answer).
+   * One entry per distinct source, keeping the highest semantic score observed.
+   * Sources without a usable path are dropped (e.g. legacy points missing the
+   * `source` payload field).
+   */
+  private _collectRagSources(
+    docs: Array<{ text: string; score: number; metadata?: Record<string, any> }>
+  ): RagSource[] {
+    const bySource = new Map<string, RagSource>()
+    for (const doc of docs) {
+      const source = doc.metadata?.source
+      if (!source || typeof source !== 'string' || source.trim().length === 0) continue
+
+      const title =
+        (doc.metadata?.full_title as string | undefined) ||
+        (doc.metadata?.article_title as string | undefined) ||
+        source.split(/[/\\]/).at(-1) ||
+        source
+
+      const score =
+        typeof doc.metadata?.semantic_score === 'number' ? doc.metadata.semantic_score : doc.score
+      const contentType = doc.metadata?.content_type as string | undefined
+
+      const existing = bySource.get(source)
+      if (!existing || (score != null && (existing.score == null || score > existing.score))) {
+        bySource.set(source, { source, title, contentType, score })
+      }
+    }
+    return [...bySource.values()]
   }
 
   private async rewriteQueryWithContext(

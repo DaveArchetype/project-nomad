@@ -7,6 +7,14 @@ export interface ChatMessage {
   thinking?: string
   isThinking?: boolean
   thinkingDuration?: number
+  sources?: ChatRagSource[]
+}
+
+export interface ChatRagSource {
+  source: string
+  title: string
+  contentType?: string
+  score?: number
 }
 
 export interface ChatSession {

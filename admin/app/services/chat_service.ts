@@ -93,6 +93,18 @@ export class ChatService {
           .filter((s) => s.length > 0)
           .slice(0, 3)
           .map((s) => toTitleCase(s))
+
+        // Discard the entire batch if any suggestion looks like run-together
+        // words (e.g. "Didyouknow", "Whatistheoriginofthewordglitch"). Small
+        // models sometimes ignore spacing instructions; returning [] and
+        // skipping the cache write lets the next request regenerate cleanly
+        // instead of persisting garbage for the cache TTL.
+        if (suggestions.some((s) => !this._isValidSuggestion(s))) {
+          logger.warn(
+            `[ChatService] Discarding malformed suggestions batch (run-together words): ${JSON.stringify(suggestions)}`
+          )
+          return []
+        }
       }
 
       if (suggestions.length > 0) {
@@ -121,10 +133,49 @@ export class ChatService {
       if (Date.now() - parsed.generatedAt > SUGGESTIONS_CACHE_TTL_MS) {
         return null
       }
+      // Purge cached entries that contain run-together words (e.g. legacy
+      // "Didyouknow" rows written before validation existed). Clearing the KV
+      // row and returning null forces regeneration on this same request.
+      if (parsed.suggestions.some((s) => !this._isValidSuggestion(s))) {
+        logger.warn(
+          `[ChatService] Purging malformed suggestions cache (run-together words): ${JSON.stringify(parsed.suggestions)}`
+        )
+        await KVStore.clearValue('chat.suggestionsCache')
+        return null
+      }
       return parsed.suggestions
     } catch {
       return null
     }
+  }
+
+  /**
+   * Reject suggestions that look like run-together words. Small models
+   * sometimes ignore spacing instructions and emit tokens like "Didyouknow"
+   * or "Whatistheoriginofthewordglitch", which toTitleCase cannot recover
+   * from (it only re-cases existing words, it does not insert spaces).
+   *
+   * A suggestion is valid when:
+   *  - it contains at least one space (multi-word question), OR
+   *  - it is a single short token (<= 8 chars, e.g. "Hello?").
+   * It is invalid when it is a long single token with no spaces, or when it
+   * contains internal capitals after the first character with no spaces
+   * (camelCase run-together like "DidYouKnow").
+   */
+  private _isValidSuggestion(s: string): boolean {
+    if (!s || typeof s !== 'string') return false
+    const trimmed = s.trim()
+    if (trimmed.length === 0) return false
+    const hasSpace = /\s/.test(trimmed)
+    if (hasSpace) return true
+    // Single-token suggestion: only allow if it's short (a real one-word
+    // question like "Hello?" or "Why?"). Long single tokens are almost
+    // always run-together words.
+    if (trimmed.length > 12) return false
+    // Reject camelCase / PascalCase run-together (capital after the first
+    // char with no spaces, e.g. "DidYouKnow").
+    if (/[A-Z]/.test(trimmed.slice(1))) return false
+    return true
   }
 
   private async _writeSuggestionsCache(suggestions: string[]): Promise<void> {

@@ -66,6 +66,7 @@ export function useChatStream({
         role: 'assistant',
         content: data.message?.content || 'Sorry, I could not generate a response.',
         timestamp: new Date(),
+        sources: data.sources,
       }
 
       setMessages((prev) => [...prev, assistantMessage])
@@ -134,6 +135,10 @@ export function useChatStream({
         let isThinkingPhase = true
         let thinkingStartTime: number | null = null
         let thinkingDuration: number | null = null
+        // RAG provenance arrives as a leading SSE event before the first content
+        // chunk. Stash it here so the first-chunk message creation can include it;
+        // if it arrives after the message exists (rare reordering), apply directly.
+        let pendingSources: ChatMessage['sources'] | null = null
 
         try {
           await api.streamChatMessage(
@@ -164,6 +169,7 @@ export function useChatStream({
                     isStreaming: true,
                     isThinking: chunkThinking.length > 0 && chunkContent.length === 0,
                     thinkingDuration: undefined,
+                    sources: pendingSources ?? undefined,
                   },
                 ])
               } else {
@@ -194,7 +200,17 @@ export function useChatStream({
               fullContent += chunkContent
               thinkingContent += chunkThinking
             },
-            abortController.signal
+            abortController.signal,
+            (sources) => {
+              if (streamingSessionIdRef.current !== sessionId) return
+              if (isFirstChunk) {
+                pendingSources = sources
+              } else {
+                setMessages((prev) =>
+                  prev.map((m) => (m.id === assistantMsgId ? { ...m, sources } : m))
+                )
+              }
+            }
           )
         } catch (error: any) {
           const isAbort =

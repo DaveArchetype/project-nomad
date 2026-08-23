@@ -125,6 +125,13 @@ Examples of good suggestions:
 - "Why Is The Sky Blue?"
 - "How Do I Bake Chocolate Chip Cookies?"
 
+CRITICAL FORMATTING RULES (violating these breaks the UI):
+- Keep a single space between EVERY word. Words must be separated by spaces.
+- Do NOT remove spaces between words.
+- Do NOT smash words together (e.g. "Didyouknow" is WRONG; "Did You Know" is RIGHT).
+- Do NOT use CamelCase or PascalCase to join words (e.g. "DidYouKnow" is WRONG).
+- Each suggestion must read as a normal English sentence with spaces between all words.
+
 Do NOT use:
 - Follow-up questions seeking clarification
 - Vague or incomplete suggestions
@@ -137,6 +144,9 @@ The suggestions should be in title case.
 Ensure that your suggestions are comma-separated with no conjunctions like "and" or "or".
 Do not use line breaks, new lines, or extra spacing to separate the suggestions.
 Format: suggestion1, suggestion2, suggestion3
+
+Example output (copy this spacing exactly):
+What Is The Fastest Animal On Land?, Why Is The Sky Blue?, How Do I Bake Chocolate Chip Cookies?
 `,
   title_generation: `You are a title generator. Given the start of a conversation, generate a concise, descriptive title under 50 characters. Return ONLY the title text with no quotes, punctuation wrapping, or extra formatting.`,
   query_rewrite: `

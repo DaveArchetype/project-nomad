@@ -357,7 +357,10 @@ class API {
   async streamChatMessage(
     chatRequest: OllamaChatRequest,
     onChunk: (content: string, thinking: string, done: boolean) => void,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    onSources?: (
+      sources: Array<{ source: string; title: string; contentType?: string; score?: number }>
+    ) => void
   ): Promise<void> {
     // Axios doesn't support ReadableStream in browser, so need to use fetch
     const response = await fetch('/api/ollama/chat', {
@@ -394,6 +397,13 @@ class API {
           }
 
           if (data.error) throw new Error('The model encountered an error. Please try again.')
+
+          // Leading provenance event: { sources: [...] } emitted before the first
+          // Ollama chunk. Forward to the caller and skip the content callback.
+          if (Array.isArray(data.sources)) {
+            if (onSources) onSources(data.sources)
+            continue
+          }
 
           onChunk(data.message?.content ?? '', data.message?.thinking ?? '', data.done ?? false)
         }

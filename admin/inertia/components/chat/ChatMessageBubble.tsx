@@ -1,13 +1,17 @@
+import { useState } from 'react'
+import { IconFileText } from '@tabler/icons-react'
 import classNames from '~/lib/classNames'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { ChatMessage } from '../../../types/chat'
+import FileViewerModal from './knowledge-base/FileViewerModal'
 
 export interface ChatMessageBubbleProps {
   message: ChatMessage
 }
 
 export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
+  const [viewingSource, setViewingSource] = useState<string | null>(null)
   return (
     <div
       className={classNames(
@@ -115,6 +119,28 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
           minute: '2-digit',
         })}
       </div>
+      {message.role === 'assistant' && message.sources && message.sources.length > 0 && (
+        <div className="mt-3 border-t border-border-subtle pt-2">
+          <div className="mb-1.5 text-xs font-medium text-text-muted">Sources</div>
+          <div className="flex flex-wrap gap-1.5">
+            {message.sources.map((src, idx) => (
+              <button
+                key={`${src.source}-${idx}`}
+                type="button"
+                onClick={() => setViewingSource(src.source)}
+                title={src.source}
+                className="inline-flex items-center gap-1.5 max-w-full rounded-md border border-border-subtle bg-surface px-2 py-1 text-xs text-text-primary hover:border-desert-green hover:text-desert-green transition-colors"
+              >
+                <IconFileText className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{src.title}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {viewingSource && (
+        <FileViewerModal source={viewingSource} onClose={() => setViewingSource(null)} />
+      )}
     </div>
   )
 }

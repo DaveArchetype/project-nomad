@@ -1342,6 +1342,7 @@ export class RagService {
           hierarchy: result.hierarchy,
           document_id: result.document_id,
           content_type: result.content_type,
+          source: result.source,
         },
       }))
     } catch (error) {
