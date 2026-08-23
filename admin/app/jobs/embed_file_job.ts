@@ -775,19 +775,33 @@ export class EmbedFileJob {
         const lockKey = `bull:${EmbedFileJob.queue}:${jobId}:lock`
         await redis.del(lockKey)
         logger.info(`[EmbedFileJob] Broke lock for job ${jobId} (key: ${lockKey})`)
-        // Move to failed so retry() can pick it up, then retry.
+        // After breaking the lock, re-fetch and check state. The job may have
+        // already transitioned (worker died, stall recovery moved it, etc).
+        // moveToFailed with a dummy token works now that the lock is gone.
         const refreshedJob = await queue.getJob(jobId)
         if (!refreshedJob) {
           return { success: false, code: 'not_found', message: 'Job disappeared after lock break.' }
         }
         const refreshedState = await refreshedJob.getState()
         if (refreshedState === 'active') {
-          // Still active after lock break — force moveToFailed with a dummy
-          // token now that the lock is gone (BullMQ accepts any token when
-          // the lock doesn't exist).
           await refreshedJob.moveToFailed(new Error('Force-resumed by operator'), '0', true)
         }
-        await refreshedJob.retry()
+        // After moveToFailed, retry() moves it back to waiting. But if the
+        // state was already 'failed' or 'delayed' (stall recovery beat us),
+        // retry directly. If retry throws because the state changed again
+        // (race), treat it as success — the lock is broken and the job will
+        // be picked up by a worker either way.
+        const postFailState = await refreshedJob.getState()
+        if (postFailState === 'failed' || postFailState === 'delayed') {
+          try {
+            await refreshedJob.retry()
+          } catch (retryErr) {
+            logger.info(
+              `[EmbedFileJob] retry() threw after lock break (state was ${postFailState}), job will be picked up by worker: %s`,
+              retryErr instanceof Error ? retryErr.message : String(retryErr)
+            )
+          }
+        }
       } else {
         return {
           success: false,
