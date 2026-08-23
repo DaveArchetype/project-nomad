@@ -2551,6 +2551,7 @@ export class RagService {
     logger.info(`[RAG] Repair: scanning Qdrant for existing article paths in ${source}`)
 
     const embeddedPaths = new Set<string>()
+    let totalQdrantPoints = 0
     let scrollOffset: string | number | undefined = undefined
     const scrollBatchSize = 1000
 
@@ -2564,6 +2565,7 @@ export class RagService {
       })
 
       const points = scrollResult.points || []
+      totalQdrantPoints += points.length
       for (const point of points) {
         const payload = point.payload as any
         if (payload?.article_path) {
@@ -2576,7 +2578,7 @@ export class RagService {
     }
 
     logger.info(
-      `[RAG] Repair: found ${embeddedPaths.size} unique article paths already in Qdrant for ${source}`
+      `[RAG] Repair: found ${embeddedPaths.size} unique article paths (${totalQdrantPoints} total points) already in Qdrant for ${source}`
     )
 
     const { Archive } = await import('@openzim/libzim')
@@ -2603,6 +2605,15 @@ export class RagService {
 
     if (missingPaths.length === 0) {
       logger.info(`[RAG] Repair: no missing articles found for ${source}`)
+      const stateRow = await KbIngestState.query().where('file_path', source).first()
+      const recordedChunks = stateRow?.chunks_embedded ?? 0
+      if (stateRow && totalQdrantPoints !== recordedChunks) {
+        logger.info(
+          `[RAG] Repair: syncing DB chunk count from ${recordedChunks} to ${totalQdrantPoints} for ${source}`
+        )
+        stateRow.chunks_embedded = totalQdrantPoints
+        await stateRow.save()
+      }
       return
     }
 
