@@ -215,7 +215,7 @@ services:
       - "8181:80"
     volumes:
       - /mnt/main2tb/project-nomad/tei-data:/data
-    command: ["--model-id", "nomic-ai/nomic-embed-text-v1.5", "--revision", "e5cf08aadaa33385f5990def41f7a23405aec398", "--port", "80", "--max-client-batch-size", "512", "--max-concurrent-requests", "1024", "--max-batch-tokens", "65536"]
+    command: ["--model-id", "nomic-ai/nomic-embed-text-v1.5", "--revision", "e5cf08aadaa33385f5990def41f7a23405aec398", "--port", "80", "--max-client-batch-size", "512", "--max-concurrent-requests", "1024", "--max-batch-tokens", "250000"]
     deploy:
       resources:
         reservations:
