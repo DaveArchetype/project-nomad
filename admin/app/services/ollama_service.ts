@@ -675,6 +675,11 @@ export class OllamaService {
         return parseResponse(response.data)
       } catch (err: any) {
         const status = err?.response?.status
+        const responseBody = err?.response?.data
+        const errorDetail =
+          typeof responseBody === 'string'
+            ? responseBody
+            : responseBody?.error || responseBody?.message || JSON.stringify(responseBody)
         if (status === 429 && attempt < maxRetries) {
           const waitMs = 3000 * (attempt + 1)
           await new Promise((r) => setTimeout(r, waitMs))
@@ -693,15 +698,29 @@ export class OllamaService {
             // fall through to error handling
           }
         }
-        if (status !== 422 && status !== 429) {
+        if (status === 400 && attempt < maxRetries && batch.length > 1) {
+          const half = Math.ceil(batch.length / 2)
+          logger.warn(
+            '[OllamaService] TEI 400 on batch of %d, splitting and retrying: %s',
+            batch.length,
+            errorDetail
+          )
+          const r1 = await this._embedSingleTeiBatch(teiUrl, batch.slice(0, half), parseResponse)
+          if (!r1) return null
+          const r2 = await this._embedSingleTeiBatch(teiUrl, batch.slice(half), parseResponse)
+          if (!r2) return null
+          return { embeddings: [...r1.embeddings, ...r2.embeddings] }
+        }
+        if (status !== 422 && status !== 429 && status !== 400) {
           this.teiUrl = null
           this.teiLastCheckAt = Date.now()
         }
         logger.warn(
-          '[OllamaService] TEI embed failed (status %s, attempt %d), falling back to Ollama: %s',
+          '[OllamaService] TEI embed failed (status %s, attempt %d), falling back to Ollama: %s | body: %s',
           status ?? 'unknown',
           attempt + 1,
-          err instanceof Error ? err.message : String(err)
+          err instanceof Error ? err.message : String(err),
+          errorDetail
         )
         return null
       }

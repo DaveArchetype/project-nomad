@@ -614,14 +614,46 @@ export class RagService {
       for (let i = 0; i < points.length; i += ZIM_QDRANT_UPSERT_BATCH) {
         upsertBatches.push(points.slice(i, i + ZIM_QDRANT_UPSERT_BATCH))
       }
+
+      const upsertWithRetry = async (batch: typeof points, maxRetries = 3): Promise<void> => {
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+          try {
+            await this.qdrant!.upsert(RagService.CONTENT_COLLECTION_NAME, { points: batch })
+            return
+          } catch (err) {
+            if (attempt < maxRetries) {
+              const waitMs = 2000 * (attempt + 1)
+              logger.warn(
+                `[RAG] Qdrant upsert failed (attempt %d/%d), retrying in %dms: %s`,
+                attempt + 1,
+                maxRetries + 1,
+                waitMs,
+                err instanceof Error ? err.message : String(err)
+              )
+              await new Promise((r) => setTimeout(r, waitMs))
+              // Re-init Qdrant client in case the connection is stale
+              this.qdrant = null
+              this.qdrantInitPromise = null
+              this.ensuredCollections.clear()
+              this.indexingThresholdApplied.clear()
+              await this._ensureDependencies()
+              await this._ensureCollection(
+                RagService.CONTENT_COLLECTION_NAME,
+                RagService.EMBEDDING_DIMENSION
+              )
+            } else {
+              throw err
+            }
+          }
+        }
+      }
+
       let upsertInFlight: Promise<void>[] = []
       for (const batch of upsertBatches) {
         if (upsertInFlight.length >= upsertConcurrency) {
           await upsertInFlight.shift()
         }
-        upsertInFlight.push(
-          this.qdrant!.upsert(RagService.CONTENT_COLLECTION_NAME, { points: batch }).then(() => {})
-        )
+        upsertInFlight.push(upsertWithRetry(batch))
       }
       await Promise.all(upsertInFlight)
       upsertInFlight = []
