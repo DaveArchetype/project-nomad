@@ -19,7 +19,7 @@ import StyledSidebar from '~/components/StyledSidebar'
 import { getServiceLink } from '~/lib/navigation'
 import useServiceInstalledStatus from '~/hooks/useServiceInstalledStatus'
 import useCreatorPacks from '~/hooks/useCreatorPacks'
-import useReverseProxyBaseDomain from '~/hooks/useReverseProxyBaseDomain'
+import { useReverseProxyBaseDomain } from '~/hooks/useReverseProxyBaseDomain'
 import { SERVICE_NAMES } from '../../constants/service_names'
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
