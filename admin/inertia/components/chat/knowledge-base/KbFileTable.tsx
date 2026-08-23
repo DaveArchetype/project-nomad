@@ -126,7 +126,7 @@ export default function KbFileTable({
         {
           accessor: 'source',
           title: '',
-          className: '!max-w-none !overflow-visible !whitespace-nowrap',
+          className: '!max-w-[260px] !overflow-visible !whitespace-normal',
           render(record) {
             if (record.bucket === 'admin_docs') {
               return (
@@ -192,6 +192,7 @@ export default function KbFileTable({
                       variant={action.variant}
                       size="sm"
                       icon={action.icon}
+                      title={action.label}
                       onClick={() => {
                         if (action.kind === 'reembed') {
                           setConfirmReembed({
@@ -210,14 +211,15 @@ export default function KbFileTable({
                       }
                       loading={actionPendingForThisRow}
                     >
-                      {action.label}
+                      {''}
                     </StyledButton>
                   ) : null}
                   {canVerify && (
                     <StyledButton
                       variant="ghost"
                       size="sm"
-                      icon="IconCircleCheck"
+                      icon="IconShieldCheck"
+                      title="Verify"
                       onClick={() => {
                         setVerifyResult(null)
                         verifyMutation.mutate(record.source)
@@ -225,7 +227,7 @@ export default function KbFileTable({
                       disabled={qdrantOffline || isVerifying || isResuming}
                       loading={isVerifying}
                     >
-                      Verify
+                      {''}
                     </StyledButton>
                   )}
                   {canView && (
@@ -233,9 +235,10 @@ export default function KbFileTable({
                       variant="ghost"
                       size="sm"
                       icon="IconEye"
+                      title="View"
                       onClick={() => setViewerSource(record.source)}
                     >
-                      View
+                      {''}
                     </StyledButton>
                   )}
                   {canDownload && (
@@ -243,22 +246,24 @@ export default function KbFileTable({
                       variant="ghost"
                       size="sm"
                       icon="IconDownload"
+                      title="Download"
                       onClick={() => {
                         window.location.href = `/api/rag/files/download?source=${encodeURIComponent(record.source)}`
                       }}
                     >
-                      Download
+                      {''}
                     </StyledButton>
                   )}
                   <StyledButton
                     variant="danger"
                     size="sm"
                     icon="IconTrash"
+                    title="Delete"
                     onClick={() => setConfirmDeleteSource(record.source)}
                     disabled={deleteMutation.isPending || embedMutation.isPending}
                     loading={deleteMutation.isPending && confirmDeleteSource === record.source}
                   >
-                    Delete
+                    {''}
                   </StyledButton>
                 </div>
                 {rowVerifyResult && (

@@ -123,19 +123,19 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
                     {isPaused ? 'Paused' : chatPaused ? 'Paused for chat' : display.label}
                   </span>
                   {lastActivityMs !== undefined && (
-                    <span className="text-xs text-text-muted">
+                    <span className="text-xs text-text-muted min-w-0 break-words">
                       · last activity {formatTimeAgo(lastActivityMs, tick)}
                     </span>
                   )}
                   {chunksPerMin !== null && !isPaused && (
-                    <span className="text-xs text-text-muted">
+                    <span className="text-xs text-text-muted min-w-0 break-words">
                       · {chunksPerMin.toLocaleString()} chunks/min
                       {articlesPerMin !== null &&
                         ` · ${articlesPerMin.toLocaleString()} articles/min`}
                       {etaMinutes !== null && etaMinutes > 0 && ` · ETA ${formatEta(etaMinutes)}`}
                     </span>
                   )}
-                  <div className="ml-auto flex items-center gap-2">
+                  <div className="ml-auto flex flex-wrap items-center justify-end gap-2 max-w-full">
                     {isPaused ? (
                       <StyledButton
                         variant="primary"

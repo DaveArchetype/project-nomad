@@ -1,3 +1,132 @@
 .uppy-size--md .uppy-Dashboard-AddFiles-title {
-  font-size: 1.15rem !important;
+  font-size: 1rem !important;
+}
+
+.uppy-Dashboard-AddFiles {
+  border: 1px dashed var(--color-border-default) !important;
+  background-color: var(--color-surface-secondary) !important;
+  border-radius: 8px !important;
+}
+
+.uppy-Dashboard-AddFiles-title {
+  color: var(--color-text-secondary) !important;
+}
+
+.uppy-Dashboard-AddFilesCaption {
+  color: var(--color-text-muted) !important;
+}
+
+.uppy-Dashboard-AddFiles-list {
+  background-color: var(--color-surface-primary) !important;
+}
+
+.uppy-Dashboard-AddFiles-list .uppy-Dashboard-Item {
+  border-color: var(--color-border-subtle) !important;
+}
+
+.uppy-Dashboard-bgIcon {
+  color: var(--color-text-muted) !important;
+}
+
+.uppy-Dashboard-AddFiles-info {
+  background-color: var(--color-surface-secondary) !important;
+  border-color: var(--color-border-subtle) !important;
+}
+
+.uppy-Dashboard-AddFiles-info span {
+  color: var(--color-text-muted) !important;
+}
+
+.uppy-Dashboard-Item-previewImg {
+  background-color: var(--color-surface-secondary) !important;
+}
+
+.uppy-Dashboard-Item-name {
+  color: var(--color-text-primary) !important;
+}
+
+.uppy-Dashboard-Item-status {
+  color: var(--color-text-secondary) !important;
+}
+
+.uppy-Dashboard-Item-actionButton--remove {
+  color: var(--color-text-muted) !important;
+}
+
+.uppy-Dashboard-Item-actionButton--remove:hover {
+  color: var(--color-desert-red) !important;
+}
+
+.uppy-Dashboard-browse {
+  color: var(--color-desert-green) !important;
+  text-decoration: underline !important;
+}
+
+.uppy-Dashboard-browse:hover {
+  color: var(--color-desert-green-dark) !important;
+}
+
+.uppy-DashboardContent-bar {
+  background-color: var(--color-surface-primary) !important;
+  border-bottom-color: var(--color-border-subtle) !important;
+}
+
+.uppy-DashboardContent-title {
+  color: var(--color-text-primary) !important;
+}
+
+.uppy-DashboardContent-back,
+.uppy-DashboardContent-addMore {
+  color: var(--color-desert-green) !important;
+}
+
+.uppy-DashboardContent-back:hover,
+.uppy-DashboardContent-addMore:hover {
+  color: var(--color-desert-green-dark) !important;
+}
+
+.uppy-DashboardContent-panelBody {
+  background-color: var(--color-surface-primary) !important;
+}
+
+.uppy-c-btnLink {
+  color: var(--color-desert-green) !important;
+}
+
+.uppy-Dashboard-Item-preview .uppy-Dashboard-Item-progressInfo {
+  color: var(--color-text-secondary) !important;
+}
+
+.uppy-Dashboard-Item-progressInner {
+  background-color: var(--color-desert-green) !important;
+}
+
+.uppy-Dashboard-Item.is-complete .uppy-Dashboard-Item-progressInner {
+  background-color: var(--color-desert-green-dark) !important;
+}
+
+.uppy-Dashboard-Item-error {
+  color: var(--color-desert-red) !important;
+}
+
+.uppy-Dashboard-Item-error .uppy-Dashboard-Item-progressInner {
+  background-color: var(--color-desert-red) !important;
+}
+
+.uppy-Dashboard-Item-progressNum {
+  color: var(--color-text-secondary) !important;
+}
+
+.uppy-Dashboard-note {
+  color: var(--color-text-muted) !important;
+  background-color: var(--color-surface-secondary) !important;
+  border-color: var(--color-border-subtle) !important;
+}
+
+.uppy-Dashboard-Item-preview .uppy-Dashboard-Item-progress {
+  background-color: var(--color-surface-secondary) !important;
+}
+
+.uppy-Dashboard-AddFiles-dropzoneTitle {
+  color: var(--color-text-secondary) !important;
 }

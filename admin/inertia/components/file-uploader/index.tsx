@@ -85,7 +85,7 @@ const FileUploader = forwardRef<FileUploaderRef, FileUploaderProps>((props, ref)
     <Dashboard
       uppy={uppy}
       width={'100%'}
-      height={'250px'}
+      height={'180px'}
       hideUploadButton
       disabled={disabled}
       className={classNames(className)}
