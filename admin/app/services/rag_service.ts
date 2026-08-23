@@ -134,6 +134,34 @@ export class RagService {
     }
   }
 
+  /**
+   * Reset the Qdrant indexing threshold back to the default (20000) and clear
+   * the KV store setting so the UI no longer shows a custom value. Called
+   * automatically after the last embedding job completes, so the HNSW index
+   * gets built without the operator having to remember to flip it back.
+   */
+  public async resetIndexingThreshold(): Promise<void> {
+    try {
+      await this._ensureDependencies()
+      const collectionName = RagService.CONTENT_COLLECTION_NAME
+      await this.qdrant!.updateCollection(collectionName, {
+        optimizers_config: {
+          indexing_threshold: 20000,
+        },
+      })
+      await KVStore.clearValue('rag.qdrantIndexingThreshold')
+      this.indexingThresholdApplied.delete(collectionName)
+      logger.info(
+        `[RAG] Reset Qdrant indexing_threshold to 20000 on ${collectionName} after all jobs completed`
+      )
+    } catch (err) {
+      logger.warn(
+        `[RAG] Failed to reset Qdrant indexing_threshold: %s`,
+        err instanceof Error ? err.message : String(err)
+      )
+    }
+  }
+
   private async _ensureCollection(
     collectionName: string,
     dimensions: number = RagService.EMBEDDING_DIMENSION

@@ -12,6 +12,7 @@ import fs from 'node:fs/promises'
 import { determineFileType, getFileStatsIfExists } from '../utils/fs.js'
 import KbRatioRegistry from '#models/kb_ratio_registry'
 import { estimateChunkCount } from '../utils/kb_ratio_lookup.js'
+import { loadIngestSettings } from '../utils/ingest_settings.js'
 
 export interface EmbedFileJobParams {
   filePath: string
@@ -363,6 +364,32 @@ export class EmbedFileJob {
         `[EmbedFileJob] Successfully embedded ${result.chunks} chunks from file: ${fileName}${zimMsg}`
       )
 
+      // After the last job completes, reset the Qdrant indexing threshold back
+      // to the default so the HNSW index gets built. This only fires when no
+      // other embed jobs are active/delayed/waiting — concurrent jobs keep the
+      // high threshold for faster bulk writes.
+      try {
+        const queueService = QueueService.getInstance()
+        const queue = queueService.getQueue(EmbedFileJob.queue)
+        const remaining = await queue.getJobs(['waiting', 'active', 'delayed'])
+        const others = remaining.filter((j) => j.id !== job.id)
+        if (others.length === 0) {
+          const ingestSettings = await loadIngestSettings()
+          if (ingestSettings.qdrantIndexingThreshold != null) {
+            logger.info(
+              `[EmbedFileJob] All embedding jobs complete — resetting Qdrant indexing threshold to default`
+            )
+            const resetRagService = new RagService(dockerService, ollamaService)
+            await resetRagService.resetIndexingThreshold()
+          }
+        }
+      } catch (resetErr) {
+        logger.warn(
+          `[EmbedFileJob] Failed to check/reset Qdrant indexing threshold: %s`,
+          resetErr instanceof Error ? resetErr.message : String(resetErr)
+        )
+      }
+
       return {
         success: true,
         fileName,
@@ -469,6 +496,8 @@ export class EmbedFileJob {
           : null
 
         const isPaused = allPaused || pausedJobIds.has(job.id!.toString())
+        const jobState = await job.getState().catch(() => 'unknown')
+        const isActive = jobState === 'active'
 
         const currentChunks = data.chunksSoFar ?? data.chunks ?? 0
         const startedAt = data.startedAt
@@ -514,6 +543,7 @@ export class EmbedFileJob {
           filePath: data.filePath,
           progress: typeof job.progress === 'number' ? job.progress : 0,
           status: isPaused ? 'paused' : (data.status ?? 'waiting'),
+          locked: isActive && !isPaused,
           lastBatchAt: data.lastBatchAt,
           startedAt: data.startedAt,
           chunks: currentChunks,

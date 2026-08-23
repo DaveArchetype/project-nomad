@@ -82,6 +82,8 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
   })
 
   const canResume = (health: JobHealthStatus): boolean => health === 'stalled' || health === 'slow'
+  const canForceResume = (health: JobHealthStatus, locked?: boolean): boolean =>
+    locked === true && (health === 'stalled' || health === 'slow')
 
   return (
     <>
@@ -106,7 +108,9 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
             const etaMinutes = job.etaMinutes ?? null
             const isPaused = job.paused === true
             const chatPaused = job.chatPausedUntil != null && job.chatPausedUntil > tick
+            const isLocked = job.locked === true
             const showResume = canResume(health) && !isPaused
+            const showForceResume = canForceResume(health, isLocked) && !isPaused
             const showChatResume = chatPaused && !isPaused
             return (
               <div
@@ -122,6 +126,11 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
                   <span className="text-sm font-medium text-text-primary">
                     {isPaused ? 'Paused' : chatPaused ? 'Paused for chat' : display.label}
                   </span>
+                  {isLocked && !isPaused && (
+                    <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                      · locked
+                    </span>
+                  )}
                   {lastActivityMs !== undefined && (
                     <span className="text-xs text-text-muted min-w-0 break-words">
                       · last activity {formatTimeAgo(lastActivityMs, tick)}
@@ -162,7 +171,7 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
                         Pause
                       </StyledButton>
                     )}
-                    {showResume && (
+                    {showResume && !showForceResume && (
                       <StyledButton
                         variant="secondary"
                         size="sm"
@@ -171,6 +180,18 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
                         loading={resumeMutation.isPending && resumeMutation.variables === job.jobId}
                       >
                         Retry
+                      </StyledButton>
+                    )}
+                    {showForceResume && (
+                      <StyledButton
+                        variant="primary"
+                        size="sm"
+                        icon="IconRefreshAlert"
+                        onClick={() => resumeMutation.mutate(job.jobId)}
+                        loading={resumeMutation.isPending && resumeMutation.variables === job.jobId}
+                        title="Force-resume this stuck job by breaking its lock and retrying"
+                      >
+                        Force Resume
                       </StyledButton>
                     )}
                     {showChatResume && (

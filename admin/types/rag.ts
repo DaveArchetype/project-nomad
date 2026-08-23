@@ -7,6 +7,9 @@ export type EmbedJobWithProgress = {
   error?: string
   /** True when the job is paused (either individually or via pause-all). */
   paused?: boolean
+  /** True when the job is in BullMQ 'active' state (held by a worker with a
+   *  lock). Surfaced so the UI can show a Force Resume button for stuck locks. */
+  locked?: boolean
   /** ms epoch when the chat-induced embedding pause expires. Set by
    *  OllamaController.chat; the embed job's batch loop blocks until it
    *  passes. Surfaced so the KB UI can show time remaining and a Resume
