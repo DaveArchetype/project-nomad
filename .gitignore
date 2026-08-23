@@ -41,3 +41,12 @@ admin/public/assets
 
 # Admin specific development files
 admin/storage
+
+# Production deployment data (bind-mount dirs created by docker compose)
+storage/
+mysql/
+redis/
+tei-data/
+
+# Deployment-specific compose symlink/file at repo root
+compose.yml
