@@ -971,8 +971,9 @@ export class RagService {
     )
 
     if (deleteAfterEmbedding) {
-      logger.info(`[RAG] ZIM processing complete, deleting file: ${filepath}`)
-      await deleteFileIfExists(filepath)
+      logger.info(
+        `[RAG] ZIM processing complete, keeping file on disk (ZIM files are shared across apps): ${filepath}`
+      )
     }
 
     return {
