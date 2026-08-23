@@ -25,6 +25,7 @@ export default function KbFileTable({
   inflightSources,
   verifyMutation,
   resumeMutation,
+  repairMutation,
   verifyResult,
   setVerifyResult,
 }: KbFileTableProps) {
@@ -285,6 +286,23 @@ export default function KbFileTable({
                         loading={isResuming}
                       >
                         Resume from article {rowVerifyResult.resumeOffset.toLocaleString()}
+                      </StyledButton>
+                    )}
+                    {!rowVerifyResult.ok && (
+                      <StyledButton
+                        variant="secondary"
+                        size="sm"
+                        icon="IconTools"
+                        onClick={() => repairMutation.mutate(record.source)}
+                        disabled={
+                          repairMutation.isPending && repairMutation.variables === record.source
+                        }
+                        loading={
+                          repairMutation.isPending && repairMutation.variables === record.source
+                        }
+                        title="Scan Qdrant for missing articles and re-embed only the gaps"
+                      >
+                        Repair
                       </StyledButton>
                     )}
                     <button

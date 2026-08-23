@@ -384,4 +384,108 @@ export class ZIMExtractionService {
       return false
     }
   }
+
+  async streamZIMContentForPaths(
+    filePath: string,
+    targetPaths: Set<string>,
+    onArticle: StreamZIMArticleCallback
+  ): Promise<StreamZIMContentResult> {
+    try {
+      logger.info(
+        `[ZIMExtractionService]: Repair stream for ${targetPaths.size} articles from: ${filePath}`
+      )
+
+      await access(filePath)
+      if (!(await isValidZimFile(filePath))) {
+        throw new Error(`ZIM file is invalid or corrupted: ${filePath}`)
+      }
+
+      const archive = new Archive(filePath)
+      const archiveMetadata = this.extractArchiveMetadata(archive)
+      const totalArticles = archive.articleCount
+
+      let articlesProcessed = 0
+      let articlesSeen = 0
+      let cancelled = false
+
+      const pool = new ZIMWorkerPool(
+        ZIMWorkerPool.getDefaultWorkerCount(),
+        archiveMetadata,
+        filePath
+      )
+
+      try {
+        const maxInFlight = Math.max(pool.size * 4, 16)
+        const completed = new Map<number, ZIMContentChunk[]>()
+        let nextCommitArticlesSeen = 1
+        const inFlight: Array<{
+          articlesSeen: number
+          promise: Promise<ZIMContentChunk[]>
+        }> = []
+
+        const drainCommitted = async (): Promise<void> => {
+          while (!cancelled) {
+            if (!completed.has(nextCommitArticlesSeen)) break
+            const result = completed.get(nextCommitArticlesSeen)!
+            completed.delete(nextCommitArticlesSeen)
+            articlesProcessed++
+            const shouldContinue = await onArticle(result, nextCommitArticlesSeen, totalArticles)
+            nextCommitArticlesSeen++
+            if (shouldContinue === false) {
+              cancelled = true
+              break
+            }
+          }
+        }
+
+        for (const entry of archive.iterByPath()) {
+          if (!this.isArticleEntry(entry)) continue
+          if (!targetPaths.has(entry.path)) continue
+
+          articlesSeen++
+
+          const articleSeenForThis = articlesSeen
+          const articlePath = entry.path
+          const promise = pool
+            .processArticle(articlePath, entry.title || entry.path, randomUUID())
+            .catch((err) => {
+              logger.warn(
+                `[ZIMExtractionService]: Worker error for repair article ${articlePath}: %s`,
+                err instanceof Error ? err.message : String(err)
+              )
+              return [] as ZIMContentChunk[]
+            })
+          inFlight.push({ articlesSeen: articleSeenForThis, promise })
+
+          if (inFlight.length >= maxInFlight) {
+            const done = await Promise.race(inFlight.map((f) => f.promise))
+            inFlight = inFlight.filter((f) => f.promise !== Promise.resolve(done))
+            for (const item of inFlight) {
+              const result = await item.promise
+              completed.set(item.articlesSeen, result)
+            }
+            inFlight = []
+            await drainCommitted()
+            if (cancelled) break
+          }
+        }
+
+        for (const item of inFlight) {
+          const result = await item.promise
+          completed.set(item.articlesSeen, result)
+        }
+        await drainCommitted()
+      } finally {
+        await pool.terminate()
+      }
+
+      logger.info(
+        `[ZIMExtractionService]: Repair stream ${cancelled ? 'cancelled' : 'completed'}. Articles re-processed: ${articlesProcessed}`
+      )
+      return { articlesProcessed, totalArticles, cancelled }
+    } catch (error) {
+      logger.error('Error streaming ZIM file for repair:', error)
+      throw error
+    }
+  }
 }

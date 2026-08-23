@@ -540,6 +540,11 @@ router
       tags: ['rag'],
       request: fileSourceSchema,
     })
+    documented(router.post('/files/repair', [RagController, 'repairFile']), {
+      summary: 'Repair a ZIM ingestion by re-embedding missing articles',
+      tags: ['rag'],
+      request: fileSourceSchema,
+    })
   })
   .prefix('/api/rag')
 

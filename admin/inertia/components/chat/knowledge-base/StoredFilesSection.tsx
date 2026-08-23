@@ -37,6 +37,7 @@ export default function StoredFilesSection({
   updateCollectionMutation,
   verifyMutation,
   resumeMutation,
+  repairMutation,
   verifyResult,
   setVerifyResult,
 }: StoredFilesSectionProps) {
@@ -141,6 +142,7 @@ export default function StoredFilesSection({
           inflightSources={inflightSources}
           verifyMutation={verifyMutation}
           resumeMutation={resumeMutation}
+          repairMutation={repairMutation}
           verifyResult={verifyResult}
           setVerifyResult={setVerifyResult}
         />
@@ -163,6 +165,7 @@ export default function StoredFilesSection({
           inflightSources={inflightSources}
           verifyMutation={verifyMutation}
           resumeMutation={resumeMutation}
+          repairMutation={repairMutation}
           verifyResult={verifyResult}
           setVerifyResult={setVerifyResult}
         />

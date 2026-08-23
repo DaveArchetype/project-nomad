@@ -20,6 +20,7 @@ export default function KbFileCard({
   inflightSources,
   verifyMutation,
   resumeMutation,
+  repairMutation,
   verifyResult,
   setVerifyResult,
 }: KbFileCardProps) {
@@ -33,6 +34,7 @@ export default function KbFileCard({
   const isInflight = inflightSources.has(record.source)
   const isVerifying = verifyMutation.isPending && verifyMutation.variables === record.source
   const isResuming = resumeMutation.isPending && resumeMutation.variables === record.source
+  const isRepairing = repairMutation.isPending && repairMutation.variables === record.source
   const rowVerifyResult = verifyResult?.source === record.source ? verifyResult : null
   const canVerify =
     !isInflight &&
@@ -225,10 +227,23 @@ export default function KbFileCard({
                 size="sm"
                 icon="IconPlayerPlay"
                 onClick={() => resumeMutation.mutate(record.source)}
-                disabled={isResuming || qdrantOffline}
+                disabled={isResuming || isRepairing || qdrantOffline}
                 loading={isResuming}
               >
                 Resume from article {rowVerifyResult.resumeOffset.toLocaleString()}
+              </StyledButton>
+            )}
+            {!rowVerifyResult.ok && (
+              <StyledButton
+                variant="secondary"
+                size="sm"
+                icon="IconTools"
+                onClick={() => repairMutation.mutate(record.source)}
+                disabled={isRepairing || isResuming || qdrantOffline || isInflight}
+                loading={isRepairing}
+                title="Scan Qdrant for missing articles and re-embed only the gaps"
+              >
+                Repair
               </StyledButton>
             )}
             <button

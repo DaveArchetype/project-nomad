@@ -20,6 +20,7 @@ export default function KbFileCardList({
   inflightSources,
   verifyMutation,
   resumeMutation,
+  repairMutation,
   verifyResult,
   setVerifyResult,
 }: KbFileCardListProps) {
@@ -83,6 +84,7 @@ export default function KbFileCardList({
             inflightSources={inflightSources}
             verifyMutation={verifyMutation}
             resumeMutation={resumeMutation}
+            repairMutation={repairMutation}
             verifyResult={verifyResult}
             setVerifyResult={setVerifyResult}
           />

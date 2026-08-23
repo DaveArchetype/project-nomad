@@ -760,6 +760,7 @@ export class RagService {
       collection?: string
       chunksEstimated?: number
       baseChunks?: number
+      repairPaths?: string[]
     } = {}
   ): Promise<ProcessZIMFileResponse> {
     const {
@@ -769,6 +770,7 @@ export class RagService {
       collection,
       chunksEstimated,
       baseChunks = 0,
+      repairPaths,
     } = options
     const zimExtractionService = new ZIMExtractionService()
 
@@ -841,58 +843,101 @@ export class RagService {
       return !cancelled
     }
 
-    const streamResult = await zimExtractionService.streamZIMContent(
-      filepath,
-      { startOffset, useWorkers: true, workerCount: ingestSettings.zimWorkerCount },
-      async (zimChunks, articlesSeen, total) => {
-        totalArticles = total
+    const repairPathSet = repairPaths ? new Set(repairPaths) : null
 
-        await reportProgress(articlesSeen)
+    const streamResult = repairPathSet
+      ? await zimExtractionService.streamZIMContentForPaths(
+          filepath,
+          repairPathSet,
+          async (zimChunks, articlesSeen, total) => {
+            totalArticles = total
 
-        for (const zimChunk of zimChunks) {
-          pendingTexts.push(zimChunk.text)
-          pendingMetadatas.push({
-            source: filepath,
-            content_type: 'zim_article',
-            // Without this the ZIM path writes points with no `collection` at all, so
-            // getKnowledgeCollections() (which facets on it) never sees them.
-            ...(collection ? { collection } : {}),
+            await reportProgress(articlesSeen)
 
-            // Article-level context
-            article_title: zimChunk.articleTitle,
-            article_path: zimChunk.articlePath,
+            for (const zimChunk of zimChunks) {
+              pendingTexts.push(zimChunk.text)
+              pendingMetadatas.push({
+                source: filepath,
+                content_type: 'zim_article',
+                ...(collection ? { collection } : {}),
+                article_title: zimChunk.articleTitle,
+                article_path: zimChunk.articlePath,
+                section_title: zimChunk.sectionTitle,
+                full_title: zimChunk.fullTitle,
+                hierarchy: zimChunk.hierarchy,
+                section_level: zimChunk.sectionLevel,
+                document_id: zimChunk.documentId,
+                archive_title: zimChunk.archiveMetadata.title,
+                archive_creator: zimChunk.archiveMetadata.creator,
+                archive_publisher: zimChunk.archiveMetadata.publisher,
+                archive_date: zimChunk.archiveMetadata.date,
+                archive_language: zimChunk.archiveMetadata.language,
+                archive_description: zimChunk.archiveMetadata.description,
+                extraction_strategy: zimChunk.strategy,
+              })
+            }
 
-            // Section-level context
-            section_title: zimChunk.sectionTitle,
-            full_title: zimChunk.fullTitle,
-            hierarchy: zimChunk.hierarchy,
-            section_level: zimChunk.sectionLevel,
+            if (
+              pendingTexts.length >= ZIM_FLUSH_CHUNK_COUNT ||
+              articlesSeen - lastFlushedAt >= ZIM_FLUSH_ARTICLE_INTERVAL
+            ) {
+              return await flush(articlesSeen)
+            }
+            return true
+          }
+        )
+      : await zimExtractionService.streamZIMContent(
+          filepath,
+          { startOffset, useWorkers: true, workerCount: ingestSettings.zimWorkerCount },
+          async (zimChunks, articlesSeen, total) => {
+            totalArticles = total
 
-            // Use the same document ID for all chunks from the same article for grouping in search results
-            document_id: zimChunk.documentId,
+            await reportProgress(articlesSeen)
 
-            // Archive metadata
-            archive_title: zimChunk.archiveMetadata.title,
-            archive_creator: zimChunk.archiveMetadata.creator,
-            archive_publisher: zimChunk.archiveMetadata.publisher,
-            archive_date: zimChunk.archiveMetadata.date,
-            archive_language: zimChunk.archiveMetadata.language,
-            archive_description: zimChunk.archiveMetadata.description,
+            for (const zimChunk of zimChunks) {
+              pendingTexts.push(zimChunk.text)
+              pendingMetadatas.push({
+                source: filepath,
+                content_type: 'zim_article',
+                // Without this the ZIM path writes points with no `collection` at all, so
+                // getKnowledgeCollections() (which facets on it) never sees them.
+                ...(collection ? { collection } : {}),
 
-            // Extraction metadata - not overly relevant for search, but could be useful for debugging and future features...
-            extraction_strategy: zimChunk.strategy,
-          })
-        }
+                // Article-level context
+                article_title: zimChunk.articleTitle,
+                article_path: zimChunk.articlePath,
 
-        if (
-          pendingTexts.length >= ZIM_FLUSH_CHUNK_COUNT ||
-          articlesSeen - lastFlushedAt >= ZIM_FLUSH_ARTICLE_INTERVAL
-        ) {
-          return await flush(articlesSeen)
-        }
-        return true
-      }
-    )
+                // Section-level context
+                section_title: zimChunk.sectionTitle,
+                full_title: zimChunk.fullTitle,
+                hierarchy: zimChunk.hierarchy,
+                section_level: zimChunk.sectionLevel,
+
+                // Use the same document ID for all chunks from the same article for grouping in search results
+                document_id: zimChunk.documentId,
+
+                // Archive metadata
+                archive_title: zimChunk.archiveMetadata.title,
+                archive_creator: zimChunk.archiveMetadata.creator,
+                archive_publisher: zimChunk.archiveMetadata.publisher,
+                archive_date: zimChunk.archiveMetadata.date,
+                archive_language: zimChunk.archiveMetadata.language,
+                archive_description: zimChunk.archiveMetadata.description,
+
+                // Extraction metadata - not overly relevant for search, but could be useful for debugging and future features...
+                extraction_strategy: zimChunk.strategy,
+              })
+            }
+
+            if (
+              pendingTexts.length >= ZIM_FLUSH_CHUNK_COUNT ||
+              articlesSeen - lastFlushedAt >= ZIM_FLUSH_ARTICLE_INTERVAL
+            ) {
+              return await flush(articlesSeen)
+            }
+            return true
+          }
+        )
 
     if (streamResult.cancelled) {
       await Promise.allSettled(inFlight)
@@ -1093,6 +1138,7 @@ export class RagService {
       collection?: string
       chunksEstimated?: number
       baseChunks?: number
+      repairPaths?: string[]
     } = {}
   ): Promise<ProcessAndEmbedFileResponse> {
     const { onProgress, collection } = options
@@ -2442,6 +2488,137 @@ export class RagService {
     return {
       success: true,
       message: `Resuming ingestion from article ${resumeOffset.toLocaleString()} (${chunksSoFar.toLocaleString()} chunks already embedded).`,
+    }
+  }
+
+  public async repairFileIngestion(source: string): Promise<EmbedSingleFileResult> {
+    const isZim = determineFileType(source) === 'zim'
+    if (!isZim) {
+      return {
+        success: false,
+        code: 'not_found',
+        message: 'Repair is only available for ZIM files.',
+      }
+    }
+
+    const stateRow = await KbIngestState.query().where('file_path', source).first()
+    if (!stateRow) {
+      return {
+        success: false,
+        code: 'not_found',
+        message: 'File is not a tracked knowledge-base source.',
+      }
+    }
+
+    const { EmbedFileJob } = await import('#jobs/embed_file_job')
+    const { QueueService } = await import('#services/queue_service')
+    const queue = QueueService.getInstance().getQueue(EmbedFileJob.queue)
+
+    const inflight = await queue.getJobs(['waiting', 'active', 'delayed', 'paused'])
+    if (inflight.some((j) => j.data?.filePath === source)) {
+      return {
+        success: false,
+        code: 'inflight',
+        message:
+          'A job for this file is already in progress. Wait for it to finish before repairing.',
+      }
+    }
+
+    await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
+
+    logger.info(`[RAG] Repair: scanning Qdrant for existing article paths in ${source}`)
+
+    const embeddedPaths = new Set<string>()
+    let scrollOffset: string | number | undefined = undefined
+    const scrollBatchSize = 1000
+
+    while (true) {
+      const scrollResult = await this.qdrant!.scroll(RagService.CONTENT_COLLECTION_NAME, {
+        filter: { must: [{ key: 'source', match: { value: source } }] },
+        limit: scrollBatchSize,
+        offset: scrollOffset,
+        with_payload: { include: ['article_path'] },
+        with_vector: false,
+      })
+
+      const points = scrollResult.points || []
+      for (const point of points) {
+        const payload = point.payload as any
+        if (payload?.article_path) {
+          embeddedPaths.add(payload.article_path)
+        }
+      }
+
+      if (!scrollResult.next_page_offset) break
+      scrollOffset = scrollResult.next_page_offset
+    }
+
+    logger.info(
+      `[RAG] Repair: found ${embeddedPaths.size} unique article paths already in Qdrant for ${source}`
+    )
+
+    const { Archive } = await import('@openzim/libzim')
+    const archive = new Archive(source)
+    const allArticlePaths = new Set<string>()
+    for (const entry of archive.iterByPath()) {
+      try {
+        if (entry.isRedirect) continue
+        const item = entry.item
+        const mimeType = item.mimetype
+        if (mimeType === 'text/html' || mimeType === 'application/xhtml+xml') {
+          allArticlePaths.add(entry.path)
+        }
+      } catch {
+        continue
+      }
+    }
+
+    const missingPaths = [...allArticlePaths].filter((p) => !embeddedPaths.has(p))
+
+    logger.info(
+      `[RAG] Repair: ${allArticlePaths.size} total articles in ZIM, ${embeddedPaths.size} embedded, ${missingPaths.length} missing`
+    )
+
+    if (missingPaths.length === 0) {
+      return {
+        success: true,
+        message: 'No missing articles found. All articles are already embedded.',
+      }
+    }
+
+    const fileName = source.split(/[/\\]/).pop() || source
+    const collection = stateRow.collection ?? undefined
+    const jobId = `repair-${EmbedFileJob.getJobId(source)}`
+
+    try {
+      const existing = await queue.getJob(jobId)
+      await existing?.remove().catch(() => {})
+    } catch {
+      // If the old repair job can't be removed, force-dispatch
+    }
+
+    const result = await EmbedFileJob.dispatch(
+      {
+        filePath: source,
+        fileName,
+        repairPaths: missingPaths,
+        isFinalBatch: true,
+        ...(collection ? { collection } : {}),
+      },
+      { jobId, force: true }
+    )
+
+    if (!result.created) {
+      return {
+        success: false,
+        code: 'inflight',
+        message: 'A repair job for this file already exists. Wait for it to finish.',
+      }
+    }
+
+    return {
+      success: true,
+      message: `Repair queued: ${missingPaths.length.toLocaleString()} missing articles will be re-extracted and embedded.`,
     }
   }
 

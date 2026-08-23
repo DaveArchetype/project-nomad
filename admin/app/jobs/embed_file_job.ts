@@ -29,6 +29,10 @@ export interface EmbedFileJobParams {
   prevChunksSoFar?: number
   prevBatchAt?: number
   prevResumeOffset?: number
+  // Repair mode: when set, only articles whose paths are in this set are
+  // re-extracted and re-embedded. Used by repairFileIngestion to fill gaps
+  // left by failed embed batches during the original ingestion.
+  repairPaths?: string[]
 }
 
 export class EmbedFileJob {
@@ -136,7 +140,10 @@ export class EmbedFileJob {
   }
 
   async handle(job: Job) {
-    const { filePath, fileName, totalArticles, collection } = job.data as EmbedFileJobParams
+    const { filePath, fileName, totalArticles, collection, repairPaths } =
+      job.data as EmbedFileJobParams
+
+    const isRepair = repairPaths && repairPaths.length > 0
 
     // Only the direct KB-upload controller passes `collection` on dispatch; the other
     // six dispatch sites (download auto-index, scan/sync, re-embed, local ZIM upload,
@@ -149,7 +156,11 @@ export class EmbedFileJob {
 
     const isZim = determineFileType(filePath) === 'zim'
     const resumeOffset = job.data.resumeOffset ?? job.data.batchOffset
-    const resumeInfo = resumeOffset ? ` (resuming at article ${resumeOffset})` : ''
+    const resumeInfo = isRepair
+      ? ` (repairing ${repairPaths!.length} missing articles)`
+      : resumeOffset
+        ? ` (resuming at article ${resumeOffset})`
+        : ''
     logger.info(`[EmbedFileJob] Starting embedding process for: ${fileName}${resumeInfo}`)
 
     const chunksSoFar = isZim ? job.data.chunksSoFar || 0 : 0
@@ -295,6 +306,7 @@ export class EmbedFileJob {
         collection: effectiveCollection,
         chunksEstimated: isZim ? (chunksEstimated ?? undefined) : undefined,
         baseChunks: isZim ? baseChunks : undefined,
+        repairPaths: isRepair ? repairPaths : undefined,
       })
 
       if (result.cancelled) {
@@ -310,6 +322,7 @@ export class EmbedFileJob {
       const totalChunks = baseChunks + (result.chunks || 0)
 
       if (
+        !isRepair &&
         isZim &&
         result.totalArticles &&
         result.totalArticles > 0 &&
@@ -347,11 +360,18 @@ export class EmbedFileJob {
         chunks: totalChunks,
       })
 
-      // Persist the post-job state so scanAndSyncStorage knows this file is done.
-      // BullMQ's :completed retention (50 jobs) ages out, so the state row is
-      // the only durable record of "this file finished embedding".
       try {
-        await KbIngestState.markIndexed(filePath, totalChunks, effectiveCollection)
+        if (isRepair) {
+          const existingState = await KbIngestState.findBy('file_path', filePath)
+          const existingChunks = existingState?.chunks_embedded ?? 0
+          const updatedChunks = existingChunks + (result.chunks || 0)
+          await KbIngestState.markIndexed(filePath, updatedChunks, effectiveCollection)
+          logger.info(
+            `[EmbedFileJob] Repair complete: added ${result.chunks} chunks to existing ${existingChunks} (now ${updatedChunks})`
+          )
+        } else {
+          await KbIngestState.markIndexed(filePath, totalChunks, effectiveCollection)
+        }
       } catch (stateErr) {
         logger.warn(
           `[EmbedFileJob] Failed to persist ingest state for ${fileName}: %s`,

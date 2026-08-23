@@ -322,4 +322,18 @@ export default class RagController {
     }
     return response.status(202).json({ message: result.message })
   }
+
+  public async repairFile({ request, response }: HttpContext) {
+    const { source } = await request.validateUsing(fileSourceSchema)
+    const result = await this.ragService.repairFileIngestion(source)
+    if (!result.success) {
+      const status =
+        {
+          not_found: 404,
+          inflight: 409,
+        }[result.code ?? ''] ?? 500
+      return response.status(status).json({ error: result.message, code: result.code })
+    }
+    return response.status(202).json({ message: result.message })
+  }
 }

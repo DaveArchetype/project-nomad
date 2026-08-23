@@ -651,6 +651,15 @@ class API {
     })()
   }
 
+  async repairRAGFile(source: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ message: string }>('/rag/files/repair', {
+        source,
+      })
+      return response.data
+    })()
+  }
+
   async getKbFileWarnings() {
     return catchInternal(async () => {
       const response = await this.client.get<FileWarningsResult>('/rag/file-warnings')

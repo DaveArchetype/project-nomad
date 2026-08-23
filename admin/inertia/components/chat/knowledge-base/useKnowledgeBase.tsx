@@ -421,6 +421,25 @@ export function useKnowledgeBase(): UseKnowledgeBaseResult {
     },
   })
 
+  const repairMutation = useMutation({
+    mutationFn: (source: string) => api.repairRAGFile(source),
+    onSuccess: (data) => {
+      addNotification({
+        type: 'success',
+        message: data?.message || 'Repair queued.',
+      })
+      setVerifyResult(null)
+      queryClient.invalidateQueries({ queryKey: ['storedFiles'] })
+      queryClient.invalidateQueries({ queryKey: ['embed-jobs'] })
+    },
+    onError: (error: any) => {
+      addNotification({
+        type: 'error',
+        message: error?.message || 'Failed to repair ingestion.',
+      })
+    },
+  })
+
   const handleUpload = async () => {
     if (files.length === 0) return
     setIsUploading(true)
@@ -558,6 +577,7 @@ export function useKnowledgeBase(): UseKnowledgeBaseResult {
 
     verifyMutation,
     resumeMutation,
+    repairMutation,
     verifyResult,
     setVerifyResult,
 
