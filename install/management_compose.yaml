@@ -108,6 +108,7 @@ services:
       - APP_KEY=${APP_KEY}
       - HOST=0.0.0.0
       - URL=${URL}
+      - PORT=8080
       - DB_HOST=mysql
       - DB_PORT=3306
       - DB_DATABASE=nomad
