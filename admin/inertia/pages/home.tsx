@@ -15,7 +15,6 @@ import AppLayout from '~/layouts/AppLayout'
 import { getServiceLink } from '~/lib/navigation'
 import { ServiceSlim } from '../../types/services'
 import DynamicIcon, { DynamicIconName } from '~/components/DynamicIcon'
-import { useUpdateAvailable } from '~/hooks/useUpdateAvailable'
 import { useSystemSetting } from '~/hooks/useSystemSetting'
 import { useReverseProxyBaseDomain } from '~/hooks/useReverseProxyBaseDomain'
 import {
@@ -209,7 +208,6 @@ export default function Home(props: {
   drugReferenceInstalled: boolean
 }) {
   const items: DashboardItem[] = []
-  const updateInfo = useUpdateAvailable()
   const rerunBanner = useBenchmarkRerunBanner()
   const queryClient = useQueryClient()
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
@@ -284,22 +282,6 @@ export default function Home(props: {
   return (
     <AppLayout>
       <Head title="Command Center" />
-      {updateInfo?.updateAvailable && (
-        <div className="flex justify-center items-center p-4 w-full">
-          <Alert
-            title="An update is available for Project NOMAD!"
-            type="info-inverted"
-            variant="solid"
-            className="w-full"
-            buttonProps={{
-              variant: 'primary',
-              children: 'Go to Settings',
-              icon: 'IconSettings',
-              onClick: () => router.visit('/settings/update'),
-            }}
-          />
-        </div>
-      )}
       <WhatsNewBanner />
       {rerunBanner?.show && (
         <div className="flex justify-center items-center px-4 pt-4 w-full">
