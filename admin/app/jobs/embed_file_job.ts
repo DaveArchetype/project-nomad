@@ -151,6 +151,21 @@ export class EmbedFileJob {
     const resumeInfo = resumeOffset ? ` (resuming at article ${resumeOffset})` : ''
     logger.info(`[EmbedFileJob] Starting embedding process for: ${fileName}${resumeInfo}`)
 
+    const chunksSoFar = isZim ? job.data.chunksSoFar || 0 : 0
+    let chunksEstimated: number | null = null
+    if (isZim) {
+      try {
+        const fileStats = await getFileStatsIfExists(filePath)
+        const sizeBytes = job.data.fileSize ?? Number(fileStats?.size ?? 0)
+        if (sizeBytes > 0) {
+          const ratioRows = await KbRatioRegistry.all().catch(() => [])
+          chunksEstimated = estimateChunkCount(fileName, sizeBytes, ratioRows)
+        }
+      } catch {
+        // Non-fatal — falls back to article-based progress
+      }
+    }
+
     const dockerService = new DockerService()
     const ollamaService = new OllamaService()
     const ragService = new RagService(dockerService, ollamaService)
@@ -185,13 +200,16 @@ export class EmbedFileJob {
 
       // Anchor initial progress to the resume point so a retried ZIM job
       // doesn't flash the gauge back to ~0 before the first flush reports in.
-      // For ZIMs the real percentage arrives from the stream at each flush
-      // (articlesSeen / totalArticles); 5% is the non-ZIM starting value and
-      // is misleading for a fresh ZIM dispatch that hasn't flushed yet.
+      // For ZIMs, prefer chunks-based progress (chunksSoFar / chunksEstimated)
+      // so a resume of a massive ZIM shows meaningful progress instead of
+      // rounding to 0% on article-based math (e.g. 69k/18.9M articles = 0.37%
+      // but 760k/31.9M chunks = 2.38%). Falls back to article-based, then 0.
       const initialPercent = isZim
-        ? totalArticles && totalArticles > 0 && resumeOffset
-          ? Math.min(99, Math.round((resumeOffset / totalArticles) * 100))
-          : 0
+        ? chunksEstimated && chunksEstimated > 0 && chunksSoFar > 0
+          ? Math.min(99, Math.round((chunksSoFar / chunksEstimated) * 100))
+          : totalArticles && totalArticles > 0 && resumeOffset
+            ? Math.min(99, Math.round((resumeOffset / totalArticles) * 100))
+            : 0
         : 5
       await this.safeUpdateProgress(job, initialPercent)
       await job.updateData({
@@ -215,7 +233,7 @@ export class EmbedFileJob {
 
       // Chunks embedded by prior attempts of this same job (ZIM resume). Each
       // flush re-persists the running total so a crash mid-file keeps count.
-      const baseChunks = isZim ? job.data.chunksSoFar || 0 : 0
+      const baseChunks = chunksSoFar
 
       // Called by RagService after every ZIM flush. Persists the resume offset
       // (BullMQ retries pick it up via job data), re-anchors the job lock, and
@@ -274,6 +292,8 @@ export class EmbedFileJob {
         onProgress,
         onFlush: isZim ? onFlush : undefined,
         collection: effectiveCollection,
+        chunksEstimated: isZim ? (chunksEstimated ?? undefined) : undefined,
+        baseChunks: isZim ? baseChunks : undefined,
       })
 
       if (result.cancelled) {

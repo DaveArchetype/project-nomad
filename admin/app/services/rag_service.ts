@@ -695,9 +695,18 @@ export class RagService {
         totalArticles: number
       ) => Promise<boolean | void>
       collection?: string
+      chunksEstimated?: number
+      baseChunks?: number
     } = {}
   ): Promise<ProcessZIMFileResponse> {
-    const { startOffset, onProgress, onFlush, collection } = options
+    const {
+      startOffset,
+      onProgress,
+      onFlush,
+      collection,
+      chunksEstimated,
+      baseChunks = 0,
+    } = options
     const zimExtractionService = new ZIMExtractionService()
 
     logger.info(`[RAG] Streaming ZIM content (resume offset=${startOffset || 0})`)
@@ -705,6 +714,16 @@ export class RagService {
     let totalChunks = 0
     let totalArticles = 0
     let lastFlushedAt = startOffset || 0
+
+    const reportProgress = async (articlesSeen: number) => {
+      if (!onProgress) return
+      if (chunksEstimated && chunksEstimated > 0) {
+        await onProgress(Math.min(99, ((baseChunks + totalChunks) / chunksEstimated) * 100))
+      } else if (totalArticles > 0) {
+        await onProgress(Math.min(99, (articlesSeen / totalArticles) * 100))
+      }
+    }
+
     let pendingTexts: string[] = []
     let pendingMetadatas: Record<string, any>[] = []
     let cancelled = false
@@ -717,9 +736,7 @@ export class RagService {
       lastFlushedAt = articlesSeen
 
       if (pendingTexts.length === 0) {
-        if (onProgress && totalArticles > 0) {
-          await onProgress(Math.min(99, Math.round((articlesSeen / totalArticles) * 100)))
-        }
+        await reportProgress(articlesSeen)
         if (onFlush) {
           const shouldContinue = await onFlush(articlesSeen, totalChunks, totalArticles)
           if (shouldContinue === false) {
@@ -746,9 +763,7 @@ export class RagService {
           logger.warn(`[RAG] Flush at article ${articlesSeen} failed to embed; chunks skipped`)
         }
 
-        if (onProgress && totalArticles > 0) {
-          await onProgress(Math.min(99, Math.round((articlesSeen / totalArticles) * 100)))
-        }
+        await reportProgress(articlesSeen)
 
         if (onFlush) {
           const shouldContinue = await onFlush(articlesSeen, totalChunks, totalArticles)
@@ -769,9 +784,7 @@ export class RagService {
       async (zimChunks, articlesSeen, total) => {
         totalArticles = total
 
-        if (onProgress && totalArticles > 0) {
-          await onProgress(Math.min(99, Math.round((articlesSeen / totalArticles) * 100)))
-        }
+        await reportProgress(articlesSeen)
 
         for (const zimChunk of zimChunks) {
           pendingTexts.push(zimChunk.text)
@@ -1015,6 +1028,8 @@ export class RagService {
         totalArticles: number
       ) => Promise<boolean | void>
       collection?: string
+      chunksEstimated?: number
+      baseChunks?: number
     } = {}
   ): Promise<ProcessAndEmbedFileResponse> {
     const { onProgress, collection } = options
