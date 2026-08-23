@@ -571,7 +571,7 @@ export class OllamaService {
   private teiCheckPromise: Promise<string | null> | null = null
   private teiLastCheckAt = 0
   private static readonly TEI_CHECK_INTERVAL_MS = 30_000
-  private static readonly TEI_MAX_BATCH_TOKENS = 500_000
+  private static readonly TEI_MAX_BATCH_TOKENS = 375_000
   private static readonly TEI_CHAR_TO_TOKEN_RATIO = 2
 
   private async _getTeiUrl(): Promise<string | null> {
