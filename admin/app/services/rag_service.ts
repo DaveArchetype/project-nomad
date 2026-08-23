@@ -2548,11 +2548,11 @@ export class RagService {
     try {
       const { getFileStatsIfExists } = await import('../utils/fs.js')
       const { estimateChunkCount } = await import('../utils/kb_ratio_lookup.js')
-      const { KbRatioRegistry } = await import('#models/kb_ratio_registry')
+      const KbRatioRegistryMod = await import('#models/kb_ratio_registry')
       const fileStats = await getFileStatsIfExists(source)
       const sizeBytes = Number(fileStats?.size ?? 0)
       if (sizeBytes > 0) {
-        const ratioRows = await KbRatioRegistry.all().catch(() => [])
+        const ratioRows = await KbRatioRegistryMod.default.all().catch(() => [])
         chunksEstimated = estimateChunkCount(fileName, sizeBytes, ratioRows)
       }
     } catch {
