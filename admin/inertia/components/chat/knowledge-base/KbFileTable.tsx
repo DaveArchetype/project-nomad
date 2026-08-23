@@ -171,8 +171,7 @@ export default function KbFileTable({
               verifyMutation.isPending && verifyMutation.variables === record.source
             const isResuming =
               resumeMutation.isPending && resumeMutation.variables === record.source
-            const rowVerifyResult =
-              verifyResult?.source === record.source ? verifyResult : null
+            const rowVerifyResult = verifyResult?.source === record.source ? verifyResult : null
             const canVerify =
               !isInflight &&
               (record.state === 'indexed' || record.state === 'stalled' || record.state === null)
@@ -206,7 +205,9 @@ export default function KbFileTable({
                           })
                         }
                       }}
-                      disabled={qdrantOffline || deleteMutation.isPending || embedMutation.isPending}
+                      disabled={
+                        qdrantOffline || deleteMutation.isPending || embedMutation.isPending
+                      }
                       loading={actionPendingForThisRow}
                     >
                       {action.label}
@@ -228,68 +229,69 @@ export default function KbFileTable({
                     </StyledButton>
                   )}
                   {canView && (
-                  <StyledButton
-                    variant="ghost"
-                    size="sm"
-                    icon="IconEye"
-                    onClick={() => setViewerSource(record.source)}
-                  >
-                    View
-                  </StyledButton>
-                )}
-                {canDownload && (
-                  <StyledButton
-                    variant="ghost"
-                    size="sm"
-                    icon="IconDownload"
-                    onClick={() => {
-                      window.location.href = `/api/rag/files/download?source=${encodeURIComponent(record.source)}`
-                    }}
-                  >
-                    Download
-                  </StyledButton>
-                )}
-                <StyledButton
-                  variant="danger"
-                  size="sm"
-                  icon="IconTrash"
-                  onClick={() => setConfirmDeleteSource(record.source)}
-                  disabled={deleteMutation.isPending || embedMutation.isPending}
-                  loading={deleteMutation.isPending && confirmDeleteSource === record.source}
-                >
-                  Delete
-                </StyledButton>
-              </div>
-              {rowVerifyResult && (
-                <div
-                  className={`flex flex-wrap items-center gap-2 text-xs rounded px-3 py-2 border ${
-                    rowVerifyResult.ok
-                      ? 'text-green-700 bg-green-50 border-green-200 dark:text-green-300 dark:bg-green-950/40 dark:border-green-800'
-                      : 'text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-300 dark:bg-amber-950/40 dark:border-amber-800'
-                  }`}
-                >
-                  <span>{rowVerifyResult.message}</span>
-                  {!rowVerifyResult.ok && rowVerifyResult.resumeOffset !== null && (
                     <StyledButton
-                      variant="secondary"
+                      variant="ghost"
                       size="sm"
-                      icon="IconPlayerPlay"
-                      onClick={() => resumeMutation.mutate(record.source)}
-                      disabled={isResuming || qdrantOffline}
-                      loading={isResuming}
+                      icon="IconEye"
+                      onClick={() => setViewerSource(record.source)}
                     >
-                      Resume from article {rowVerifyResult.resumeOffset.toLocaleString()}
+                      View
                     </StyledButton>
                   )}
-                  <button
-                    type="button"
-                    className="text-text-muted hover:text-text-primary transition-colors"
-                    onClick={() => setVerifyResult(null)}
+                  {canDownload && (
+                    <StyledButton
+                      variant="ghost"
+                      size="sm"
+                      icon="IconDownload"
+                      onClick={() => {
+                        window.location.href = `/api/rag/files/download?source=${encodeURIComponent(record.source)}`
+                      }}
+                    >
+                      Download
+                    </StyledButton>
+                  )}
+                  <StyledButton
+                    variant="danger"
+                    size="sm"
+                    icon="IconTrash"
+                    onClick={() => setConfirmDeleteSource(record.source)}
+                    disabled={deleteMutation.isPending || embedMutation.isPending}
+                    loading={deleteMutation.isPending && confirmDeleteSource === record.source}
                   >
-                    Dismiss
-                  </button>
+                    Delete
+                  </StyledButton>
                 </div>
-              )}
+                {rowVerifyResult && (
+                  <div
+                    className={`flex flex-wrap items-center gap-2 text-xs rounded px-3 py-2 border ${
+                      rowVerifyResult.ok
+                        ? 'text-green-700 bg-green-50 border-green-200 dark:text-green-300 dark:bg-green-950/40 dark:border-green-800'
+                        : 'text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-300 dark:bg-amber-950/40 dark:border-amber-800'
+                    }`}
+                  >
+                    <span>{rowVerifyResult.message}</span>
+                    {!rowVerifyResult.ok && rowVerifyResult.resumeOffset !== null && (
+                      <StyledButton
+                        variant="secondary"
+                        size="sm"
+                        icon="IconPlayerPlay"
+                        onClick={() => resumeMutation.mutate(record.source)}
+                        disabled={isResuming || qdrantOffline}
+                        loading={isResuming}
+                      >
+                        Resume from article {rowVerifyResult.resumeOffset.toLocaleString()}
+                      </StyledButton>
+                    )}
+                    <button
+                      type="button"
+                      className="text-text-muted hover:text-text-primary transition-colors"
+                      onClick={() => setVerifyResult(null)}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
+              </div>
             )
           },
         },
