@@ -2524,6 +2524,28 @@ export class RagService {
       }
     }
 
+    const fileName = source.split(/[/\\]/).pop() || source
+    const collection = stateRow.collection ?? undefined
+    const jobId = `repair-${EmbedFileJob.getJobId(source)}`
+
+    setImmediate(() => {
+      this._scanAndDispatchRepair(source, fileName, collection, jobId).catch((err) => {
+        logger.error(`[RAG] Repair scan failed for ${source}: %s`, err)
+      })
+    })
+
+    return {
+      success: true,
+      message: 'Repair scan started. Missing articles will be queued for re-embedding shortly.',
+    }
+  }
+
+  private async _scanAndDispatchRepair(
+    source: string,
+    fileName: string,
+    collection: string | undefined,
+    jobId: string
+  ): Promise<void> {
     await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
 
     logger.info(`[RAG] Repair: scanning Qdrant for existing article paths in ${source}`)
@@ -2580,15 +2602,13 @@ export class RagService {
     )
 
     if (missingPaths.length === 0) {
-      return {
-        success: true,
-        message: 'No missing articles found. All articles are already embedded.',
-      }
+      logger.info(`[RAG] Repair: no missing articles found for ${source}`)
+      return
     }
 
-    const fileName = source.split(/[/\\]/).pop() || source
-    const collection = stateRow.collection ?? undefined
-    const jobId = `repair-${EmbedFileJob.getJobId(source)}`
+    const { EmbedFileJob } = await import('#jobs/embed_file_job')
+    const { QueueService } = await import('#services/queue_service')
+    const queue = QueueService.getInstance().getQueue(EmbedFileJob.queue)
 
     try {
       const existing = await queue.getJob(jobId)
@@ -2609,17 +2629,13 @@ export class RagService {
     )
 
     if (!result.created) {
-      return {
-        success: false,
-        code: 'inflight',
-        message: 'A repair job for this file already exists. Wait for it to finish.',
-      }
+      logger.warn(`[RAG] Repair: could not dispatch repair job for ${source} (already exists)`)
+      return
     }
 
-    return {
-      success: true,
-      message: `Repair queued: ${missingPaths.length.toLocaleString()} missing articles will be re-extracted and embedded.`,
-    }
+    logger.info(
+      `[RAG] Repair: dispatched repair job for ${source} with ${missingPaths.length.toLocaleString()} missing articles`
+    )
   }
 
   /**
