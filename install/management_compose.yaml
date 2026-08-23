@@ -9,16 +9,14 @@
 name: project-nomad
 services:
   admin:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-    image: project-nomad:local
+    build: https://github.com/DaveArchetype/project-nomad.git
+    image: project-nomad-admin
     container_name: nomad_admin
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"  # Enables host.docker.internal on Linux
     ports:
-      - "8080:8080"
+      - "80:8080"
     volumes:
       # RELOCATING STORAGE: the host path on the LEFT of the colon below is the single source of
       # truth for where all NOMAD data lives (ZIMs, AI models, notes, etc.). At runtime the admin
@@ -31,7 +29,7 @@ services:
       #   3. Set it EXACTLY the same in NOMAD_STORAGE_PATH and the disk-collector volume (both below).
       #      Paths are case-sensitive (/mnt/Data != /mnt/data); a mismatch makes Docker create a new
       #      empty folder, which is the usual cause of "my content disappeared after moving it".
-      - /opt/project-nomad/storage:/app/storage
+      - /mnt/main2tb/project-nomad/storage:/app/storage
       - /var/run/docker.sock:/var/run/docker.sock # Allows the admin service to communicate with the Host's Docker daemon
       - nomad-update-shared:/app/update-shared # Shared volume for update communication
     environment:
@@ -39,7 +37,7 @@ services:
       # NOMAD_STORAGE_PATH should equal the host path of the /app/storage volume above. The admin
       # normally auto-detects that mount, so this is a fallback used only if the container can't be
       # inspected. Keep it in sync anyway so the fallback never sends child apps to the wrong place.
-      - NOMAD_STORAGE_PATH=/opt/project-nomad/storage
+      - NOMAD_STORAGE_PATH=/mnt/main2tb/project-nomad/storage
       # PORT is the port the admin server listens on *inside* the container and should not be changed. If you want to change which port the admin interface is accessible from on the host, you can change the port mapping in the "ports" section (e.g. "9090:8080" to access it on port 9090 from the host)
       - PORT=8080
       - LOG_LEVEL=info
@@ -84,7 +82,7 @@ services:
     # `restart: unless-stopped`, a worker crash — which previously stranded every
     # embedding job in "active"/"waiting" forever because the in-entrypoint `&`
     # worker had no supervisor — is now recovered automatically within seconds.
-    image: project-nomad:local
+    image: project-nomad-admin
     container_name: nomad_worker
     restart: unless-stopped
     # The Dockerfile's entrypoint.sh (which waits for Redis, runs migrations,
@@ -100,12 +98,12 @@ services:
         done &&
         exec node ace queue:work --all
     volumes:
-      - /opt/project-nomad/storage:/app/storage
+      - /mnt/main2tb/project-nomad/storage:/app/storage
       - /var/run/docker.sock:/var/run/docker.sock
       - nomad-update-shared:/app/update-shared
     environment:
       - NODE_ENV=production
-      - NOMAD_STORAGE_PATH=/opt/project-nomad/storage
+      - NOMAD_STORAGE_PATH=/mnt/main2tb/project-nomad/storage
       - LOG_LEVEL=info
       - APP_KEY=${APP_KEY}
       - HOST=0.0.0.0
@@ -133,7 +131,7 @@ services:
     container_name: nomad_dozzle
     restart: unless-stopped
     ports:
-      - "9999:8080"
+      - "3501:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock # Allows Dozzle to read logs from the Host's Docker daemon
     environment:
@@ -150,7 +148,7 @@ services:
       # Needs to match DB_PASSWORD in the admin service!
       - MYSQL_PASSWORD=${DB_PASSWORD}
     volumes:
-      - /opt/project-nomad/mysql:/var/lib/mysql # Persist MySQL data on the host. This path can be changed if needed, just make sure it's writable by the container. Host persistence is important for the database to ensure your data isn't lost when the container is removed or updated.
+      - /mnt/main2tb/project-nomad/mysql:/var/lib/mysql # Persist MySQL data on the host. This path can be changed if needed, just make sure it's writable by the container. Host persistence is important for the database to ensure your data isn't lost when the container is removed or updated.
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 30s
@@ -161,7 +159,7 @@ services:
     container_name: nomad_redis
     restart: unless-stopped
     volumes:
-      - /opt/project-nomad/redis:/data # Persist Redis data on the host. This path can be changed if needed, just make sure it's writable by the container. Host persistence is important for Redis to ensure your data isn't lost when the container is removed or updated.
+      - /mnt/main2tb/project-nomad/redis:/data # Persist Redis data on the host. This path can be changed if needed, just make sure it's writable by the container. Host persistence is important for Redis to ensure your data isn't lost when the container is removed or updated.
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -175,7 +173,7 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock # Allows communication with the Host's Docker daemon
-      - /opt/project-nomad:/opt/project-nomad # Writable access required so the updater can set the correct image tag in compose.yml. This needs to be the same location that the compose file is located at on the host for the updater to work correctly
+      - /mnt/main2tb/project-nomad:/mnt/main2tb/project-nomad # Writable access required so the updater can set the correct image tag in compose.yml. This needs to be the same location that the compose file is located at on the host for the updater to work correctly
       - nomad-update-shared:/shared # Shared volume for communication with admin container
   disk-collector:
     # Disk Collector is a lightweight privileged container that collects disk usage information from the host system and shares it with the admin container so it can be displayed in the UI.
@@ -188,7 +186,7 @@ services:
       - /:/host:ro,rslave  # Read-only view of host FS with rslave propagation so /sys and /proc submounts are visible
       # If you relocated storage (see the admin service above), set this host path to match EXACTLY,
       # or the host disk-usage figures shown in the UI will point at the wrong location.
-      - /opt/project-nomad/storage:/storage
+      - /mnt/main2tb/project-nomad/storage:/storage
   tei:
     # Text Embeddings Inference (TEI) — HuggingFace's purpose-built embedding server.
     # Runs nomic-embed-text-v1.5 on GPU with proper batched inference, 10-50x faster
@@ -215,7 +213,7 @@ services:
     ports:
       - "8181:80"
     volumes:
-      - /opt/project-nomad/tei-data:/data
+      - /mnt/main2tb/project-nomad/tei-data:/data
     command: ["--model-id", "nomic-ai/nomic-embed-text-v1.5", "--revision", "e5cf08aadaa33385f5990def41f7a23405aec398", "--port", "80", "--max-client-batch-size", "512", "--max-concurrent-requests", "1024", "--max-batch-tokens", "65536"]
     deploy:
       resources:
