@@ -2527,6 +2527,58 @@ export class RagService {
     const fileName = source.split(/[/\\]/).pop() || source
     const collection = stateRow.collection ?? undefined
     const jobId = `repair-${EmbedFileJob.getJobId(source)}`
+    const recordedChunks = stateRow.chunks_embedded ?? 0
+
+    await this._ensureCollection(RagService.CONTENT_COLLECTION_NAME, RagService.EMBEDDING_DIMENSION)
+
+    const facetResult = await this.qdrant!.facet(RagService.CONTENT_COLLECTION_NAME, {
+      key: 'source',
+      limit: RagService.FACET_SOURCE_LIMIT,
+      exact: true,
+    })
+    let chunksInQdrant = 0
+    for (const hit of facetResult.hits) {
+      if (hit.value === source) {
+        chunksInQdrant = hit.count
+        break
+      }
+    }
+
+    let chunksEstimated: number | null = null
+    try {
+      const { getFileStatsIfExists } = await import('../utils/fs.js')
+      const { estimateChunkCount } = await import('../utils/kb_ratio_lookup.js')
+      const { KbRatioRegistry } = await import('#models/kb_ratio_registry')
+      const fileStats = await getFileStatsIfExists(source)
+      const sizeBytes = Number(fileStats?.size ?? 0)
+      if (sizeBytes > 0) {
+        const ratioRows = await KbRatioRegistry.all().catch(() => [])
+        chunksEstimated = estimateChunkCount(fileName, sizeBytes, ratioRows)
+      }
+    } catch {
+      // Non-fatal — falls back to count-only comparison
+    }
+
+    const belowEstimate =
+      chunksEstimated !== null && chunksEstimated > 0 && chunksInQdrant < chunksEstimated * 0.5
+
+    if (chunksInQdrant >= recordedChunks && !belowEstimate) {
+      logger.info(
+        `[RAG] Repair: Qdrant has ${chunksInQdrant} points, DB has ${recordedChunks} — syncing DB count`
+      )
+      if (chunksInQdrant !== recordedChunks) {
+        stateRow.chunks_embedded = chunksInQdrant
+        await stateRow.save()
+      }
+      return {
+        success: true,
+        message: `Synced chunk count: ${recordedChunks.toLocaleString()} → ${chunksInQdrant.toLocaleString()}. No missing articles to repair.`,
+      }
+    }
+
+    const reason = belowEstimate
+      ? `Qdrant has ${chunksInQdrant.toLocaleString()} chunks but estimate is ${chunksEstimated!.toLocaleString()}`
+      : `Qdrant has ${chunksInQdrant.toLocaleString()} chunks vs ${recordedChunks.toLocaleString()} recorded`
 
     setImmediate(() => {
       this._scanAndDispatchRepair(source, fileName, collection, jobId).catch((err) => {
@@ -2536,7 +2588,7 @@ export class RagService {
 
     return {
       success: true,
-      message: 'Repair scan started. Missing articles will be queued for re-embedding shortly.',
+      message: `Repair scan started: ${reason}. Missing articles will be queued for re-embedding shortly.`,
     }
   }
 
