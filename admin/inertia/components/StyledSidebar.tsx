@@ -103,13 +103,17 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
 
   return (
     <>
-      <button
-        type="button"
-        className="absolute left-4 top-4 z-50 xl:hidden"
-        onClick={() => setSidebarOpen(true)}
-      >
-        <IconMenu2 aria-hidden="true" className="size-8" />
-      </button>
+      <div className="sticky top-0 z-40 xl:hidden flex items-center gap-3 px-4 py-3 bg-surface-primary/90 backdrop-blur border-b border-border-subtle">
+        <button
+          type="button"
+          onClick={() => setSidebarOpen(true)}
+          aria-label="Open sidebar"
+          className="cursor-pointer"
+        >
+          <IconMenu2 aria-hidden="true" className="size-6" />
+        </button>
+        <span className="font-semibold text-lg text-desert-green leading-none">{title}</span>
+      </div>
       {/* Mobile sidebar */}
       <Dialog open={sidebarOpen} onClose={setSidebarOpen} className="relative z-50 xl:hidden">
         <DialogBackdrop

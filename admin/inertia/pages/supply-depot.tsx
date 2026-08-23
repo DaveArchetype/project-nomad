@@ -20,7 +20,7 @@ import {
   IconTrash,
   IconWorld,
 } from '@tabler/icons-react'
-import AppLayout from '~/layouts/AppLayout'
+import SettingsLayout from '~/layouts/SettingsLayout'
 import DynamicIcon, { DynamicIconName } from '~/components/DynamicIcon'
 import StyledButton from '~/components/StyledButton'
 import StyledModal from '~/components/StyledModal'
@@ -408,244 +408,254 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
     (preflight?.portConflicts.length ?? 0) > 0 || (preflight?.resourceWarnings.length ?? 0) > 0
 
   return (
-    <AppLayout>
+    <SettingsLayout>
       <Head title="Supply Depot" />
 
       {loading && !modal && <LoadingSpinner fullscreen text="Working..." />}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {!isOnline && (
-          <Alert
-            title="No internet connection. You may not be able to download files."
-            message=""
-            type="warning"
-            variant="solid"
-            className="!mb-4"
-          />
-        )}
+      <div className="xl:pl-72 w-full">
+        <main className="px-12 py-6">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {!isOnline && (
+              <Alert
+                title="No internet connection. You may not be able to download files."
+                message=""
+                type="warning"
+                variant="solid"
+                className="!mb-4"
+              />
+            )}
 
-        {/* ── Hero / controls panel ─────────────────────────────────────────── */}
-        <div className="rounded-lg overflow-hidden bg-desert-white border border-desert-stone-light shadow-sm mb-8">
-          {/* Green header band */}
-          <div className="relative bg-desert-green px-6 py-5 overflow-hidden">
-            {/* Diagonal line pattern */}
-            <div
-              className="absolute inset-0 opacity-10"
-              style={{
-                backgroundImage: `repeating-linear-gradient(
+            {/* ── Hero / controls panel ─────────────────────────────────────────── */}
+            <div className="rounded-lg overflow-hidden bg-desert-white border border-desert-stone-light shadow-sm mb-8">
+              {/* Green header band */}
+              <div className="relative bg-desert-green px-6 py-5 overflow-hidden">
+                {/* Diagonal line pattern */}
+                <div
+                  className="absolute inset-0 opacity-10"
+                  style={{
+                    backgroundImage: `repeating-linear-gradient(
                   45deg,
                   transparent,
                   transparent 10px,
                   rgba(255, 255, 255, 0.1) 10px,
                   rgba(255, 255, 255, 0.1) 20px
                 )`,
-              }}
-            />
-            <div className="absolute top-0 right-0 w-24 h-24 transform translate-x-8 -translate-y-8">
-              <div className="w-full h-full bg-desert-green-dark opacity-30 transform rotate-45" />
-            </div>
-            <div className="relative flex items-center gap-3">
-              <IconBox className="text-white opacity-90 flex-shrink-0" size={28} />
-              <div>
-                <h1 className="text-2xl font-bold text-white uppercase tracking-wide leading-tight">
-                  Supply Depot
-                </h1>
-                <p className="text-sm text-white/70 mt-1 max-w-xl">
-                  Browse and install curated apps, or add your own custom apps by providing a Docker
-                  image.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Controls body */}
-          <div className="p-6 space-y-4">
-            {/* Activity feed (shown only while installing) */}
-            {installActivity.length > 0 && (
-              <InstallActivityFeed activity={installActivity} withHeader />
-            )}
-
-            {/* Search + Add Custom App */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted h-4 w-4" />
-                <input
-                  type="text"
-                  placeholder="Search apps..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 rounded-md bg-surface-secondary border border-desert-stone-lighter text-text-primary text-sm focus:outline-none focus:ring-1 focus:ring-desert-green placeholder:text-text-muted/50"
+                  }}
                 />
+                <div className="absolute top-0 right-0 w-24 h-24 transform translate-x-8 -translate-y-8">
+                  <div className="w-full h-full bg-desert-green-dark opacity-30 transform rotate-45" />
+                </div>
+                <div className="relative flex items-center gap-3">
+                  <IconBox className="text-white opacity-90 flex-shrink-0" size={28} />
+                  <div>
+                    <h1 className="text-2xl font-bold text-white uppercase tracking-wide leading-tight">
+                      Supply Depot
+                    </h1>
+                    <p className="text-sm text-white/70 mt-1 max-w-xl">
+                      Browse and install curated apps, or add your own custom apps by providing a
+                      Docker image.
+                    </p>
+                  </div>
+                </div>
               </div>
-              <StyledButton
-                icon="IconRefreshAlert"
-                variant="outline"
-                onClick={handleCheckUpdates}
-                loading={checkingUpdates}
-                disabled={checkingUpdates || !isOnline}
-              >
-                Check for Updates
-              </StyledButton>
-              <StyledButton
-                icon="IconBrandDocker"
-                variant="outline"
-                onClick={() => setCustomAppOpen(true)}
-              >
-                Add Custom App
-              </StyledButton>
-            </div>
 
-            {/* Category filters */}
-            <div className="flex flex-wrap gap-2">
-              {CATEGORIES.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => setActiveCategory(cat.id)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer border ${
-                    activeCategory === cat.id
-                      ? 'bg-desert-green text-white border-desert-green'
-                      : 'bg-surface-secondary text-text-muted border-desert-stone-lighter hover:text-text-primary hover:border-desert-stone-light'
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
-          </div>
+              {/* Controls body */}
+              <div className="p-6 space-y-4">
+                {/* Activity feed (shown only while installing) */}
+                {installActivity.length > 0 && (
+                  <InstallActivityFeed activity={installActivity} withHeader />
+                )}
 
-          {/* Bottom accent bar */}
-          <div className="h-1 bg-desert-green" />
-        </div>
-
-        {/* App cards */}
-        {filteredServices.length === 0 ? (
-          <div className="text-center py-16">
-            <IconPackage className="mx-auto mb-3 opacity-40 text-desert-stone-light" size={48} />
-            <p className="text-text-muted">No apps match your filter.</p>
-          </div>
-        ) : (
-          <div className="space-y-10">
-            <section>
-              <StyledSectionHeader title="Reverse Proxy" className="mb-4" />
-              <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
-                <p className="text-sm text-text-secondary mb-4">
-                  When NOMAD sits behind a reverse proxy that routes one subdomain per service (e.g.{' '}
-                  <span className="font-mono">kiwix.nomad.lan</span> → port 8090), set the base
-                  domain here. Each app's "Open" link will then resolve to
-                  <span className="font-mono"> https://&lt;app&gt;.&lt;base-domain&gt;</span>{' '}
-                  instead of the raw host:port. Leave blank to use the default host + port links. A
-                  per-app custom URL still overrides this.
-                </p>
-                <div className="flex items-end gap-3">
-                  <div className="flex-1">
-                    <Input
-                      name="reverseProxyBaseDomain"
-                      label="Reverse Proxy Base Domain"
-                      helpText="e.g. nomad.lan or grup.dasaroff.com. Wildcard DNS (*.base-domain) must point at the proxy host."
-                      placeholder="grup.dasaroff.com"
-                      value={baseDomainDraft}
-                      error={Boolean(baseDomainError)}
-                      onChange={(e) => {
-                        setBaseDomainDraft(e.target.value)
-                        setBaseDomainError(null)
-                      }}
+                {/* Search + Add Custom App */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="relative flex-1">
+                    <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted h-4 w-4" />
+                    <input
+                      type="text"
+                      placeholder="Search apps..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 rounded-md bg-surface-secondary border border-desert-stone-lighter text-text-primary text-sm focus:outline-none focus:ring-1 focus:ring-desert-green placeholder:text-text-muted/50"
                     />
-                    {baseDomainError && (
-                      <p className="text-sm text-red-600 mt-1">{baseDomainError}</p>
-                    )}
                   </div>
                   <StyledButton
-                    variant="primary"
-                    onClick={handleSaveBaseDomain}
-                    loading={updateBaseDomainMutation.isPending}
-                    disabled={updateBaseDomainMutation.isPending}
-                    className="mb-0.5"
+                    icon="IconRefreshAlert"
+                    variant="outline"
+                    onClick={handleCheckUpdates}
+                    loading={checkingUpdates}
+                    disabled={checkingUpdates || !isOnline}
                   >
-                    Save
+                    Check for Updates
+                  </StyledButton>
+                  <StyledButton
+                    icon="IconBrandDocker"
+                    variant="outline"
+                    onClick={() => setCustomAppOpen(true)}
+                  >
+                    Add Custom App
                   </StyledButton>
                 </div>
+
+                {/* Category filters */}
+                <div className="flex flex-wrap gap-2">
+                  {CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setActiveCategory(cat.id)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer border ${
+                        activeCategory === cat.id
+                          ? 'bg-desert-green text-white border-desert-green'
+                          : 'bg-surface-secondary text-text-muted border-desert-stone-lighter hover:text-text-primary hover:border-desert-stone-light'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </section>
 
-            {installedServices.length > 0 && (
-              <section>
-                <StyledSectionHeader title={`Installed (${installedServices.length})`} />
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {installedServices.map((service) => (
-                    <AppCard
-                      key={service.service_name}
-                      service={service}
-                      openDropdown={openDropdown}
-                      dropdownRef={dropdownRef}
-                      onOpenDropdown={setOpenDropdown}
-                      onInstall={() => setModal({ type: 'install', service })}
-                      onStart={() => setModal({ type: 'start', service })}
-                      onStop={() => setModal({ type: 'stop', service })}
-                      onRestart={() => setModal({ type: 'restart', service })}
-                      onReinstall={() => setModal({ type: 'reinstall', service })}
-                      onDelete={() => setModal({ type: 'delete', service })}
-                      onUninstall={() => setModal({ type: 'uninstall', service })}
-                      onLogs={() => setModal({ type: 'logs', service })}
-                      onStats={() => setModal({ type: 'stats', service })}
-                      onEdit={() => handleEdit(service)}
-                      onSetUrl={() => handleSetUrl(service)}
-                      onUpdate={() => handleUpdate(service)}
-                      onUpdateVersion={() => setModal({ type: 'update', service })}
-                      autoUpdateEnabled={
-                        autoUpdateOverrides[service.service_name] ?? service.auto_update_enabled
-                      }
-                      autoUpdateMasterEnabled={appAutoUpdateMasterEnabled}
-                      onToggleAutoUpdate={(enabled) => handleToggleAutoUpdate(service, enabled)}
-                      migrationInstructionsHref={
-                        service.service_name.startsWith(SERVICE_NAMES.KOLIBRI) &&
-                        educationGen2Installed
-                          ? getSupplyDepotDocLink(SERVICE_NAMES.KOLIBRI) || undefined
-                          : undefined
-                      }
-                      migrationInstructionsText={
-                        service.service_name === SERVICE_NAMES.KOLIBRI
-                          ? 'How to migrate content to Gen 2'
-                          : 'How to migrate content from Gen 1'
-                      }
-                      reverseProxyBaseDomain={reverseProxyBaseDomain}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
+              {/* Bottom accent bar */}
+              <div className="h-1 bg-desert-green" />
+            </div>
 
-            {availableServices.length > 0 && (
-              <section>
-                <StyledSectionHeader title={`Available (${availableServices.length})`} />
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {availableServices.map((service) => (
-                    <AppCard
-                      key={service.service_name}
-                      service={service}
-                      openDropdown={openDropdown}
-                      dropdownRef={dropdownRef}
-                      onOpenDropdown={setOpenDropdown}
-                      onInstall={() => setModal({ type: 'install', service })}
-                      onStart={() => setModal({ type: 'start', service })}
-                      onStop={() => setModal({ type: 'stop', service })}
-                      onRestart={() => setModal({ type: 'restart', service })}
-                      onReinstall={() => setModal({ type: 'reinstall', service })}
-                      onDelete={() => setModal({ type: 'delete', service })}
-                      onUninstall={() => setModal({ type: 'uninstall', service })}
-                      onLogs={() => setModal({ type: 'logs', service })}
-                      onStats={() => setModal({ type: 'stats', service })}
-                      onEdit={() => handleEdit(service)}
-                      onSetUrl={() => handleSetUrl(service)}
-                      onUpdate={() => handleUpdate(service)}
-                      onUpdateVersion={() => setModal({ type: 'update', service })}
-                      reverseProxyBaseDomain={reverseProxyBaseDomain}
-                    />
-                  ))}
-                </div>
-              </section>
+            {/* App cards */}
+            {filteredServices.length === 0 ? (
+              <div className="text-center py-16">
+                <IconPackage
+                  className="mx-auto mb-3 opacity-40 text-desert-stone-light"
+                  size={48}
+                />
+                <p className="text-text-muted">No apps match your filter.</p>
+              </div>
+            ) : (
+              <div className="space-y-10">
+                <section>
+                  <StyledSectionHeader title="Reverse Proxy" className="mb-4" />
+                  <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
+                    <p className="text-sm text-text-secondary mb-4">
+                      When NOMAD sits behind a reverse proxy that routes one subdomain per service
+                      (e.g. <span className="font-mono">kiwix.nomad.lan</span> → port 8090), set the
+                      base domain here. Each app's "Open" link will then resolve to
+                      <span className="font-mono">
+                        {' '}
+                        https://&lt;app&gt;.&lt;base-domain&gt;
+                      </span>{' '}
+                      instead of the raw host:port. Leave blank to use the default host + port
+                      links. A per-app custom URL still overrides this.
+                    </p>
+                    <div className="flex items-end gap-3">
+                      <div className="flex-1">
+                        <Input
+                          name="reverseProxyBaseDomain"
+                          label="Reverse Proxy Base Domain"
+                          helpText="e.g. nomad.lan or grup.dasaroff.com. Wildcard DNS (*.base-domain) must point at the proxy host."
+                          placeholder="grup.dasaroff.com"
+                          value={baseDomainDraft}
+                          error={Boolean(baseDomainError)}
+                          onChange={(e) => {
+                            setBaseDomainDraft(e.target.value)
+                            setBaseDomainError(null)
+                          }}
+                        />
+                        {baseDomainError && (
+                          <p className="text-sm text-red-600 mt-1">{baseDomainError}</p>
+                        )}
+                      </div>
+                      <StyledButton
+                        variant="primary"
+                        onClick={handleSaveBaseDomain}
+                        loading={updateBaseDomainMutation.isPending}
+                        disabled={updateBaseDomainMutation.isPending}
+                        className="mb-0.5"
+                      >
+                        Save
+                      </StyledButton>
+                    </div>
+                  </div>
+                </section>
+
+                {installedServices.length > 0 && (
+                  <section>
+                    <StyledSectionHeader title={`Installed (${installedServices.length})`} />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {installedServices.map((service) => (
+                        <AppCard
+                          key={service.service_name}
+                          service={service}
+                          openDropdown={openDropdown}
+                          dropdownRef={dropdownRef}
+                          onOpenDropdown={setOpenDropdown}
+                          onInstall={() => setModal({ type: 'install', service })}
+                          onStart={() => setModal({ type: 'start', service })}
+                          onStop={() => setModal({ type: 'stop', service })}
+                          onRestart={() => setModal({ type: 'restart', service })}
+                          onReinstall={() => setModal({ type: 'reinstall', service })}
+                          onDelete={() => setModal({ type: 'delete', service })}
+                          onUninstall={() => setModal({ type: 'uninstall', service })}
+                          onLogs={() => setModal({ type: 'logs', service })}
+                          onStats={() => setModal({ type: 'stats', service })}
+                          onEdit={() => handleEdit(service)}
+                          onSetUrl={() => handleSetUrl(service)}
+                          onUpdate={() => handleUpdate(service)}
+                          onUpdateVersion={() => setModal({ type: 'update', service })}
+                          autoUpdateEnabled={
+                            autoUpdateOverrides[service.service_name] ?? service.auto_update_enabled
+                          }
+                          autoUpdateMasterEnabled={appAutoUpdateMasterEnabled}
+                          onToggleAutoUpdate={(enabled) => handleToggleAutoUpdate(service, enabled)}
+                          migrationInstructionsHref={
+                            service.service_name.startsWith(SERVICE_NAMES.KOLIBRI) &&
+                            educationGen2Installed
+                              ? getSupplyDepotDocLink(SERVICE_NAMES.KOLIBRI) || undefined
+                              : undefined
+                          }
+                          migrationInstructionsText={
+                            service.service_name === SERVICE_NAMES.KOLIBRI
+                              ? 'How to migrate content to Gen 2'
+                              : 'How to migrate content from Gen 1'
+                          }
+                          reverseProxyBaseDomain={reverseProxyBaseDomain}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {availableServices.length > 0 && (
+                  <section>
+                    <StyledSectionHeader title={`Available (${availableServices.length})`} />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {availableServices.map((service) => (
+                        <AppCard
+                          key={service.service_name}
+                          service={service}
+                          openDropdown={openDropdown}
+                          dropdownRef={dropdownRef}
+                          onOpenDropdown={setOpenDropdown}
+                          onInstall={() => setModal({ type: 'install', service })}
+                          onStart={() => setModal({ type: 'start', service })}
+                          onStop={() => setModal({ type: 'stop', service })}
+                          onRestart={() => setModal({ type: 'restart', service })}
+                          onReinstall={() => setModal({ type: 'reinstall', service })}
+                          onDelete={() => setModal({ type: 'delete', service })}
+                          onUninstall={() => setModal({ type: 'uninstall', service })}
+                          onLogs={() => setModal({ type: 'logs', service })}
+                          onStats={() => setModal({ type: 'stats', service })}
+                          onEdit={() => handleEdit(service)}
+                          onSetUrl={() => handleSetUrl(service)}
+                          onUpdate={() => handleUpdate(service)}
+                          onUpdateVersion={() => setModal({ type: 'update', service })}
+                          reverseProxyBaseDomain={reverseProxyBaseDomain}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </div>
             )}
           </div>
-        )}
+        </main>
       </div>
 
       {/* ── Modals ─────────────────────────────────────────────────────────── */}
@@ -948,7 +958,7 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
         onSaved={handleUrlSaved}
         showError={showError}
       />
-    </AppLayout>
+    </SettingsLayout>
   )
 }
 
