@@ -1,4 +1,3 @@
-import logger from '@adonisjs/core/services/logger'
 import type { ApplicationService } from '@adonisjs/core/types'
 
 /**
@@ -18,17 +17,25 @@ export default class QdrantRestartPolicyProvider {
     if (this.app.getEnvironment() !== 'web') return
 
     setImmediate(async () => {
+      let logger: any
       try {
-        const Service = (await import('#models/service')).default
-        const { SERVICE_NAMES } = await import('../constants/service_names.js')
-        const Docker = (await import('dockerode')).default
+        const loggerModule = await import('@adonisjs/core/services/logger')
+        logger = loggerModule.default
+        const serviceModule = await import('#models/service')
+        const Service = serviceModule.default
+        const namesModule = await import('../constants/service_names.js')
+        const { SERVICE_NAMES } = namesModule
+        const dockerModule = await import('dockerode')
+        const Docker = dockerModule.default
 
         const qdrantService = await Service.query()
           .where('service_name', SERVICE_NAMES.QDRANT)
           .first()
 
         if (!qdrantService?.installed) {
-          logger.info('[QdrantRestartPolicyProvider] Qdrant not installed — skipping restart policy check.')
+          logger.info(
+            '[QdrantRestartPolicyProvider] Qdrant not installed — skipping restart policy check.'
+          )
           return
         }
 
@@ -37,7 +44,9 @@ export default class QdrantRestartPolicyProvider {
         const containerInfo = containers.find((c) => c.Names.includes(`/${SERVICE_NAMES.QDRANT}`))
 
         if (!containerInfo) {
-          logger.warn('[QdrantRestartPolicyProvider] Qdrant container not found — skipping restart policy check.')
+          logger.warn(
+            '[QdrantRestartPolicyProvider] Qdrant container not found — skipping restart policy check.'
+          )
           return
         }
 
@@ -46,16 +55,23 @@ export default class QdrantRestartPolicyProvider {
         const currentPolicy = inspected.HostConfig?.RestartPolicy?.Name
 
         if (currentPolicy === 'unless-stopped') {
-          logger.info('[QdrantRestartPolicyProvider] Qdrant already has unless-stopped restart policy — no update needed.')
+          logger.info(
+            '[QdrantRestartPolicyProvider] Qdrant already has unless-stopped restart policy — no update needed.'
+          )
           return
         }
 
-        logger.info(`[QdrantRestartPolicyProvider] Qdrant restart policy is "${currentPolicy ?? 'none'}" — updating to unless-stopped.`)
+        logger.info(
+          `[QdrantRestartPolicyProvider] Qdrant restart policy is "${currentPolicy ?? 'none'}" — updating to unless-stopped.`
+        )
         await container.update({ RestartPolicy: { Name: 'unless-stopped', MaximumRetryCount: 0 } })
         logger.info('[QdrantRestartPolicyProvider] Qdrant restart policy updated successfully.')
       } catch (err: any) {
-        logger.error(`[QdrantRestartPolicyProvider] Failed to update Qdrant restart policy: ${err.message}`)
-        // Non-fatal: the container will still run, just without auto-restart on crash.
+        if (logger) {
+          logger.error(
+            `[QdrantRestartPolicyProvider] Failed to update Qdrant restart policy: ${err.message}`
+          )
+        }
       }
     })
   }
