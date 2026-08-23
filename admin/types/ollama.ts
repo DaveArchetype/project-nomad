@@ -67,6 +67,6 @@ export type NomadChatResponse = {
     contentType?: string
     score?: number
     snippet: string
-    kiwixUrl?: string
+    kiwixPath?: string
   }>
 }

@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm'
 import { ChatMessage } from '../../../types/chat'
 import FileViewerModal from './knowledge-base/FileViewerModal'
 import KiwixPreviewModal from './knowledge-base/KiwixPreviewModal'
+import { useKiwixBaseUrl } from '../../hooks/useKiwixBaseUrl'
 
 export interface ChatMessageBubbleProps {
   message: ChatMessage
@@ -15,11 +16,12 @@ type SelectedSource = {
   source: string
   title?: string
   snippet?: string
-  kiwixUrl?: string
+  kiwixPath?: string
 }
 
 export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
   const [viewingSource, setViewingSource] = useState<SelectedSource | null>(null)
+  const kiwixBaseUrl = useKiwixBaseUrl()
   return (
     <div
       className={classNames(
@@ -140,7 +142,7 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                     source: src.source,
                     title: src.title,
                     snippet: src.snippet,
-                    kiwixUrl: src.kiwixUrl,
+                    kiwixPath: src.kiwixPath,
                   })
                 }
                 title={src.source}
@@ -154,12 +156,17 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
         </div>
       )}
       {viewingSource &&
-        (viewingSource.kiwixUrl ? (
-          <KiwixPreviewModal
-            kiwixUrl={viewingSource.kiwixUrl}
-            title={viewingSource.title ?? 'Kiwix article'}
-            onClose={() => setViewingSource(null)}
-          />
+        (viewingSource.kiwixPath && kiwixBaseUrl ? (
+          (() => {
+            const fullUrl = `${kiwixBaseUrl.replace(/\/+$/, '')}${viewingSource.kiwixPath}`
+            return (
+              <KiwixPreviewModal
+                kiwixUrl={fullUrl}
+                title={viewingSource.title ?? 'Kiwix article'}
+                onClose={() => setViewingSource(null)}
+              />
+            )
+          })()
         ) : (
           <FileViewerModal
             source={viewingSource.source}

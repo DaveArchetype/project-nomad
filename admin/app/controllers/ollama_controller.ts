@@ -12,7 +12,6 @@ import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import { RAG_CONTEXT_LIMITS, SYSTEM_PROMPTS } from '../../constants/ollama.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
-import { KIWIX_UI_PATH } from '../../constants/kiwix.js'
 import logger from '@adonisjs/core/services/logger'
 
 const DEFAULT_EMBED_PAUSE_AFTER_CHAT_MINUTES = 15
@@ -25,11 +24,14 @@ export type RagSource = {
   contentType?: string
   score?: number
   snippet: string
-  /** Kiwix-serve URL for ZIM article sources (path-based, same origin as the
-   *  admin UI). Present only for `content_type: 'zim_article'` sources that have
-   *  both a resolvable ZIM slug and an article path. The frontend uses this to
-   *  open an in-chat iframe preview instead of the file viewer. */
-  kiwixUrl?: string
+  /** Kiwix-serve content path for ZIM article sources (e.g.
+   *  `/wikipedia_en_all_maxi_2026-02/A/Article_Title`). Present only for
+   *  `content_type: 'zim_article'` sources that have both a resolvable ZIM slug
+   *  and an article path. The frontend resolves the full URL using the Kiwix
+   *  service's ui_path + the reverse-proxy base domain setting, so this works
+   *  with both path-based (`/kiwix/...`) and subdomain (`kiwix.domain/...`)
+   *  routing. */
+  kiwixPath?: string
 }
 
 @inject()
@@ -538,25 +540,26 @@ export default class OllamaController {
       const contentType = doc.metadata?.content_type as string | undefined
       const snippet = doc.text.slice(0, 2500)
 
-      const kiwixUrl = this._buildKiwixUrl(source, contentType, doc.metadata?.article_path)
+      const kiwixPath = this._buildKiwixPath(source, contentType, doc.metadata?.article_path)
 
       const existing = bySource.get(source)
       if (!existing || (score != null && (existing.score == null || score > existing.score))) {
-        bySource.set(source, { source, title, contentType, score, snippet, kiwixUrl })
+        bySource.set(source, { source, title, contentType, score, snippet, kiwixPath })
       }
     }
     return [...bySource.values()]
   }
 
   /**
-   * Build a Kiwix-serve content URL for a ZIM article source. Returns undefined
+   * Build a Kiwix-serve content path for a ZIM article source. Returns undefined
    * for non-ZIM sources or when the slug/article path can't be resolved.
    *
-   * The URL is path-based and same-origin as the admin UI (e.g.
-   * `/kiwix/wikipedia_en_all_maxi_2026-02/A/Article_Title`), matching the
-   * Caddy reverse-proxy route. The frontend opens this in an iframe preview.
+   * Returns just the path portion (e.g. `/wikipedia_en_all_maxi_2026-02/A/Article_Title`)
+   * — the frontend resolves the full URL using the Kiwix service record and the
+   * reverse-proxy base domain, so this works with both path-based and subdomain
+   * routing.
    */
-  private _buildKiwixUrl(
+  private _buildKiwixPath(
     source: string,
     contentType: string | undefined,
     articlePath: string | undefined
@@ -571,7 +574,7 @@ export default class OllamaController {
     if (!slug) return undefined
 
     const cleanPath = articlePath.replace(/^\/+/, '')
-    return `${KIWIX_UI_PATH}/${slug}/${cleanPath}`
+    return `/${slug}/${cleanPath}`
   }
 
   private async rewriteQueryWithContext(
