@@ -327,12 +327,13 @@ export default class RagController {
     const { source } = await request.validateUsing(fileSourceSchema)
     const result = await this.ragService.repairFileIngestion(source)
     if (!result.success) {
-      const status =
-        {
-          not_found: 404,
-          inflight: 409,
-        }[result.code ?? ''] ?? 500
-      return response.status(status).json({ error: result.message, code: result.code })
+      const status: Record<string, number> = {
+        not_found: 404,
+        inflight: 409,
+      }
+      return response
+        .status(status[result.code ?? ''] ?? 500)
+        .json({ error: result.message, code: result.code })
     }
     return response.status(202).json({ message: result.message })
   }

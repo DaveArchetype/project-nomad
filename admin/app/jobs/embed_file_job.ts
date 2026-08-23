@@ -587,7 +587,7 @@ export class EmbedFileJob {
     return await queue.getJob(jobId)
   }
 
-  static async dispatch(params: EmbedFileJobParams, options?: { force?: boolean }) {
+  static async dispatch(params: EmbedFileJobParams, options?: { force?: boolean; jobId?: string }) {
     const queueService = QueueService.getInstance()
     const queue = queueService.getQueue(this.queue)
 
@@ -596,7 +596,7 @@ export class EmbedFileJob {
     // it for bulk callers (reembedAll / resetAndRebuild) where historical
     // entries in :completed would otherwise silently swallow the new dispatch.
     const force = !!options?.force
-    const initialJobId = this.getJobId(params.filePath)
+    const initialJobId = options?.jobId ?? this.getJobId(params.filePath)
 
     const jobOptions: Parameters<typeof queue.add>[2] = {
       attempts: 30,

@@ -2550,7 +2550,7 @@ export class RagService {
       }
 
       if (!scrollResult.next_page_offset) break
-      scrollOffset = scrollResult.next_page_offset
+      scrollOffset = scrollResult.next_page_offset as string | number | undefined
     }
 
     logger.info(

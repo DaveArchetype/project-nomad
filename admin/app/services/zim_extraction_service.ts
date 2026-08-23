@@ -458,13 +458,9 @@ export class ZIMExtractionService {
           inFlight.push({ articlesSeen: articleSeenForThis, promise })
 
           if (inFlight.length >= maxInFlight) {
-            const done = await Promise.race(inFlight.map((f) => f.promise))
-            inFlight = inFlight.filter((f) => f.promise !== Promise.resolve(done))
-            for (const item of inFlight) {
-              const result = await item.promise
-              completed.set(item.articlesSeen, result)
-            }
-            inFlight = []
+            const item = inFlight.shift()!
+            const result = await item.promise
+            completed.set(item.articlesSeen, result)
             await drainCommitted()
             if (cancelled) break
           }
