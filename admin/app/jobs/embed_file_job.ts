@@ -766,8 +766,28 @@ export class EmbedFileJob {
       if (state === 'failed' || state === 'delayed') {
         await job.retry()
       } else if (state === 'active') {
-        await job.moveToFailed(new Error('Force-resumed by operator'), job.token ?? '0', true)
-        await job.retry()
+        // The job is locked by a worker. moveToFailed requires the worker's
+        // lock token, which we don't have (this is a fresh Job instance fetched
+        // from the queue, not the worker's copy). Directly delete the Redis
+        // lock key to release the job, then retry it.
+        const queueConfig = (await import('#config/queue')).default
+        const redis = queueConfig.connection
+        const lockKey = `bull:${EmbedFileJob.queue}:${jobId}:lock`
+        await redis.del(lockKey)
+        logger.info(`[EmbedFileJob] Broke lock for job ${jobId} (key: ${lockKey})`)
+        // Move to failed so retry() can pick it up, then retry.
+        const refreshedJob = await queue.getJob(jobId)
+        if (!refreshedJob) {
+          return { success: false, code: 'not_found', message: 'Job disappeared after lock break.' }
+        }
+        const refreshedState = await refreshedJob.getState()
+        if (refreshedState === 'active') {
+          // Still active after lock break — force moveToFailed with a dummy
+          // token now that the lock is gone (BullMQ accepts any token when
+          // the lock doesn't exist).
+          await refreshedJob.moveToFailed(new Error('Force-resumed by operator'), '0', true)
+        }
+        await refreshedJob.retry()
       } else {
         return {
           success: false,
