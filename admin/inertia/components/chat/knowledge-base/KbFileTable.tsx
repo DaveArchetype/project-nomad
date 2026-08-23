@@ -290,9 +290,9 @@ export default function KbFileTable({
                     )}
                     {!rowVerifyResult.ok && (
                       <StyledButton
-                        variant="secondary"
+                        variant="success"
                         size="sm"
-                        icon="IconTools"
+                        icon="IconStethoscope"
                         onClick={() => repairMutation.mutate(record.source)}
                         disabled={
                           repairMutation.isPending && repairMutation.variables === record.source

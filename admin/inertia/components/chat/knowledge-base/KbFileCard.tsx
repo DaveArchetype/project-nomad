@@ -235,9 +235,9 @@ export default function KbFileCard({
             )}
             {!rowVerifyResult.ok && (
               <StyledButton
-                variant="secondary"
+                variant="success"
                 size="sm"
-                icon="IconTools"
+                icon="IconStethoscope"
                 onClick={() => repairMutation.mutate(record.source)}
                 disabled={isRepairing || isResuming || qdrantOffline || isInflight}
                 loading={isRepairing}

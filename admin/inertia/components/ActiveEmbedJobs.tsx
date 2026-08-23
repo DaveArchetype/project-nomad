@@ -155,9 +155,8 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
                           resumePausedJobMutation.isPending &&
                           resumePausedJobMutation.variables === job.jobId
                         }
-                      >
-                        Resume
-                      </StyledButton>
+                        title="Resume"
+                      />
                     ) : (
                       <StyledButton
                         variant="secondary"
@@ -167,9 +166,8 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
                         loading={
                           pauseJobMutation.isPending && pauseJobMutation.variables === job.jobId
                         }
-                      >
-                        Pause
-                      </StyledButton>
+                        title="Pause"
+                      />
                     )}
                     {showResume && !showForceResume && (
                       <StyledButton
@@ -178,9 +176,8 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
                         icon="IconRefresh"
                         onClick={() => resumeMutation.mutate(job.jobId)}
                         loading={resumeMutation.isPending && resumeMutation.variables === job.jobId}
-                      >
-                        Retry
-                      </StyledButton>
+                        title="Retry"
+                      />
                     )}
                     {showForceResume && (
                       <StyledButton
@@ -190,9 +187,7 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
                         onClick={() => resumeMutation.mutate(job.jobId)}
                         loading={resumeMutation.isPending && resumeMutation.variables === job.jobId}
                         title="Force-resume this stuck job by breaking its lock and retrying"
-                      >
-                        Force Resume
-                      </StyledButton>
+                      />
                     )}
                     {showChatResume && (
                       <StyledButton
@@ -201,9 +196,8 @@ const ActiveEmbedJobs = ({ withHeader = false }: ActiveEmbedJobsProps) => {
                         icon="IconPlayerPlay"
                         onClick={() => resumeAllFromChatMutation.mutate()}
                         loading={resumeAllFromChatMutation.isPending}
-                      >
-                        Resume
-                      </StyledButton>
+                        title="Resume from chat pause"
+                      />
                     )}
                   </div>
                 </div>

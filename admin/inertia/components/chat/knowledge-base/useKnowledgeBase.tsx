@@ -68,6 +68,7 @@ export interface UseKnowledgeBaseResult {
 
   verifyMutation: ReturnType<typeof useMutation<any, Error, string>>
   resumeMutation: ReturnType<typeof useMutation<{ message: string } | undefined, Error, string>>
+  repairMutation: ReturnType<typeof useMutation<{ message: string } | undefined, Error, string>>
   verifyResult: { source: string; ok: boolean; message: string; resumeOffset: number | null } | null
   setVerifyResult: (
     r: { source: string; ok: boolean; message: string; resumeOffset: number | null } | null
