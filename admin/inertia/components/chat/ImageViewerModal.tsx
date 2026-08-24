@@ -44,23 +44,21 @@ export default function ImageViewerModal({ images, startIndex, onClose }: ImageV
     <Dialog open={true} onClose={onClose} className="relative z-50">
       <DialogBackdrop className="fixed inset-0 bg-black/90" />
       <div className="fixed inset-0 z-10 flex flex-col p-4">
-        {images.length > 1 && (
-          <div className="absolute top-4 left-4 z-20 rounded-full bg-black/60 px-3 py-1 text-xs text-white">
-            {currentIndex + 1} / {images.length}
-          </div>
-        )}
+        <DialogPanel className="relative flex-1 flex items-center justify-between min-h-0 w-full gap-2 sm:gap-4">
+          {images.length > 1 && (
+            <div className="absolute top-0 left-0 z-20 rounded-full bg-black/60 px-3 py-1 text-xs text-white">
+              {currentIndex + 1} / {images.length}
+            </div>
+          )}
 
-        <button
-          type="button"
-          onClick={onClose}
-          onPointerDown={(e) => e.stopPropagation()}
-          aria-label="Close"
-          className="absolute top-4 right-4 z-20 flex items-center justify-center h-9 w-9 rounded-full bg-surface-secondary text-text-primary hover:bg-surface-tertiary shadow-lg"
-        >
-          <IconX className="h-5 w-5" />
-        </button>
-
-        <DialogPanel className="flex-1 flex items-center justify-between min-h-0 w-full gap-2 sm:gap-4">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="absolute top-0 right-0 z-20 flex items-center justify-center h-9 w-9 rounded-full bg-surface-secondary text-text-primary hover:bg-surface-tertiary shadow-lg"
+          >
+            <IconX className="h-5 w-5" />
+          </button>
           {currentIndex > 0 ? (
             <button
               type="button"
