@@ -32,6 +32,20 @@ export default class ChatMessage extends BaseModel {
   })
   declare images: string[] | null
 
+  // JSON array of RAG source objects backing an assistant message's answer. Persisted so
+  // Sources chips survive session reloads. SQLite stores JSON as text, so use consume/prepare.
+  @column({
+    consume: (value: any) =>
+      value === null || value === undefined
+        ? null
+        : typeof value === 'string'
+          ? (JSON.parse(value) as Record<string, any>[])
+          : value,
+    prepare: (value: Record<string, any>[] | null) =>
+      value === null ? null : JSON.stringify(value),
+  })
+  declare sources: Record<string, any>[] | null
+
   @belongsTo(() => ChatSession, { foreignKey: 'session_id', localKey: 'id' })
   declare session: BelongsTo<typeof ChatSession>
 

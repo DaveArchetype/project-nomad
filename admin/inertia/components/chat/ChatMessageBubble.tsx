@@ -3,8 +3,10 @@ import { IconFileText } from '@tabler/icons-react'
 import classNames from '~/lib/classNames'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import api from '~/lib/api'
 import { ChatMessage } from '../../../types/chat'
 import FileViewerModal from './knowledge-base/FileViewerModal'
+import ImageViewerModal from './ImageViewerModal'
 import KiwixPreviewModal from './knowledge-base/KiwixPreviewModal'
 import { useKiwixBaseUrl } from '../../hooks/useKiwixBaseUrl'
 
@@ -27,14 +29,26 @@ type SelectedSource = {
 
 export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
   const [viewingSource, setViewingSource] = useState<SelectedSource | null>(null)
+  const [viewingImageIndex, setViewingImageIndex] = useState<number | null>(null)
+  const [previewImageFailed, setPreviewImageFailed] = useState(false)
   const kiwixBaseUrl = useKiwixBaseUrl()
+
+  const firstSource =
+    message.role === 'assistant' && message.sources && message.sources.length > 0
+      ? message.sources[0]
+      : null
+  const previewImageUrl =
+    firstSource && !previewImageFailed
+      ? api.getSourcePreviewImageUrl(firstSource.source, firstSource.kiwixPath)
+      : null
+
   return (
     <div
       className={classNames(
-        'max-w-[85%] sm:max-w-[70%] min-w-0 overflow-hidden rounded-lg px-4 py-3',
+        'min-w-0 overflow-hidden rounded-lg px-4 py-3',
         message.role === 'user'
-          ? 'bg-desert-green text-white'
-          : 'bg-surface-secondary text-text-primary'
+          ? 'max-w-[85%] sm:max-w-[70%] bg-desert-green text-white'
+          : 'max-w-[92%] sm:max-w-[90%] bg-surface-secondary text-text-primary'
       )}
     >
       {message.isThinking && message.thinking && (
@@ -63,21 +77,43 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
       {message.role === 'user' && message.images && message.images.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-2">
           {message.images.map((img, idx) => (
-            <a
+            <button
               key={`${img.slice(0, 24)}-${idx}`}
-              href={imageUrlFor(img)}
-              target="_blank"
-              rel="noopener noreferrer"
+              type="button"
+              onClick={() => setViewingImageIndex(idx)}
               className="block shrink-0"
             >
               <img
                 src={imageUrlFor(img)}
                 alt={`Attachment ${idx + 1}`}
-                className="h-16 w-16 rounded-md object-cover border border-white/30 hover:opacity-90"
+                className="h-16 w-16 rounded-md object-cover border border-white/30 hover:opacity-90 cursor-pointer"
               />
-            </a>
+            </button>
           ))}
         </div>
+      )}
+      {previewImageUrl && firstSource && (
+        <button
+          type="button"
+          onClick={() =>
+            setViewingSource({
+              source: firstSource.source,
+              title: firstSource.title,
+              snippet: firstSource.snippet,
+              kiwixPath: firstSource.kiwixPath,
+            })
+          }
+          className="block w-full mb-3 rounded-md overflow-hidden border border-border-subtle hover:opacity-90 transition-opacity"
+          title={firstSource.title}
+        >
+          <img
+            src={previewImageUrl}
+            alt={firstSource.title}
+            loading="lazy"
+            onError={() => setPreviewImageFailed(true)}
+            className="w-full max-h-64 object-cover bg-surface"
+          />
+        </button>
       )}
       <div
         className={classNames(
@@ -200,6 +236,13 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
             onClose={() => setViewingSource(null)}
           />
         ))}
+      {viewingImageIndex !== null && message.images && message.images.length > 0 && (
+        <ImageViewerModal
+          images={message.images}
+          startIndex={viewingImageIndex}
+          onClose={() => setViewingImageIndex(null)}
+        />
+      )}
     </div>
   )
 }

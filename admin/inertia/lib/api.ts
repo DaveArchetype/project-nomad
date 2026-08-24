@@ -725,6 +725,12 @@ class API {
     })()
   }
 
+  getSourcePreviewImageUrl(source: string, kiwixPath?: string): string {
+    const params = new URLSearchParams({ source })
+    if (kiwixPath && kiwixPath.length > 0) params.set('kiwixPath', kiwixPath)
+    return `/api/rag/files/preview-image?${params.toString()}`
+  }
+
   async getSystemInfo() {
     return catchInternal(async () => {
       const response = await this.client.get<SystemInformationResponse>('/system/info')

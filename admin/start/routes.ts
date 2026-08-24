@@ -52,6 +52,7 @@ import {
   deleteFileSchema,
   embedFileSchema,
   fileSourceSchema,
+  sourcePreviewImageSchema,
   estimateBatchSchema,
 } from '#validators/rag'
 import {
@@ -451,6 +452,11 @@ router
       summary: 'Get RAG file content',
       tags: ['rag'],
       query: fileSourceSchema,
+    })
+    documented(router.get('/files/preview-image', [RagController, 'getSourcePreviewImage']), {
+      summary: 'Get a preview image for a RAG source',
+      tags: ['rag'],
+      query: sourcePreviewImageSchema,
     })
     documented(router.get('/files/download', [RagController, 'downloadFile']), {
       summary: 'Download a RAG file',

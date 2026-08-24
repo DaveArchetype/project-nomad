@@ -324,7 +324,13 @@ export default class OllamaController {
 
         // Save assistant message and optionally generate title
         if (sessionId && fullContent) {
-          await this.chatService.addMessage(sessionId, 'assistant', fullContent)
+          await this.chatService.addMessage(
+            sessionId,
+            'assistant',
+            fullContent,
+            null,
+            ragSources.length > 0 ? ragSources : null
+          )
           const messageCount = await this.chatService.getMessageCount(sessionId)
           if (messageCount <= 2 && userContent) {
             this.chatService
@@ -349,7 +355,13 @@ export default class OllamaController {
       })
 
       if (sessionId && result?.message?.content) {
-        await this.chatService.addMessage(sessionId, 'assistant', result.message.content)
+        await this.chatService.addMessage(
+          sessionId,
+          'assistant',
+          result.message.content,
+          null,
+          ragSources.length > 0 ? ragSources : null
+        )
         const messageCount = await this.chatService.getMessageCount(sessionId)
         if (messageCount <= 2 && userContent) {
           this.chatService

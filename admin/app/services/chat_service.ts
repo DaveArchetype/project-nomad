@@ -209,6 +209,7 @@ export class ChatService {
           role: msg.role,
           content: msg.content,
           images: msg.images ?? undefined,
+          sources: msg.sources ?? undefined,
           timestamp: msg.created_at.toJSDate(),
         })),
       }
@@ -276,7 +277,8 @@ export class ChatService {
     sessionId: number,
     role: 'system' | 'user' | 'assistant',
     content: string,
-    images?: string[] | null
+    images?: string[] | null,
+    sources?: Record<string, any>[] | null
   ) {
     try {
       const message = await ChatMessage.create({
@@ -284,6 +286,7 @@ export class ChatService {
         role,
         content,
         images: images && images.length > 0 ? images : null,
+        sources: sources && sources.length > 0 ? sources : null,
       })
 
       // Update session's updated_at timestamp
@@ -296,6 +299,7 @@ export class ChatService {
         role: message.role,
         content: message.content,
         images: message.images ?? undefined,
+        sources: message.sources ?? undefined,
         timestamp: message.created_at.toJSDate(),
       }
     } catch (error) {

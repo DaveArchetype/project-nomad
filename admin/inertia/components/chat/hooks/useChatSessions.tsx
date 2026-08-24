@@ -142,6 +142,7 @@ export function useChatSessions({
             role: m.role,
             content: m.content,
             images: m.images,
+            sources: m.sources,
             timestamp: new Date(m.timestamp),
           }))
         )

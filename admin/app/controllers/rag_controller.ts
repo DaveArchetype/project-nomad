@@ -13,6 +13,7 @@ import {
   estimateBatchSchema,
   fileSourceSchema,
   getJobStatusSchema,
+  sourcePreviewImageSchema,
 } from '#validators/rag'
 import logger from '@adonisjs/core/services/logger'
 import { sanitizeCollectionName } from '../../constants/kb_collections.js'
@@ -290,6 +291,21 @@ export default class RagController {
       return response.status(404).json({ error: 'File not found or not viewable' })
     }
     return response.status(200).json(result)
+  }
+
+  public async getSourcePreviewImage({ request, response }: HttpContext) {
+    const { source, kiwixPath } = await request.validateUsing(sourcePreviewImageSchema)
+    const result = await this.ragService.getSourcePreviewImage(source, kiwixPath)
+    if (!result) {
+      return response.status(404).json({ error: 'No preview image available for this source' })
+    }
+    if ('redirect' in result) {
+      return response.status(302).redirect(result.redirect)
+    }
+    response.header('Content-Type', result.mimeType)
+    response.header('Cache-Control', 'private, max-age=300')
+    response.header('Content-Disposition', 'inline')
+    return response.send(result.buffer)
   }
 
   public async downloadFile({ request, response }: HttpContext) {

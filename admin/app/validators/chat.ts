@@ -20,5 +20,8 @@ export const addMessageSchema = vine.compile(
     content: vine.string().trim().minLength(1),
     // Relative paths (chat_images/YYYY-MM-DD/...) for image attachments on user messages.
     images: vine.array(vine.string()).optional(),
+    // RAG source objects backing an assistant message's answer, persisted so Sources
+    // chips survive session reloads.
+    sources: vine.array(vine.any()).optional(),
   })
 )

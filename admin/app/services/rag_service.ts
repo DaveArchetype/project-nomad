@@ -9,6 +9,7 @@ import {
   determineFileType,
   getFile,
   getFileStatsIfExists,
+  isValidZimFile,
   listDirectoryContentsRecursive,
   ZIM_STORAGE_PATH,
 } from '../utils/fs.js'
@@ -1787,6 +1788,311 @@ export class RagService {
     if (!resolved) return null
     const stats = await getFileStatsIfExists(resolved)
     return stats ? resolved : null
+  }
+
+  /**
+   * Resolve a "main" preview image for a RAG source so the chat can surface it
+   * above the assistant's answer. Returns the image bytes + mime, a redirect
+   * URL for remote http(s) image refs found in markdown/HTML uploads, or null
+   * when no usable image exists.
+   *
+   * For ZIM article sources the caller passes the kiwixPath (already built by
+   * `_buildKiwixPath`); we split it back into the archive slug + entry path,
+   * open the archive, read the article HTML, and pick the lead image using a
+   * simple heuristic (infobox/figure/large img, skipping SVGs and tiny icons).
+   * For uploads we dispatch by extension: image files are returned directly,
+   * PDFs render page 1 via pdf2pic, markdown/HTML files have their first image
+   * ref resolved (relative paths must stay inside uploads; http(s) refs become
+   * a redirect), and DOCX/EPUB files yield their first embedded media image.
+   */
+  public async getSourcePreviewImage(
+    source: string,
+    kiwixPath?: string
+  ): Promise<{ buffer: Buffer; mimeType: string } | { redirect: string } | null> {
+    try {
+      if (kiwixPath && kiwixPath.trim().length > 0) {
+        return await this._getZimArticlePreviewImage(source, kiwixPath)
+      }
+      return await this._getUploadPreviewImage(source)
+    } catch (error) {
+      logger.warn({ err: error, source, kiwixPath }, '[RagService.getSourcePreviewImage] failed')
+      return null
+    }
+  }
+
+  private async _getZimArticlePreviewImage(
+    source: string,
+    kiwixPath: string
+  ): Promise<{ buffer: Buffer; mimeType: string } | null> {
+    const { Archive } = await import('@openzim/libzim')
+    if (!(await isValidZimFile(source))) return null
+
+    const archive = new Archive(source)
+
+    const cleanKiwixPath = kiwixPath.replace(/^\/+/, '')
+    const firstSlash = cleanKiwixPath.indexOf('/')
+    if (firstSlash <= 0) return null
+    const articlePath = cleanKiwixPath.slice(firstSlash + 1).replace(/^\/+/, '')
+    if (!articlePath) return null
+
+    const articleEntry = archive.getEntryByPath(articlePath)
+    if (!articleEntry) return null
+
+    let html: string
+    try {
+      html = Buffer.from(articleEntry.item.data.data).toString('utf-8')
+    } catch {
+      return null
+    }
+    if (!html) return null
+
+    const candidates = this._collectZimImageCandidates(html)
+    if (candidates.length === 0) return null
+
+    const articleDir = articlePath.includes('/')
+      ? articlePath.slice(0, articlePath.lastIndexOf('/') + 1)
+      : ''
+
+    for (const candidate of candidates) {
+      const resolved = this._resolveZimImagePath(candidate, articleDir)
+      if (!resolved) continue
+      try {
+        const imgEntry = archive.getEntryByPath(resolved)
+        if (!imgEntry) continue
+        const data = Buffer.from(imgEntry.item.data.data)
+        const mimeType = (imgEntry.item.mimetype as string) || this._mimeForPath(resolved)
+        if (!mimeType.startsWith('image/') || mimeType.includes('svg')) continue
+        return { buffer: data, mimeType }
+      } catch {
+        continue
+      }
+    }
+    return null
+  }
+
+  private _collectZimImageCandidates(html: string): string[] {
+    const $ = cheerio.load(html)
+    const seen = new Set<string>()
+    const out: string[] = []
+
+    const push = (src: string | undefined) => {
+      if (!src) return
+      const cleaned = src.trim().split(/\s+/)[0]
+      if (!cleaned || seen.has(cleaned)) return
+      seen.add(cleaned)
+      out.push(cleaned)
+    }
+
+    $(
+      'figure img, table.infobox img, .infobox img, .thumb img, img.thumbimage, article img, img'
+    ).each((_, el) => {
+      const $el = $(el)
+      const widthAttr = $el.attr('width')
+      if (widthAttr) {
+        const w = Number.parseInt(widthAttr, 10)
+        if (!Number.isNaN(w) && w < 50) return
+      }
+      push($el.attr('src') || $el.attr('data-src'))
+    })
+
+    return out.filter((src) => !src.toLowerCase().endsWith('.svg') && !src.includes('image/svg'))
+  }
+
+  private _resolveZimImagePath(src: string, articleDir: string): string | null {
+    let raw = src
+    const queryIdx = raw.indexOf('?')
+    if (queryIdx >= 0) raw = raw.slice(0, queryIdx)
+    const hashIdx = raw.indexOf('#')
+    if (hashIdx >= 0) raw = raw.slice(0, hashIdx)
+    raw = raw.replace(/^\/+/, '')
+
+    if (/^https?:\/\//i.test(raw)) return null
+    if (/^data:/i.test(raw)) return null
+
+    if (raw.startsWith('../')) {
+      const parts = articleDir.split('/').filter(Boolean)
+      const rel = raw.split('/')
+      while (rel[0] === '..' && parts.length > 0) {
+        parts.pop()
+        rel.shift()
+      }
+      return [...parts, ...rel].filter(Boolean).join('/')
+    }
+    if (raw.startsWith('/')) return raw.replace(/^\/+/, '')
+    return (articleDir + raw).replace(/^\/+/, '')
+  }
+
+  private async _getUploadPreviewImage(
+    source: string
+  ): Promise<{ buffer: Buffer; mimeType: string } | { redirect: string } | null> {
+    const resolved = this.resolveUploadPath(source)
+    if (!resolved) return null
+    const stats = await getFileStatsIfExists(resolved)
+    if (!stats) return null
+
+    const ext = resolved.split('.').at(-1)?.toLowerCase() ?? ''
+
+    if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) {
+      const buffer = await getFile(resolved, 'buffer')
+      if (!buffer) return null
+      return { buffer, mimeType: this._mimeForExt(ext) }
+    }
+
+    if (ext === 'pdf') {
+      const buffer = await getFile(resolved, 'buffer')
+      if (!buffer) return null
+      try {
+        const converted = await fromBuffer(buffer, {
+          quality: 70,
+          density: 150,
+          format: 'png',
+        }).bulk(1, { responseType: 'buffer' })
+        const first = converted.find((res) => res.buffer)
+        if (!first || !first.buffer) return null
+        return { buffer: first.buffer, mimeType: 'image/png' }
+      } catch (error) {
+        logger.warn({ err: error, source }, '[RagService.getSourcePreviewImage] PDF render failed')
+        return null
+      }
+    }
+
+    if (['md', 'markdown', 'html', 'htm'].includes(ext)) {
+      const text = await getFile(resolved, 'string')
+      if (!text) return null
+      const ref = this._findFirstImageRef(text)
+      if (!ref) return null
+      if (/^https?:\/\//i.test(ref)) return { redirect: ref }
+
+      const fileDir = resolved.includes('/') ? resolved.slice(0, resolved.lastIndexOf('/') + 1) : ''
+      const target = resolve(fileDir + ref)
+      const uploadsRoot = resolve(join(process.cwd(), RagService.UPLOADS_STORAGE_PATH))
+      if (!target.startsWith(uploadsRoot + sep)) return null
+      const targetStats = await getFileStatsIfExists(target)
+      if (!targetStats) return null
+      const targetExt = target.split('.').at(-1)?.toLowerCase() ?? ''
+      if (!['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(targetExt)) return null
+      const buffer = await getFile(target, 'buffer')
+      if (!buffer) return null
+      return { buffer, mimeType: this._mimeForExt(targetExt) }
+    }
+
+    if (ext === 'docx') {
+      const buffer = await getFile(resolved, 'buffer')
+      if (!buffer) return null
+      return await this._firstZipImage(buffer, /^word\/media\//i)
+    }
+
+    if (ext === 'epub') {
+      const buffer = await getFile(resolved, 'buffer')
+      if (!buffer) return null
+      return await this._firstEpubCoverImage(buffer)
+    }
+
+    return null
+  }
+
+  private async _firstZipImage(
+    buffer: Buffer,
+    pathRegex: RegExp
+  ): Promise<{ buffer: Buffer; mimeType: string } | null> {
+    const zip = await JSZip.loadAsync(buffer)
+    const entries = Object.keys(zip.files).filter((p) => pathRegex.test(p))
+    if (entries.length === 0) return null
+    const name = entries[0]
+    const data = await zip.files[name].async('nodebuffer')
+    const ext = name.split('.').at(-1)?.toLowerCase() ?? ''
+    return { buffer: data, mimeType: this._mimeForExt(ext) }
+  }
+
+  private async _firstEpubCoverImage(
+    buffer: Buffer
+  ): Promise<{ buffer: Buffer; mimeType: string } | null> {
+    const zip = await JSZip.loadAsync(buffer)
+
+    const containerFile = zip.file('META-INF/container.xml')
+    if (!containerFile) return null
+    const containerXml = await containerFile.async('text')
+    const $container = cheerio.load(containerXml, { xml: true })
+    const opfPath = $container('rootfile').attr('full-path')
+    if (!opfPath) return null
+
+    const opfFile = zip.file(opfPath)
+    if (!opfFile) return null
+    const opfContent = await opfFile.async('text')
+    const $opf = cheerio.load(opfContent, { xml: true })
+
+    const manifestById = new Map<string, { href: string; mediaType: string }>()
+    $opf('item').each((_, el) => {
+      const $el = $opf(el)
+      const id = $el.attr('id')
+      if (!id) return
+      manifestById.set(id, {
+        href: $el.attr('href') || '',
+        mediaType: $el.attr('media-type') || '',
+      })
+    })
+
+    const coverMeta = $opf('meta[name="cover"]').attr('content')
+    let chosenHref: string | null = null
+    let chosenMime: string | null = null
+    if (coverMeta && manifestById.has(coverMeta)) {
+      const item = manifestById.get(coverMeta)!
+      chosenHref = item.href
+      chosenMime = item.mediaType
+    } else {
+      for (const [, item] of manifestById) {
+        if (item.mediaType.startsWith('image/')) {
+          chosenHref = item.href
+          chosenMime = item.mediaType
+          break
+        }
+      }
+    }
+    if (!chosenHref) return null
+
+    const opfDir = opfPath.includes('/') ? opfPath.slice(0, opfPath.lastIndexOf('/') + 1) : ''
+    const targetPath = decodeURIComponent(chosenHref)
+      .split('/')
+      .reduce((acc, part) => {
+        if (part === '..') {
+          const idx = acc.lastIndexOf('/')
+          return idx >= 0 ? acc.slice(0, idx) : ''
+        }
+        if (part === '.' || part === '') return acc
+        return acc ? `${acc}/${part}` : part
+      }, opfDir)
+
+    const imgFile = zip.file(targetPath)
+    if (!imgFile) return null
+    const data = await imgFile.async('nodebuffer')
+    const mimeType =
+      chosenMime && chosenMime.startsWith('image/') ? chosenMime : this._mimeForPath(targetPath)
+    if (!mimeType.startsWith('image/') || mimeType.includes('svg')) return null
+    return { buffer: data, mimeType }
+  }
+
+  private _findFirstImageRef(text: string): string | null {
+    const mdMatch = /!\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/.exec(text)
+    if (mdMatch && mdMatch[1]) return mdMatch[1]
+    const htmlMatch = /<img[^>]+src=["']([^"']+)["']/i.exec(text)
+    if (htmlMatch && htmlMatch[1]) return htmlMatch[1]
+    return null
+  }
+
+  private _mimeForExt(ext: string): string {
+    const map: Record<string, string> = {
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      webp: 'image/webp',
+      gif: 'image/gif',
+    }
+    return map[ext.toLowerCase()] || 'application/octet-stream'
+  }
+
+  private _mimeForPath(pathStr: string): string {
+    const ext = pathStr.split('.').at(-1)?.toLowerCase() ?? ''
+    return this._mimeForExt(ext)
   }
 
   /**

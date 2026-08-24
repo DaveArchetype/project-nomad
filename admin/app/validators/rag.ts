@@ -25,6 +25,13 @@ export const fileSourceSchema = vine.compile(
   })
 )
 
+export const sourcePreviewImageSchema = vine.compile(
+  vine.object({
+    source: vine.string().minLength(1),
+    kiwixPath: vine.string().optional(),
+  })
+)
+
 export const estimateBatchSchema = vine.compile(
   vine.object({
     files: vine

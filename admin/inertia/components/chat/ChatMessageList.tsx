@@ -92,7 +92,7 @@ export default function ChatMessageList({
       {isLoading && (
         <div className="flex gap-2 sm:gap-4 justify-start min-w-0">
           <ChatAssistantAvatar />
-          <div className="max-w-[85%] sm:max-w-[70%] min-w-0 rounded-lg px-4 py-3 bg-surface-secondary text-text-primary">
+          <div className="max-w-[92%] sm:max-w-[90%] min-w-0 rounded-lg px-4 py-3 bg-surface-secondary text-text-primary">
             <BouncingDots text="Thinking" />
           </div>
         </div>
