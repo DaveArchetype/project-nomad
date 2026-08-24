@@ -320,6 +320,20 @@ export default class OllamaController {
           }
           throw err
         }
+
+        // Filter sources to only those semantically relevant to the actual response.
+        // Emits a correction SSE event so the client can prune chips that don't match
+        // what the model actually said. Best-effort: on failure keeps the original set.
+        let effectiveSources = ragSources
+        if (ragSources.length > 0 && fullContent.trim()) {
+          effectiveSources = await this.ragService.filterSourcesByResponseRelevance(
+            ragSources,
+            fullContent
+          )
+          if (effectiveSources.length !== ragSources.length) {
+            response.response.write(`data: ${JSON.stringify({ sources: effectiveSources })}\n\n`)
+          }
+        }
         response.response.end()
 
         // Save assistant message and optionally generate title
@@ -329,7 +343,7 @@ export default class OllamaController {
             'assistant',
             fullContent,
             null,
-            ragSources.length > 0 ? ragSources : null
+            effectiveSources.length > 0 ? effectiveSources : null
           )
           const messageCount = await this.chatService.getMessageCount(sessionId)
           if (messageCount <= 2 && userContent) {
@@ -354,13 +368,23 @@ export default class OllamaController {
         numCtx,
       })
 
+      // Filter sources to only those semantically relevant to the actual response.
+      // Best-effort: on failure keeps the original set.
+      let effectiveSources = ragSources
+      if (ragSources.length > 0 && result?.message?.content?.trim()) {
+        effectiveSources = await this.ragService.filterSourcesByResponseRelevance(
+          ragSources,
+          result.message.content
+        )
+      }
+
       if (sessionId && result?.message?.content) {
         await this.chatService.addMessage(
           sessionId,
           'assistant',
           result.message.content,
           null,
-          ragSources.length > 0 ? ragSources : null
+          effectiveSources.length > 0 ? effectiveSources : null
         )
         const messageCount = await this.chatService.getMessageCount(sessionId)
         if (messageCount <= 2 && userContent) {
@@ -374,7 +398,7 @@ export default class OllamaController {
         }
       }
 
-      return ragSources.length > 0 ? { ...result, sources: ragSources } : result
+      return effectiveSources.length > 0 ? { ...result, sources: effectiveSources } : result
     } catch (error) {
       if (reqData.stream) {
         response.response.write(`data: ${JSON.stringify({ error: true })}\n\n`)

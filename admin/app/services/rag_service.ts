@@ -57,6 +57,19 @@ export type EmbedSingleFileResult =
   | { success: true; message: string }
   | { success: false; code: EmbedSingleFileFailureCode; message: string }
 
+function cosineSimilarity(a: number[], b: number[]): number {
+  let dot = 0
+  let normA = 0
+  let normB = 0
+  for (const [i, val] of a.entries()) {
+    dot += val * b[i]
+    normA += val * val
+    normB += b[i] * b[i]
+  }
+  const denom = Math.sqrt(normA) * Math.sqrt(normB)
+  return denom === 0 ? 0 : dot / denom
+}
+
 @inject()
 export class RagService {
   private qdrant: QdrantClient | null = null
@@ -1355,6 +1368,50 @@ export class RagService {
   }
 
   /**
+   * Filter RAG sources to only those semantically relevant to the assistant's actual
+   * response. Embeds the response text and each source's snippet in a single batch,
+   * then keeps sources whose cosine similarity to the response meets a threshold.
+   *
+   * Best-effort: on any error (embedding model missing, embed call fails, etc.) returns
+   * the original sources unchanged so the chat is never blocked.
+   */
+  public async filterSourcesByResponseRelevance<T extends { snippet: string }>(
+    sources: T[],
+    responseText: string
+  ): Promise<T[]> {
+    if (sources.length === 0 || !responseText.trim()) return sources
+
+    try {
+      const ok = await this.ensureEmbeddingModel()
+      if (!ok) return sources
+
+      const model = this.resolvedEmbeddingModel ?? EMBEDDING_MODEL_NAME
+      const inputs = [responseText, ...sources.map((s) => s.snippet)]
+      const { embeddings } = await this.ollamaService.embed(model, inputs)
+
+      const responseVec = embeddings[0]
+      const threshold = 0.3
+      const filtered = sources.filter((_, idx) => {
+        const sim = cosineSimilarity(responseVec, embeddings[idx + 1])
+        logger.debug(
+          `[RAG] Source relevance filter: source ${idx + 1}/${sources.length} sim=${sim.toFixed(4)} ${sim >= threshold ? 'KEEP' : 'DROP'}`
+        )
+        return sim >= threshold
+      })
+
+      logger.debug(
+        `[RAG] Source relevance filter: ${filtered.length}/${sources.length} sources kept (threshold ${threshold})`
+      )
+      return filtered
+    } catch (error) {
+      logger.warn(
+        `[RAG] Source relevance filter failed, keeping all sources: ${error instanceof Error ? error.message : error}`
+      )
+      return sources
+    }
+  }
+
+  /**
    * Rerank search results using hybrid scoring that combines:
    * 1. Semantic similarity score (primary signal)
    * 2. Keyword overlap bonus (conservative, quality-gated)
@@ -1813,6 +1870,9 @@ export class RagService {
       if (kiwixPath && kiwixPath.trim().length > 0) {
         return await this._getZimArticlePreviewImage(source, kiwixPath)
       }
+      logger.debug(
+        `[RagService.getSourcePreviewImage] non-ZIM source, trying upload path: ${source}`
+      )
       return await this._getUploadPreviewImage(source)
     } catch (error) {
       logger.warn({ err: error, source, kiwixPath }, '[RagService.getSourcePreviewImage] failed')
@@ -1825,28 +1885,63 @@ export class RagService {
     kiwixPath: string
   ): Promise<{ buffer: Buffer; mimeType: string } | null> {
     const { Archive } = await import('@openzim/libzim')
-    if (!(await isValidZimFile(source))) return null
+
+    const validZim = await isValidZimFile(source)
+    if (!validZim) {
+      logger.warn(
+        `[RagService.getSourcePreviewImage] ZIM file not valid or not accessible: ${source}`
+      )
+      return null
+    }
 
     const archive = new Archive(source)
 
     const cleanKiwixPath = kiwixPath.replace(/^\/+/, '')
     const firstSlash = cleanKiwixPath.indexOf('/')
-    if (firstSlash <= 0) return null
+    if (firstSlash <= 0) {
+      logger.warn(
+        `[RagService.getSourcePreviewImage] invalid kiwixPath (no slug separator): ${kiwixPath}`
+      )
+      return null
+    }
     const articlePath = cleanKiwixPath.slice(firstSlash + 1).replace(/^\/+/, '')
     if (!articlePath) return null
 
-    const articleEntry = archive.getEntryByPath(articlePath)
-    if (!articleEntry) return null
+    logger.debug(
+      `[RagService.getSourcePreviewImage] ZIM article path: ${articlePath} (from kiwixPath: ${kiwixPath})`
+    )
+
+    let articleEntry: any
+    try {
+      articleEntry = archive.getEntryByPath(articlePath)
+    } catch (error) {
+      logger.warn(
+        { err: error },
+        `[RagService.getSourcePreviewImage] article entry not found in ZIM: ${articlePath}`
+      )
+      return null
+    }
+    if (!articleEntry) {
+      logger.warn(`[RagService.getSourcePreviewImage] article entry is null for: ${articlePath}`)
+      return null
+    }
 
     let html: string
     try {
       html = Buffer.from(articleEntry.item.data.data).toString('utf-8')
-    } catch {
+    } catch (error) {
+      logger.warn(
+        { err: error },
+        `[RagService.getSourcePreviewImage] failed to read article HTML for: ${articlePath}`
+      )
       return null
     }
     if (!html) return null
 
     const candidates = this._collectZimImageCandidates(html)
+    logger.debug(
+      `[RagService.getSourcePreviewImage] found ${candidates.length} image candidates for ${articlePath}: ${candidates.slice(0, 5).join(', ')}`
+    )
     if (candidates.length === 0) return null
 
     const articleDir = articlePath.includes('/')
@@ -1855,18 +1950,41 @@ export class RagService {
 
     for (const candidate of candidates) {
       const resolved = this._resolveZimImagePath(candidate, articleDir)
-      if (!resolved) continue
+      if (!resolved) {
+        logger.debug(`[RagService.getSourcePreviewImage] could not resolve candidate: ${candidate}`)
+        continue
+      }
       try {
         const imgEntry = archive.getEntryByPath(resolved)
-        if (!imgEntry) continue
+        if (!imgEntry) {
+          logger.debug(
+            `[RagService.getSourcePreviewImage] image entry not found in ZIM: ${resolved} (from candidate: ${candidate})`
+          )
+          continue
+        }
         const data = Buffer.from(imgEntry.item.data.data)
         const mimeType = (imgEntry.item.mimetype as string) || this._mimeForPath(resolved)
-        if (!mimeType.startsWith('image/') || mimeType.includes('svg')) continue
+        if (!mimeType.startsWith('image/') || mimeType.includes('svg')) {
+          logger.debug(
+            `[RagService.getSourcePreviewImage] skipping non-image or SVG: ${resolved} (mime: ${mimeType})`
+          )
+          continue
+        }
+        logger.debug(
+          `[RagService.getSourcePreviewImage] returning image: ${resolved} (mime: ${mimeType}, ${data.length} bytes)`
+        )
         return { buffer: data, mimeType }
-      } catch {
+      } catch (error) {
+        logger.debug(
+          { err: error },
+          `[RagService.getSourcePreviewImage] error reading image entry: ${resolved}`
+        )
         continue
       }
     }
+    logger.warn(
+      `[RagService.getSourcePreviewImage] no usable image found among ${candidates.length} candidates for ${articlePath}`
+    )
     return null
   }
 
@@ -1904,10 +2022,20 @@ export class RagService {
     if (queryIdx >= 0) raw = raw.slice(0, queryIdx)
     const hashIdx = raw.indexOf('#')
     if (hashIdx >= 0) raw = raw.slice(0, hashIdx)
-    raw = raw.replace(/^\/+/, '')
 
     if (/^https?:\/\//i.test(raw)) return null
     if (/^data:/i.test(raw)) return null
+    if (raw.startsWith('//')) return null
+
+    try {
+      raw = decodeURIComponent(raw)
+    } catch {
+      // malformed URI — leave as-is
+    }
+
+    raw = raw.replace(/^\.\/+/, '')
+    raw = raw.replace(/\/\.\//g, '/')
+    raw = raw.replace(/^\/+/, '')
 
     if (raw.startsWith('../')) {
       const parts = articleDir.split('/').filter(Boolean)
