@@ -149,7 +149,7 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
         </div>
       )}
       {previewSlots.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-3">
+        <div className="flex gap-2 mb-3 overflow-x-auto sm:flex-wrap sm:overflow-visible">
           {previewSlots.map((slot, idx) => {
             if (failedPreviews.has(idx)) return null
             const url = api.getSourcePreviewImageUrl(slot.source, slot.kiwixPath, slot.imageIndex)
@@ -159,7 +159,7 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                 key={`${slot.source}-${slot.imageIndex}-${idx}`}
                 type="button"
                 onClick={() => setViewingSourcePreview(visibleIdx >= 0 ? visibleIdx : 0)}
-                className="block max-w-lg rounded-md overflow-hidden border border-border-subtle hover:opacity-90 transition-opacity"
+                className="block max-w-lg shrink-0 rounded-md overflow-hidden border border-border-subtle hover:opacity-90 transition-opacity"
                 title={slot.title}
               >
                 <img

@@ -86,35 +86,44 @@ const StyledModal: React.FC<StyledModalProps> = ({
                 <div className="mt-2 !h-fit">{children}</div>
               </div>
             </div>
-            <div className="mt-5 sm:mt-6 grid grid-flow-row-dense grid-cols-2 gap-3">
-              {cancelText && onCancel && (
-                <StyledButton
-                  variant="outline"
-                  fullWidth
-                  onClick={() => {
-                    if (onCancel) onCancel()
-                  }}
-                  icon={cancelIcon}
-                  loading={cancelLoading}
-                >
-                  {cancelText}
-                </StyledButton>
-              )}
-              {confirmText && onConfirm && (
-                <StyledButton
-                  variant={confirmVariant}
-                  fullWidth
-                  onClick={() => {
-                    if (onConfirm) onConfirm()
-                  }}
-                  icon={confirmIcon}
-                  loading={confirmLoading}
-                  disabled={confirmDisabled}
-                >
-                  {confirmText}
-                </StyledButton>
-              )}
-            </div>
+            {(!cancelText || !onCancel) && (!confirmText || !onConfirm) ? null : (
+              <div
+                className={classNames(
+                  'mt-5 sm:mt-6 gap-3',
+                  cancelText && onCancel && confirmText && onConfirm
+                    ? 'grid grid-flow-row-dense grid-cols-2'
+                    : 'flex justify-end'
+                )}
+              >
+                {cancelText && onCancel && (
+                  <StyledButton
+                    variant="outline"
+                    fullWidth={cancelText && onCancel && confirmText && onConfirm}
+                    onClick={() => {
+                      if (onCancel) onCancel()
+                    }}
+                    icon={cancelIcon}
+                    loading={cancelLoading}
+                  >
+                    {cancelText}
+                  </StyledButton>
+                )}
+                {confirmText && onConfirm && (
+                  <StyledButton
+                    variant={confirmVariant}
+                    fullWidth={cancelText && onCancel && confirmText && onConfirm}
+                    onClick={() => {
+                      if (onConfirm) onConfirm()
+                    }}
+                    icon={confirmIcon}
+                    loading={confirmLoading}
+                    disabled={confirmDisabled}
+                  >
+                    {confirmText}
+                  </StyledButton>
+                )}
+              </div>
+            )}
           </DialogPanel>
         </div>
       </div>
