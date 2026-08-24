@@ -53,6 +53,7 @@ export default function ImageViewerModal({ images, startIndex, onClose }: ImageV
         <button
           type="button"
           onClick={onClose}
+          onPointerDown={(e) => e.stopPropagation()}
           aria-label="Close"
           className="absolute top-4 right-4 z-20 flex items-center justify-center h-9 w-9 rounded-full bg-surface-secondary text-text-primary hover:bg-surface-tertiary shadow-lg"
         >
