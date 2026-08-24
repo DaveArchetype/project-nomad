@@ -81,12 +81,12 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
               key={`${img.slice(0, 24)}-${idx}`}
               type="button"
               onClick={() => setViewingImageIndex(idx)}
-              className="block shrink-0 max-w-[32rem]"
+              className="block shrink-0 max-w-lg"
             >
               <img
                 src={imageUrlFor(img)}
                 alt={`Attachment ${idx + 1}`}
-                className="max-w-[32rem] max-h-64 rounded-md object-contain border border-white/30 hover:opacity-90 cursor-pointer"
+                className="max-w-lg max-h-64 rounded-md object-contain border border-white/30 hover:opacity-90 cursor-pointer"
               />
             </button>
           ))}
