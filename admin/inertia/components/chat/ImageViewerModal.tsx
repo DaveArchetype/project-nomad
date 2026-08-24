@@ -79,7 +79,7 @@ export default function ImageViewerModal({ images, startIndex, onClose }: ImageV
           <img
             src={imageUrlFor(images[currentIndex])}
             alt={`Image ${currentIndex + 1}`}
-            className="max-h-[85vh] max-w-[90vw] object-contain rounded-lg"
+            className="max-h-[85vh] max-w-[90vw] w-auto h-auto rounded-lg"
           />
         </DialogPanel>
       </div>

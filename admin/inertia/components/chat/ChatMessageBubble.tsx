@@ -75,18 +75,18 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
         </details>
       )}
       {message.role === 'user' && message.images && message.images.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-2">
+        <div className="flex flex-wrap gap-2 mb-2">
           {message.images.map((img, idx) => (
             <button
               key={`${img.slice(0, 24)}-${idx}`}
               type="button"
               onClick={() => setViewingImageIndex(idx)}
-              className="block shrink-0"
+              className="block shrink-0 max-w-[32rem]"
             >
               <img
                 src={imageUrlFor(img)}
                 alt={`Attachment ${idx + 1}`}
-                className="h-16 w-16 rounded-md object-cover border border-white/30 hover:opacity-90 cursor-pointer"
+                className="max-w-[32rem] max-h-64 rounded-md object-contain border border-white/30 hover:opacity-90 cursor-pointer"
               />
             </button>
           ))}
