@@ -16,6 +16,17 @@ function imageUrlFor(path: string): string {
   return path.startsWith('data:') ? path : `/api/chat/images/${path}`
 }
 
+function stripHrAfterTable() {
+  return (tree: any) => {
+    tree.children = tree.children.filter((node: any, i: number, arr: any[]) => {
+      if (node.type === 'thematicBreak' && i > 0 && arr[i - 1].type === 'table') {
+        return false
+      }
+      return true
+    })
+  }
+}
+
 export interface ChatMessageBubbleProps {
   message: ChatMessage
 }
@@ -177,7 +188,7 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
       >
         {message.role === 'assistant' ? (
           <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
+            remarkPlugins={[remarkGfm, stripHrAfterTable]}
             components={{
               code: ({ node, className, children, ...props }: any) => {
                 const isInline = !className?.includes('language-')
@@ -223,7 +234,7 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                 </a>
               ),
               table: ({ children }) => (
-                <div className="overflow-x-auto my-6">
+                <div className="overflow-x-auto mb-6">
                   <table className="w-full border-collapse text-sm">{children}</table>
                 </div>
               ),
@@ -243,6 +254,7 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                 </td>
               ),
               tr: ({ children }) => <tr className="even:bg-surface-secondary/50">{children}</tr>,
+              hr: () => <hr className="my-4 border-border-subtle" />,
             }}
           >
             {message.content}
