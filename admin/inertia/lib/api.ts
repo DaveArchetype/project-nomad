@@ -485,6 +485,15 @@ class API {
           id: string
           role: 'system' | 'user' | 'assistant'
           content: string
+          images?: string[]
+          sources?: Array<{
+            source: string
+            title: string
+            contentType?: string
+            score?: number
+            snippet: string
+            kiwixPath?: string
+          }>
           timestamp: string
         }>
       }>(`/chat/sessions/${sessionId}`)

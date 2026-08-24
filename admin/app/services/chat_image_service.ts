@@ -38,7 +38,7 @@ export class ChatImageService {
     await mkdir(absDir, { recursive: true })
     const absPath = join(absDir, filename)
     await writeFile(absPath, parsed.buffer)
-    return `chat_images/${dayDir}/${filename}`
+    return `${dayDir}/${filename}`
   }
 
   /**
@@ -46,8 +46,11 @@ export class ChatImageService {
    * traversal attempts. Returns null if the path is outside the chat_images root.
    */
   resolveAbsolutePath(relPath: string): string | null {
+    const cleaned = relPath.startsWith('chat_images/')
+      ? relPath.slice('chat_images/'.length)
+      : relPath
     const root = resolve(this.rootAbs)
-    const abs = resolve(join(this.rootAbs, relPath))
+    const abs = resolve(join(this.rootAbs, cleaned))
     if (!abs.startsWith(root + sep)) return null
     return abs
   }

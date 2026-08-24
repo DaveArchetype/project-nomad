@@ -59,36 +59,40 @@ export default function ImageViewerModal({ images, startIndex, onClose }: ImageV
           <IconX className="h-5 w-5" />
         </button>
 
-        {currentIndex > 0 && (
-          <button
-            type="button"
-            onClick={goPrev}
-            aria-label="Previous image"
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center h-11 w-11 rounded-full bg-black/50 text-white hover:bg-black/70"
-          >
-            <IconChevronLeft className="h-7 w-7" />
-          </button>
-        )}
+        <div className="flex-1 flex items-center justify-center min-h-0 gap-2 sm:gap-4">
+          {currentIndex > 0 ? (
+            <button
+              type="button"
+              onClick={goPrev}
+              aria-label="Previous image"
+              className="shrink-0 flex items-center justify-center h-11 w-11 rounded-full bg-black/50 text-white hover:bg-black/70 z-20"
+            >
+              <IconChevronLeft className="h-7 w-7" />
+            </button>
+          ) : (
+            <div className="shrink-0 h-11 w-11" />
+          )}
 
-        {currentIndex < images.length - 1 && (
-          <button
-            type="button"
-            onClick={goNext}
-            aria-label="Next image"
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center h-11 w-11 rounded-full bg-black/50 text-white hover:bg-black/70"
-          >
-            <IconChevronRight className="h-7 w-7" />
-          </button>
-        )}
-
-        <div className="flex-1 flex items-center justify-center min-h-0">
-          <DialogPanel className="flex flex-col items-center justify-center max-h-full max-w-full">
+          <DialogPanel className="flex flex-col items-center justify-center max-h-full max-w-full min-w-0">
             <img
               src={current.url}
               alt={current.alt ?? current.title ?? `Image ${currentIndex + 1}`}
-              className="max-h-[70vh] max-w-[90vw] w-auto h-auto rounded-lg"
+              className="max-h-[70vh] max-w-full w-auto h-auto rounded-lg"
             />
           </DialogPanel>
+
+          {currentIndex < images.length - 1 ? (
+            <button
+              type="button"
+              onClick={goNext}
+              aria-label="Next image"
+              className="shrink-0 flex items-center justify-center h-11 w-11 rounded-full bg-black/50 text-white hover:bg-black/70 z-20"
+            >
+              <IconChevronRight className="h-7 w-7" />
+            </button>
+          ) : (
+            <div className="shrink-0 h-11 w-11" />
+          )}
         </div>
 
         {(current.title || current.description || current.sourceUrl) && (
