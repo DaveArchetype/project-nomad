@@ -30,17 +30,19 @@ type SelectedSource = {
 export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
   const [viewingSource, setViewingSource] = useState<SelectedSource | null>(null)
   const [viewingImageIndex, setViewingImageIndex] = useState<number | null>(null)
-  const [previewImageFailed, setPreviewImageFailed] = useState(false)
+  const [failedPreviews, setFailedPreviews] = useState<Set<number>>(new Set())
   const kiwixBaseUrl = useKiwixBaseUrl()
 
-  const firstSource =
+  const previewSources =
     message.role === 'assistant' && message.sources && message.sources.length > 0
-      ? message.sources[0]
-      : null
-  const previewImageUrl =
-    firstSource && !previewImageFailed
-      ? api.getSourcePreviewImageUrl(firstSource.source, firstSource.kiwixPath)
-      : null
+      ? [...message.sources]
+          .sort((a, b) => {
+            const aWiki = a.source.toLowerCase().includes('wikipedia') ? 0 : 1
+            const bWiki = b.source.toLowerCase().includes('wikipedia') ? 0 : 1
+            return aWiki - bWiki
+          })
+          .slice(0, 3)
+      : []
 
   return (
     <div
@@ -92,28 +94,43 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
           ))}
         </div>
       )}
-      {previewImageUrl && firstSource && (
-        <button
-          type="button"
-          onClick={() =>
-            setViewingSource({
-              source: firstSource.source,
-              title: firstSource.title,
-              snippet: firstSource.snippet,
-              kiwixPath: firstSource.kiwixPath,
-            })
-          }
-          className="block w-full mb-3 rounded-md overflow-hidden border border-border-subtle hover:opacity-90 transition-opacity"
-          title={firstSource.title}
-        >
-          <img
-            src={previewImageUrl}
-            alt={firstSource.title}
-            loading="lazy"
-            onError={() => setPreviewImageFailed(true)}
-            className="w-full max-h-64 object-cover bg-surface"
-          />
-        </button>
+      {previewSources.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {previewSources.map((src, idx) => {
+            if (failedPreviews.has(idx)) return null
+            const url = api.getSourcePreviewImageUrl(src.source, src.kiwixPath)
+            return (
+              <button
+                key={`${src.source}-${idx}`}
+                type="button"
+                onClick={() =>
+                  setViewingSource({
+                    source: src.source,
+                    title: src.title,
+                    snippet: src.snippet,
+                    kiwixPath: src.kiwixPath,
+                  })
+                }
+                className="block max-w-lg rounded-md overflow-hidden border border-border-subtle hover:opacity-90 transition-opacity"
+                title={src.title}
+              >
+                <img
+                  src={url}
+                  alt={src.title}
+                  loading="lazy"
+                  onError={() =>
+                    setFailedPreviews((prev) => {
+                      const next = new Set(prev)
+                      next.add(idx)
+                      return next
+                    })
+                  }
+                  className="max-w-lg max-h-48 w-auto h-auto block bg-surface"
+                />
+              </button>
+            )
+          })}
+        </div>
       )}
       <div
         className={classNames(
