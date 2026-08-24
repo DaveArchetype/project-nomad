@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react'
 import { Dialog, DialogBackdrop, DialogPanel } from '@headlessui/react'
-import { IconChevronLeft, IconChevronRight, IconX } from '@tabler/icons-react'
+import { IconChevronLeft, IconChevronRight, IconExternalLink, IconX } from '@tabler/icons-react'
 
-interface ImageViewerModalProps {
-  images: string[]
-  startIndex: number
-  onClose: () => void
+export interface ImageViewerImage {
+  url: string
+  alt?: string
+  title?: string
+  description?: string
+  sourceUrl?: string
 }
 
-function imageUrlFor(path: string): string {
-  return path.startsWith('data:') ? path : `/api/chat/images/${path}`
+interface ImageViewerModalProps {
+  images: ImageViewerImage[]
+  startIndex: number
+  onClose: () => void
 }
 
 export default function ImageViewerModal({ images, startIndex, onClose }: ImageViewerModalProps) {
@@ -34,11 +38,13 @@ export default function ImageViewerModal({ images, startIndex, onClose }: ImageV
 
   if (images.length === 0) return null
 
+  const current = images[currentIndex]
+
   return (
     <Dialog open={true} onClose={onClose} className="relative z-50">
       <DialogBackdrop className="fixed inset-0 bg-black/90" />
       <div className="fixed inset-0 z-10 flex items-center justify-center p-4">
-        <DialogPanel className="relative flex max-h-[95vh] max-w-[95vw] items-center justify-center">
+        <DialogPanel className="relative flex flex-col max-h-[95vh] max-w-[95vw] items-center justify-center">
           <button
             type="button"
             onClick={onClose}
@@ -77,10 +83,30 @@ export default function ImageViewerModal({ images, startIndex, onClose }: ImageV
           )}
 
           <img
-            src={imageUrlFor(images[currentIndex])}
-            alt={`Image ${currentIndex + 1}`}
-            className="max-h-[85vh] max-w-[90vw] w-auto h-auto rounded-lg"
+            src={current.url}
+            alt={current.alt ?? current.title ?? `Image ${currentIndex + 1}`}
+            className="max-h-[70vh] max-w-[90vw] w-auto h-auto rounded-lg"
           />
+
+          {(current.title || current.description || current.sourceUrl) && (
+            <div className="mt-3 max-w-[90vw] text-center text-white">
+              {current.title && <div className="text-sm font-medium truncate">{current.title}</div>}
+              {current.description && (
+                <div className="mt-1 text-xs text-white/70 line-clamp-2">{current.description}</div>
+              )}
+              {current.sourceUrl && (
+                <a
+                  href={current.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/20 transition-colors"
+                >
+                  <IconExternalLink className="h-3.5 w-3.5" />
+                  Open source
+                </a>
+              )}
+            </div>
+          )}
         </DialogPanel>
       </div>
     </Dialog>

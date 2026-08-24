@@ -6,7 +6,7 @@ import remarkGfm from 'remark-gfm'
 import api from '~/lib/api'
 import { ChatMessage } from '../../../types/chat'
 import FileViewerModal from './knowledge-base/FileViewerModal'
-import ImageViewerModal from './ImageViewerModal'
+import ImageViewerModal, { type ImageViewerImage } from './ImageViewerModal'
 import KiwixPreviewModal from './knowledge-base/KiwixPreviewModal'
 import { useKiwixBaseUrl } from '../../hooks/useKiwixBaseUrl'
 
@@ -30,6 +30,7 @@ type SelectedSource = {
 export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
   const [viewingSource, setViewingSource] = useState<SelectedSource | null>(null)
   const [viewingImageIndex, setViewingImageIndex] = useState<number | null>(null)
+  const [viewingSourcePreview, setViewingSourcePreview] = useState<number | null>(null)
   const [failedPreviews, setFailedPreviews] = useState<Set<number>>(new Set())
   const kiwixBaseUrl = useKiwixBaseUrl()
 
@@ -66,6 +67,22 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
       })
     }
   }
+
+  const buildSourceUrl = (slot: (typeof previewSlots)[number]): string | undefined => {
+    if (slot.kiwixPath && kiwixBaseUrl) {
+      return `${kiwixBaseUrl.replace(/\/+$/, '')}${slot.kiwixPath}`
+    }
+    return undefined
+  }
+
+  const visiblePreviewSlots = previewSlots.filter((_, idx) => !failedPreviews.has(idx))
+  const sourcePreviewImages: ImageViewerImage[] = visiblePreviewSlots.map((slot) => ({
+    url: api.getSourcePreviewImageUrl(slot.source, slot.kiwixPath, slot.imageIndex),
+    alt: slot.title,
+    title: slot.title,
+    description: slot.snippet.slice(0, 200),
+    sourceUrl: buildSourceUrl(slot),
+  }))
 
   return (
     <div
@@ -122,18 +139,12 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
           {previewSlots.map((slot, idx) => {
             if (failedPreviews.has(idx)) return null
             const url = api.getSourcePreviewImageUrl(slot.source, slot.kiwixPath, slot.imageIndex)
+            const visibleIdx = visiblePreviewSlots.findIndex((s) => s === slot)
             return (
               <button
                 key={`${slot.source}-${slot.imageIndex}-${idx}`}
                 type="button"
-                onClick={() =>
-                  setViewingSource({
-                    source: slot.source,
-                    title: slot.title,
-                    snippet: slot.snippet,
-                    kiwixPath: slot.kiwixPath,
-                  })
-                }
+                onClick={() => setViewingSourcePreview(visibleIdx >= 0 ? visibleIdx : 0)}
                 className="block max-w-lg rounded-md overflow-hidden border border-border-subtle hover:opacity-90 transition-opacity"
                 title={slot.title}
               >
@@ -278,9 +289,16 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
         ))}
       {viewingImageIndex !== null && message.images && message.images.length > 0 && (
         <ImageViewerModal
-          images={message.images}
+          images={message.images.map((img) => ({ url: imageUrlFor(img) }))}
           startIndex={viewingImageIndex}
           onClose={() => setViewingImageIndex(null)}
+        />
+      )}
+      {viewingSourcePreview !== null && sourcePreviewImages.length > 0 && (
+        <ImageViewerModal
+          images={sourcePreviewImages}
+          startIndex={viewingSourcePreview}
+          onClose={() => setViewingSourcePreview(null)}
         />
       )}
     </div>
