@@ -208,6 +208,7 @@ export class ChatService {
           id: msg.id.toString(),
           role: msg.role,
           content: msg.content,
+          images: msg.images ?? undefined,
           timestamp: msg.created_at.toJSDate(),
         })),
       }
@@ -271,12 +272,18 @@ export class ChatService {
     }
   }
 
-  async addMessage(sessionId: number, role: 'system' | 'user' | 'assistant', content: string) {
+  async addMessage(
+    sessionId: number,
+    role: 'system' | 'user' | 'assistant',
+    content: string,
+    images?: string[] | null
+  ) {
     try {
       const message = await ChatMessage.create({
         session_id: sessionId,
         role,
         content,
+        images: images && images.length > 0 ? images : null,
       })
 
       // Update session's updated_at timestamp
@@ -288,6 +295,7 @@ export class ChatService {
         id: message.id.toString(),
         role: message.role,
         content: message.content,
+        images: message.images ?? undefined,
         timestamp: message.created_at.toJSDate(),
       }
     } catch (error) {

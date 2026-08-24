@@ -44,7 +44,16 @@ export type NomadChatStreamChunk = {
 
 type ChatInput = {
   model: string
-  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+  // `content` is a string for text-only turns; for multimodal (vision) turns it's the OpenAI
+  // content-parts array ([{type:'text', text}, {type:'image_url', image_url:{url}}]). Built by
+  // the controller at the call boundary so query-rewriting/RAG (which treat content as a string)
+  // never see the array shape.
+  messages: Array<{
+    role: 'system' | 'user' | 'assistant'
+    content:
+      | string
+      | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }>
+  }>
   think?: boolean | 'medium'
   // Whether the target model supports thinking. Lets chat()/chatStream() tell "capable but
   // disabled" (send reasoning_effort:'none') apart from "not capable" (send nothing).
@@ -66,9 +75,10 @@ export class OllamaService {
     string,
     Promise<{ success: boolean; message: string; retryable?: boolean }>
   > = new Map()
-  // Memoized `thinking` capability per model name (see checkModelHasThinking). Only successful
+  // Memoized capability array per model name (see _getModelCapabilities). Only successful
   // /api/show lookups are cached; transient failures are left uncached so they can be retried.
-  private thinkingCapabilityCache: Map<string, boolean> = new Map()
+  // Drives checkModelHasThinking and checkModelHasVision.
+  private capabilitiesCache: Map<string, string[]> = new Map()
 
   constructor() {}
 
@@ -474,14 +484,14 @@ export class OllamaService {
     return normalize()
   }
 
-  public async checkModelHasThinking(modelName: string): Promise<boolean> {
+  // A model's capabilities don't change at runtime, so memoize the /api/show result. Without
+  // this, loading the chat picker fires one /api/show per installed model and every chat send
+  // fires another — this collapses those to a single call per model per process.
+  private async _getModelCapabilities(modelName: string): Promise<string[]> {
     await this._ensureDependencies()
-    if (!this.baseUrl) return false
+    if (!this.baseUrl) return []
 
-    // A model's capabilities don't change at runtime, so memoize the /api/show result. Without
-    // this, loading the chat picker fires one /api/show per installed model and every chat send
-    // fires another — this collapses those to a single call per model per process.
-    const cached = this.thinkingCapabilityCache.get(modelName)
+    const cached = this.capabilitiesCache.get(modelName)
     if (cached !== undefined) return cached
 
     try {
@@ -490,15 +500,25 @@ export class OllamaService {
         { model: modelName },
         { timeout: 5000 }
       )
-      const hasThinking =
-        Array.isArray(response.data?.capabilities) &&
-        response.data.capabilities.includes('thinking')
-      this.thinkingCapabilityCache.set(modelName, hasThinking)
-      return hasThinking
+      const capabilities: string[] = Array.isArray(response.data?.capabilities)
+        ? response.data.capabilities
+        : []
+      this.capabilitiesCache.set(modelName, capabilities)
+      return capabilities
     } catch {
-      // Non-Ollama backends don't expose /api/show — assume no thinking support
-      return false
+      // Non-Ollama backends don't expose /api/show — assume no capabilities
+      return []
     }
+  }
+
+  public async checkModelHasThinking(modelName: string): Promise<boolean> {
+    const capabilities = await this._getModelCapabilities(modelName)
+    return capabilities.includes('thinking')
+  }
+
+  public async checkModelHasVision(modelName: string): Promise<boolean> {
+    const capabilities = await this._getModelCapabilities(modelName)
+    return capabilities.includes('vision')
   }
 
   public async deleteModel(modelName: string): Promise<{ success: boolean; message: string }> {

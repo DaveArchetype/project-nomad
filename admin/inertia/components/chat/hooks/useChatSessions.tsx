@@ -6,7 +6,13 @@ import StyledModal from '../../StyledModal'
 import { ChatMessage } from '../../../../types/chat'
 
 interface UseChatSessionsResult {
-  sessions: Array<{ id: string; title: string; model?: string; timestamp: Date; lastMessage?: string }>
+  sessions: Array<{
+    id: string
+    title: string
+    model?: string
+    timestamp: Date
+    lastMessage?: string
+  }>
   handleNewChat: () => void
   handleClearHistory: () => void
   handleDeleteSession: (session: { id: string; title: string }) => void
@@ -135,6 +141,7 @@ export function useChatSessions({
             id: m.id,
             role: m.role,
             content: m.content,
+            images: m.images,
             timestamp: new Date(m.timestamp),
           }))
         )

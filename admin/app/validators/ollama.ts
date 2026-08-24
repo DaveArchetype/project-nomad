@@ -7,6 +7,10 @@ export const chatSchema = vine.compile(
       vine.object({
         role: vine.enum(['system', 'user', 'assistant'] as const),
         content: vine.string(),
+        // Base64 data URLs for image attachments on user messages (vision models only).
+        // The controller converts these to OpenAI multimodal content parts and persists
+        // them to disk before forwarding to OllamaService.
+        images: vine.array(vine.string()).optional(),
       })
     ),
     stream: vine.boolean().optional(),

@@ -4,7 +4,7 @@ import api from '~/lib/api'
 import { ChatMessage } from '../../../../types/chat'
 
 interface UseChatStreamResult {
-  handleSendMessage: (content: string) => Promise<void>
+  handleSendMessage: (content: string, images?: string[]) => Promise<void>
   isStreamingResponse: boolean
   isPending: boolean
   collectionFilter: string
@@ -51,7 +51,7 @@ export function useChatStream({
   const chatMutation = useMutation({
     mutationFn: (request: {
       model: string
-      messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+      messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string; images?: string[] }>
       sessionId?: number
       think?: boolean
       collection?: string
@@ -89,7 +89,7 @@ export function useChatStream({
   const { mutate: chatMutate, isPending: chatIsPending } = chatMutation
 
   const handleSendMessage = useCallback(
-    async (content: string) => {
+    async (content: string, images?: string[]) => {
       if (isSendingRef.current) return
       isSendingRef.current = true
 
@@ -112,13 +112,18 @@ export function useChatStream({
         role: 'user',
         content,
         timestamp: new Date(),
+        images: images && images.length > 0 ? images : undefined,
       }
 
       setMessages((prev) => [...prev, userMessage])
 
       const chatMessages = [
         ...messages.map((m) => ({ role: m.role, content: m.content })),
-        { role: 'user' as const, content },
+        {
+          role: 'user' as const,
+          content,
+          images: images && images.length > 0 ? images : undefined,
+        },
       ]
 
       if (streamingEnabled !== false) {

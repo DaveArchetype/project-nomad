@@ -26,6 +26,10 @@ export type NomadOllamaModelAPIResponse = {
 export type OllamaChatMessage = {
   role: 'system' | 'user' | 'assistant'
   content: string
+  // Base64 data URLs for image attachments on user messages (vision models only).
+  // The controller converts these to OpenAI multimodal content parts before forwarding
+  // to OllamaService, and persists them to disk.
+  images?: string[]
 }
 
 export type OllamaChatRequest = {
@@ -55,6 +59,8 @@ export type NomadInstalledModel = {
   details?: Record<string, any>
   // Whether the model supports "thinking" (set by the installed-models endpoint enrichment).
   thinking?: boolean
+  // Whether the model supports image/vision input (set by the installed-models endpoint enrichment).
+  vision?: boolean
 }
 
 export type NomadChatResponse = {

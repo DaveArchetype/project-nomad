@@ -1,4 +1,5 @@
 import { ChatService } from '#services/chat_service'
+import { ChatImageService } from '#services/chat_image_service'
 import { DockerService } from '#services/docker_service'
 import { NomadMdService } from '#services/nomad_md_service'
 import { OllamaService } from '#services/ollama_service'
@@ -16,7 +17,7 @@ import logger from '@adonisjs/core/services/logger'
 
 const DEFAULT_EMBED_PAUSE_AFTER_CHAT_MINUTES = 15
 
-type Message = { role: 'system' | 'user' | 'assistant'; content: string }
+type Message = { role: 'system' | 'user' | 'assistant'; content: string; images?: string[] }
 
 export type RagSource = {
   source: string
@@ -236,13 +237,46 @@ export default class OllamaController {
       // Ollama rejects unknown fields, and `think` is re-derived above (not forwarded raw).
       const { sessionId, think: _thinkPref, ...ollamaRequest } = reqData
 
+      // Persist any image attachments on user messages to disk and build a separate messages
+      // array for OllamaService. We must NOT mutate reqData.messages here: query rewriting and
+      // RAG (above) treat `content` as a string (.slice / concatenation), so the multimodal
+      // content-parts array is built only in `ollamaMessages`, which is what the model receives.
+      // `images` (base64 data URLs) is also stripped from every message since Ollama rejects
+      // unknown fields. Stored relative paths are kept for the DB row.
+      const chatImageService = new ChatImageService()
+      const savedImagePathsByMsgIndex: Map<number, string[]> = new Map()
+      const ollamaMessages = await Promise.all(
+        ollamaRequest.messages.map(async (msg, idx) => {
+          if (!msg.images || msg.images.length === 0) {
+            return { role: msg.role, content: msg.content }
+          }
+          const savedPaths: string[] = []
+          for (const dataUrl of msg.images) {
+            const rel = await chatImageService.saveImage(dataUrl)
+            if (rel) savedPaths.push(rel)
+          }
+          savedImagePathsByMsgIndex.set(idx, savedPaths)
+          // OpenAI multimodal content: a text part (even if empty) followed by image parts.
+          // An empty text part is valid and lets image-only turns through.
+          const content: any[] = [{ type: 'text', text: msg.content || '' }]
+          for (const dataUrl of msg.images) {
+            content.push({ type: 'image_url', image_url: { url: dataUrl } })
+          }
+          return { role: msg.role, content }
+        })
+      )
+
       // Save user message to DB before streaming if sessionId provided
       let userContent: string | null = null
       if (sessionId) {
-        const lastUserMsg = [...reqData.messages].reverse().find((m) => m.role === 'user')
-        if (lastUserMsg) {
-          userContent = lastUserMsg.content
-          await this.chatService.addMessage(sessionId, 'user', userContent)
+        const lastUserMsgIdx = [...reqData.messages]
+          .map((m, i) => ({ m, i }))
+          .reverse()
+          .find((x) => x.m.role === 'user')
+        if (lastUserMsgIdx) {
+          userContent = lastUserMsgIdx.m.content
+          const savedPaths = savedImagePathsByMsgIndex.get(lastUserMsgIdx.i) ?? null
+          await this.chatService.addMessage(sessionId, 'user', userContent, savedPaths)
         }
       }
 
@@ -263,6 +297,7 @@ export default class OllamaController {
         response.response.on('close', () => abortController.abort())
         const stream = await this.ollamaService.chatStream({
           ...ollamaRequest,
+          messages: ollamaMessages,
           think,
           thinkingCapable: thinkingCapability,
           numCtx,
@@ -307,6 +342,7 @@ export default class OllamaController {
       // Non-streaming (legacy) path
       const result = await this.ollamaService.chat({
         ...ollamaRequest,
+        messages: ollamaMessages,
         think,
         thinkingCapable: thinkingCapability,
         numCtx,
@@ -493,13 +529,15 @@ export default class OllamaController {
 
   async installedModels({}: HttpContext) {
     const models = await this.ollamaService.getModels()
-    // Enrich each model with its thinking capability so the chat picker knows which models
-    // to show the per-model thinking toggle for. checkModelHasThinking memoizes /api/show
-    // results, so this stays cheap on repeat loads. Best-effort per model.
-    const thinking = await Promise.all(
-      models.map((m) => this.ollamaService.checkModelHasThinking(m.name))
-    )
-    return models.map((m, i) => ({ ...m, thinking: thinking[i] }))
+    // Enrich each model with its thinking + vision capabilities so the chat picker knows which
+    // models to show the per-model thinking toggle and image-attach UI for. checkModelHasThinking
+    // / checkModelHasVision share a memoized /api/show cache, so this stays cheap on repeat loads.
+    // Best-effort per model.
+    const [thinking, vision] = await Promise.all([
+      Promise.all(models.map((m) => this.ollamaService.checkModelHasThinking(m.name))),
+      Promise.all(models.map((m) => this.ollamaService.checkModelHasVision(m.name))),
+    ])
+    return models.map((m, i) => ({ ...m, thinking: thinking[i], vision: vision[i] }))
   }
 
   /**

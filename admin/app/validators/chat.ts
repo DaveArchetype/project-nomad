@@ -18,5 +18,7 @@ export const addMessageSchema = vine.compile(
   vine.object({
     role: vine.enum(['system', 'user', 'assistant'] as const),
     content: vine.string().trim().minLength(1),
+    // Relative paths (chat_images/YYYY-MM-DD/...) for image attachments on user messages.
+    images: vine.array(vine.string()).optional(),
   })
 )

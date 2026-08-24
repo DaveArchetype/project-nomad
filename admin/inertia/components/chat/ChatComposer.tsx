@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react'
-import { IconSend } from '@tabler/icons-react'
+import { useState, useRef, useCallback } from 'react'
+import { IconSend, IconPhotoPlus, IconX } from '@tabler/icons-react'
 import classNames from '~/lib/classNames'
 import { usePage } from '@inertiajs/react'
 import { useNotifications } from '~/context/NotificationContext'
@@ -10,24 +10,32 @@ import { DEFAULT_QUERY_REWRITE_MODEL } from '../../../constants/ollama'
 
 interface ChatComposerProps {
   isLoading: boolean
-  onSendMessage: (message: string) => void
+  onSendMessage: (message: string, images?: string[]) => void
   rewriteModelAvailable: boolean
   isCheckingModels: boolean
+  selectedModelSupportsVision: boolean
 }
+
+const MAX_IMAGE_DIM = 1024
+const JPEG_QUALITY = 0.85
+const MAX_ATTACHMENTS = 4
 
 export default function ChatComposer({
   isLoading,
   onSendMessage,
   rewriteModelAvailable,
   isCheckingModels,
+  selectedModelSupportsVision,
 }: ChatComposerProps) {
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
   const { addNotification } = useNotifications()
   const [input, setInput] = useState('')
+  const [attachments, setAttachments] = useState<string[]>([])
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const isMobile = useIsMobileViewport()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleDownloadModel = async () => {
     setIsDownloading(true)
@@ -42,11 +50,86 @@ export default function ChatComposer({
     }
   }
 
+  const downscaleImage = useCallback((file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onerror = () => reject(new Error('Failed to read file'))
+      reader.onload = () => {
+        const img = new Image()
+        img.onerror = () => reject(new Error('Failed to load image'))
+        img.onload = () => {
+          let { width, height } = img
+          if (width > MAX_IMAGE_DIM || height > MAX_IMAGE_DIM) {
+            const scale = MAX_IMAGE_DIM / Math.max(width, height)
+            width = Math.round(width * scale)
+            height = Math.round(height * scale)
+          }
+          const canvas = document.createElement('canvas')
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext('2d')
+          if (!ctx) {
+            reject(new Error('Canvas not supported'))
+            return
+          }
+          ctx.drawImage(img, 0, 0, width, height)
+          // Keep PNG for transparency; everything else becomes JPEG for size.
+          const isPng = file.type === 'image/png'
+          const dataUrl = isPng
+            ? canvas.toDataURL('image/png')
+            : canvas.toDataURL('image/jpeg', JPEG_QUALITY)
+          resolve(dataUrl)
+        }
+        img.src = reader.result as string
+      }
+      reader.readAsDataURL(file)
+    })
+  }, [])
+
+  const handleFiles = useCallback(
+    async (files: FileList | File[]) => {
+      const imageFiles = Array.from(files).filter((f) => f.type.startsWith('image/'))
+      if (imageFiles.length === 0) return
+      setAttachments((prev) => {
+        const remaining = MAX_ATTACHMENTS - prev.length
+        if (remaining <= 0) {
+          addNotification({
+            type: 'info',
+            message: `You can attach up to ${MAX_ATTACHMENTS} images per message.`,
+          })
+          return prev
+        }
+        return prev
+      })
+      const toProcess = imageFiles.slice(0, Math.max(0, MAX_ATTACHMENTS - attachments.length))
+      const results: string[] = []
+      for (const file of toProcess) {
+        try {
+          const dataUrl = await downscaleImage(file)
+          results.push(dataUrl)
+        } catch {
+          addNotification({ type: 'error', message: `Failed to process image: ${file.name}` })
+        }
+      }
+      if (results.length > 0) {
+        setAttachments((prev) => [...prev, ...results].slice(0, MAX_ATTACHMENTS))
+      }
+    },
+    [attachments.length, addNotification, downscaleImage]
+  )
+
+  const removeAttachment = (index: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index))
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (input.trim() && !isLoading) {
-      onSendMessage(input.trim())
+    const hasText = input.trim().length > 0
+    const hasImages = attachments.length > 0
+    if ((hasText || hasImages) && !isLoading) {
+      onSendMessage(hasText ? input.trim() : '', attachments.length > 0 ? attachments : undefined)
       setInput('')
+      setAttachments([])
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto'
       }
@@ -66,15 +149,88 @@ export default function ChatComposer({
     e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`
   }
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (!selectedModelSupportsVision) return
+    const items = e.clipboardData?.items
+    if (!items) return
+    const imageItems: DataTransferItem[] = []
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith('image/')) imageItems.push(item)
+    }
+    if (imageItems.length === 0) return
+    e.preventDefault()
+    const files = imageItems.map((item) => item.getAsFile()).filter((f): f is File => f !== null)
+    if (files.length > 0) {
+      handleFiles(files)
+    }
+  }
+
+  const hasText = input.trim().length > 0
+  const hasImages = attachments.length > 0
+  const canSend = (hasText || hasImages) && !isLoading
+
   return (
     <div className="border-t border-border-subtle bg-surface-primary px-3 sm:px-6 py-3 sm:py-4 shrink-0">
+      {hasImages && (
+        <div className="flex flex-wrap gap-2 mb-2">
+          {attachments.map((dataUrl, idx) => (
+            <div key={`${dataUrl.slice(0, 32)}-${idx}`} className="relative group shrink-0">
+              <img
+                src={dataUrl}
+                alt={`Attachment ${idx + 1}`}
+                className="h-14 w-14 rounded-md object-cover border border-border-default"
+              />
+              <button
+                type="button"
+                onClick={() => removeAttachment(idx)}
+                aria-label={`Remove attachment ${idx + 1}`}
+                className="absolute -top-1.5 -right-1.5 flex items-center justify-center h-5 w-5 rounded-full bg-surface-secondary border border-border-default text-text-primary hover:bg-surface-tertiary shadow-sm"
+              >
+                <IconX className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="flex gap-3 items-center">
+        {selectedModelSupportsVision && (
+          <>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading || attachments.length >= MAX_ATTACHMENTS}
+              aria-label="Attach images"
+              title="Attach images"
+              className={classNames(
+                'flex items-center justify-center rounded-lg transition-all duration-200 shrink-0 border',
+                isLoading || attachments.length >= MAX_ATTACHMENTS
+                  ? 'bg-surface-secondary text-text-muted border-border-default cursor-not-allowed'
+                  : 'bg-surface-secondary text-text-secondary border-border-default hover:text-desert-green hover:border-desert-green'
+              )}
+              style={{ height: '50px', width: '50px' }}
+            >
+              <IconPhotoPlus className="h-6 w-6" />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) handleFiles(e.target.files)
+                e.target.value = ''
+              }}
+            />
+          </>
+        )}
         <div className="flex-1 relative min-w-0">
           <textarea
             ref={textareaRef}
             value={input}
             onChange={handleInput}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             placeholder={`Type your message to ${aiAssistantName}...${
               isMobile ? '' : ' (Shift+Enter for new line)'
             }`}
@@ -86,10 +242,10 @@ export default function ChatComposer({
         </div>
         <button
           type="submit"
-          disabled={!input.trim() || isLoading}
+          disabled={!canSend}
           className={classNames(
             'flex items-center justify-center rounded-lg transition-all duration-200 shrink-0',
-            !input.trim() || isLoading
+            !canSend
               ? 'bg-border-default text-text-muted cursor-not-allowed'
               : 'bg-desert-green text-white hover:bg-desert-green/90 hover:scale-105'
           )}

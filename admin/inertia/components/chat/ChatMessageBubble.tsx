@@ -8,6 +8,12 @@ import FileViewerModal from './knowledge-base/FileViewerModal'
 import KiwixPreviewModal from './knowledge-base/KiwixPreviewModal'
 import { useKiwixBaseUrl } from '../../hooks/useKiwixBaseUrl'
 
+function imageUrlFor(path: string): string {
+  // Optimistic local messages store base64 data URLs; persisted messages store
+  // relative paths served by /api/chat/images/*.
+  return path.startsWith('data:') ? path : `/api/chat/images/${path}`
+}
+
 export interface ChatMessageBubbleProps {
   message: ChatMessage
 }
@@ -53,6 +59,25 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.thinking}</ReactMarkdown>
           </div>
         </details>
+      )}
+      {message.role === 'user' && message.images && message.images.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {message.images.map((img, idx) => (
+            <a
+              key={`${img.slice(0, 24)}-${idx}`}
+              href={imageUrlFor(img)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block shrink-0"
+            >
+              <img
+                src={imageUrlFor(img)}
+                alt={`Attachment ${idx + 1}`}
+                className="h-16 w-16 rounded-md object-cover border border-white/30 hover:opacity-90"
+              />
+            </a>
+          ))}
+        </div>
       )}
       <div
         className={classNames(

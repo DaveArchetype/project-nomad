@@ -18,6 +18,20 @@ export default class ChatMessage extends BaseModel {
   @column()
   declare content: string
 
+  // JSON array of relative paths (chat_images/YYYY-MM-DD/...) for image attachments on
+  // user messages sent to vision-capable models. SQLite stores JSON as text, so use
+  // consume/prepare to (de)serialize. Null for text-only messages.
+  @column({
+    consume: (value: any) =>
+      value === null || value === undefined
+        ? null
+        : typeof value === 'string'
+          ? (JSON.parse(value) as string[])
+          : value,
+    prepare: (value: string[] | null) => (value === null ? null : JSON.stringify(value)),
+  })
+  declare images: string[] | null
+
   @belongsTo(() => ChatSession, { foreignKey: 'session_id', localKey: 'id' })
   declare session: BelongsTo<typeof ChatSession>
 

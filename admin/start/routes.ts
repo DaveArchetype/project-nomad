@@ -418,6 +418,11 @@ documented(router.get('/api/chat/suggestions', [ChatsController, 'suggestions'])
   tags: ['chat'],
 })
 
+documented(router.get('/api/chat/images/*', [ChatsController, 'serveImage']), {
+  summary: 'Serve a persisted chat image attachment',
+  tags: ['chat'],
+})
+
 router
   .group(() => {
     documented(router.post('/upload', [RagController, 'upload']), {
