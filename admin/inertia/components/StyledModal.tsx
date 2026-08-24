@@ -1,4 +1,5 @@
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/react'
+import { IconX } from '@tabler/icons-react'
 import StyledButton, { StyledButtonProps } from './StyledButton'
 import React from 'react'
 import classNames from '~/lib/classNames'
@@ -66,6 +67,16 @@ const StyledModal: React.FC<StyledModalProps> = ({
               large ? 'sm:max-w-7xl !w-full' : 'sm:max-w-lg'
             )}
           >
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className="absolute top-3 right-3 z-10 flex items-center justify-center h-7 w-7 rounded-full text-text-muted hover:text-text-primary hover:bg-surface-secondary transition-colors"
+              >
+                <IconX className="h-4 w-4" />
+              </button>
+            )}
             <div>
               {icon && <div className="flex items-center justify-center">{icon}</div>}
               <div className="mt-3 text-center sm:mt-5">
