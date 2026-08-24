@@ -88,33 +88,29 @@ export default function ImageViewerModal({ images, startIndex, onClose }: ImageV
               alt={current.alt ?? current.title ?? `Image ${currentIndex + 1}`}
               className="max-h-[70vh] max-w-[90vw] w-auto h-auto rounded-lg"
             />
-
-            {(current.title || current.description || current.sourceUrl) && (
-              <div className="mt-3 max-w-[90vw] text-center text-white">
-                {current.title && (
-                  <div className="text-sm font-medium truncate">{current.title}</div>
-                )}
-                {current.description && (
-                  <div className="mt-1 text-xs text-white/70 line-clamp-2">
-                    {current.description}
-                  </div>
-                )}
-                {current.sourceUrl && (
-                  <a
-                    href={current.sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/20 transition-colors"
-                  >
-                    <IconExternalLink className="h-3.5 w-3.5" />
-                    Open source
-                  </a>
-                )}
-              </div>
-            )}
           </DialogPanel>
         </div>
+
+        {(current.title || current.description || current.sourceUrl) && (
+          <div className="shrink-0 pb-2 pt-3 px-4 max-w-[90vw] mx-auto text-center text-white">
+            {current.title && <div className="text-sm font-medium truncate">{current.title}</div>}
+            {current.description && (
+              <div className="mt-1 text-xs text-white/70 line-clamp-2">{current.description}</div>
+            )}
+            {current.sourceUrl && (
+              <a
+                href={current.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/20 transition-colors"
+              >
+                <IconExternalLink className="h-3.5 w-3.5" />
+                Open source
+              </a>
+            )}
+          </div>
+        )}
       </div>
     </Dialog>
   )

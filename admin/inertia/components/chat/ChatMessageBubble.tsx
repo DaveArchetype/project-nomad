@@ -78,10 +78,10 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
   const visiblePreviewSlots = previewSlots.filter((_, idx) => !failedPreviews.has(idx))
   const sourcePreviewImages: ImageViewerImage[] = visiblePreviewSlots.map((slot) => ({
     url: api.getSourcePreviewImageUrl(slot.source, slot.kiwixPath, slot.imageIndex),
-    alt: slot.title,
-    title: slot.title,
-    description: slot.snippet.slice(0, 200),
-    sourceUrl: buildSourceUrl(slot),
+    alt: slot.imageIndex === 0 ? slot.title : undefined,
+    title: slot.imageIndex === 0 ? slot.title : undefined,
+    description: slot.imageIndex === 0 ? slot.snippet.slice(0, 200) : undefined,
+    sourceUrl: slot.imageIndex === 0 ? buildSourceUrl(slot) : undefined,
   }))
 
   const hasTable =
