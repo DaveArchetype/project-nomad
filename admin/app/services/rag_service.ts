@@ -1864,12 +1864,14 @@ export class RagService {
    */
   public async getSourcePreviewImage(
     source: string,
-    kiwixPath?: string
+    kiwixPath?: string,
+    index?: number
   ): Promise<{ buffer: Buffer; mimeType: string } | { redirect: string } | null> {
     try {
       if (kiwixPath && kiwixPath.trim().length > 0) {
-        return await this._getZimArticlePreviewImage(source, kiwixPath)
+        return await this._getZimArticlePreviewImage(source, kiwixPath, index ?? 0)
       }
+      if ((index ?? 0) > 0) return null
       logger.debug(
         `[RagService.getSourcePreviewImage] non-ZIM source, trying upload path: ${source}`
       )
@@ -1882,7 +1884,8 @@ export class RagService {
 
   private async _getZimArticlePreviewImage(
     source: string,
-    kiwixPath: string
+    kiwixPath: string,
+    index: number = 0
   ): Promise<{ buffer: Buffer; mimeType: string } | null> {
     const { Archive } = await import('@openzim/libzim')
 
@@ -1948,6 +1951,7 @@ export class RagService {
       ? articlePath.slice(0, articlePath.lastIndexOf('/') + 1)
       : ''
 
+    let foundIndex = 0
     for (const candidate of candidates) {
       const resolved = this._resolveZimImagePath(candidate, articleDir)
       if (!resolved) {
@@ -1970,8 +1974,15 @@ export class RagService {
           )
           continue
         }
+        if (foundIndex < index) {
+          foundIndex++
+          logger.debug(
+            `[RagService.getSourcePreviewImage] skipping image ${foundIndex}/${index} at ${resolved}`
+          )
+          continue
+        }
         logger.debug(
-          `[RagService.getSourcePreviewImage] returning image: ${resolved} (mime: ${mimeType}, ${data.length} bytes)`
+          `[RagService.getSourcePreviewImage] returning image index=${index}: ${resolved} (mime: ${mimeType}, ${data.length} bytes)`
         )
         return { buffer: data, mimeType }
       } catch (error) {
@@ -1983,7 +1994,7 @@ export class RagService {
       }
     }
     logger.warn(
-      `[RagService.getSourcePreviewImage] no usable image found among ${candidates.length} candidates for ${articlePath}`
+      `[RagService.getSourcePreviewImage] no usable image at index=${index} among ${candidates.length} candidates for ${articlePath}`
     )
     return null
   }

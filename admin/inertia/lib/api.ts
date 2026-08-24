@@ -725,9 +725,10 @@ class API {
     })()
   }
 
-  getSourcePreviewImageUrl(source: string, kiwixPath?: string): string {
+  getSourcePreviewImageUrl(source: string, kiwixPath?: string, index?: number): string {
     const params = new URLSearchParams({ source })
     if (kiwixPath && kiwixPath.length > 0) params.set('kiwixPath', kiwixPath)
+    if (index !== undefined) params.set('index', String(index))
     return `/api/rag/files/preview-image?${params.toString()}`
   }
 

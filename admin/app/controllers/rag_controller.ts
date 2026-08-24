@@ -294,8 +294,8 @@ export default class RagController {
   }
 
   public async getSourcePreviewImage({ request, response }: HttpContext) {
-    const { source, kiwixPath } = await request.validateUsing(sourcePreviewImageSchema)
-    const result = await this.ragService.getSourcePreviewImage(source, kiwixPath)
+    const { source, kiwixPath, index } = await request.validateUsing(sourcePreviewImageSchema)
+    const result = await this.ragService.getSourcePreviewImage(source, kiwixPath, index)
     if (!result) {
       return response.status(404).json({ error: 'No preview image available for this source' })
     }

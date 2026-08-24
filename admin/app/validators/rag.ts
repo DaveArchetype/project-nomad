@@ -29,6 +29,7 @@ export const sourcePreviewImageSchema = vine.compile(
   vine.object({
     source: vine.string().minLength(1),
     kiwixPath: vine.string().optional(),
+    index: vine.number().min(0).optional(),
   })
 )
 

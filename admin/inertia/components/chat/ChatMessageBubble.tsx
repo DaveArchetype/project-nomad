@@ -33,16 +33,39 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
   const [failedPreviews, setFailedPreviews] = useState<Set<number>>(new Set())
   const kiwixBaseUrl = useKiwixBaseUrl()
 
-  const previewSources =
+  const sortedSources =
     message.role === 'assistant' && message.sources && message.sources.length > 0
-      ? [...message.sources]
-          .sort((a, b) => {
-            const aWiki = a.source.toLowerCase().includes('wikipedia') ? 0 : 1
-            const bWiki = b.source.toLowerCase().includes('wikipedia') ? 0 : 1
-            return aWiki - bWiki
-          })
-          .slice(0, 3)
+      ? [...message.sources].sort((a, b) => {
+          const aWiki = a.source.toLowerCase().includes('wikipedia') ? 0 : 1
+          const bWiki = b.source.toLowerCase().includes('wikipedia') ? 0 : 1
+          return aWiki - bWiki
+        })
       : []
+
+  const MAX_PREVIEW_IMAGES = 3
+  const previewSlots: {
+    source: string
+    title: string
+    snippet: string
+    kiwixPath?: string
+    imageIndex: number
+  }[] = []
+  for (
+    let imgIdx = 0;
+    previewSlots.length < MAX_PREVIEW_IMAGES && imgIdx < MAX_PREVIEW_IMAGES;
+    imgIdx++
+  ) {
+    for (const src of sortedSources) {
+      if (previewSlots.length >= MAX_PREVIEW_IMAGES) break
+      previewSlots.push({
+        source: src.source,
+        title: src.title,
+        snippet: src.snippet,
+        kiwixPath: src.kiwixPath,
+        imageIndex: imgIdx,
+      })
+    }
+  }
 
   return (
     <div
@@ -94,29 +117,29 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
           ))}
         </div>
       )}
-      {previewSources.length > 0 && (
+      {previewSlots.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-3">
-          {previewSources.map((src, idx) => {
+          {previewSlots.map((slot, idx) => {
             if (failedPreviews.has(idx)) return null
-            const url = api.getSourcePreviewImageUrl(src.source, src.kiwixPath)
+            const url = api.getSourcePreviewImageUrl(slot.source, slot.kiwixPath, slot.imageIndex)
             return (
               <button
-                key={`${src.source}-${idx}`}
+                key={`${slot.source}-${slot.imageIndex}-${idx}`}
                 type="button"
                 onClick={() =>
                   setViewingSource({
-                    source: src.source,
-                    title: src.title,
-                    snippet: src.snippet,
-                    kiwixPath: src.kiwixPath,
+                    source: slot.source,
+                    title: slot.title,
+                    snippet: slot.snippet,
+                    kiwixPath: slot.kiwixPath,
                   })
                 }
                 className="block max-w-lg rounded-md overflow-hidden border border-border-subtle hover:opacity-90 transition-opacity"
-                title={src.title}
+                title={slot.title}
               >
                 <img
                   src={url}
-                  alt={src.title}
+                  alt={slot.title}
                   loading="lazy"
                   onError={() =>
                     setFailedPreviews((prev) => {
