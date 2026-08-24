@@ -223,7 +223,7 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                 </a>
               ),
               table: ({ children }) => (
-                <div className="overflow-x-auto my-3">
+                <div className="overflow-x-auto my-6">
                   <table className="w-full border-collapse text-sm">{children}</table>
                 </div>
               ),
