@@ -84,13 +84,16 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
     sourceUrl: buildSourceUrl(slot),
   }))
 
+  const hasTable =
+    message.role === 'assistant' && /^\|.*\|[\s\S]*?\n\|[\s-:]+\|/m.test(message.content)
+
   return (
     <div
       className={classNames(
         'min-w-0 overflow-hidden rounded-lg px-4 py-3',
         message.role === 'user'
           ? 'max-w-[85%] sm:max-w-[70%] bg-desert-green text-white'
-          : 'max-w-[92%] sm:max-w-[90%] bg-surface-secondary text-text-primary'
+          : `max-w-[92%] ${hasTable ? 'sm:max-w-[90%]' : 'sm:max-w-[75%]'} bg-surface-secondary text-text-primary`
       )}
     >
       {message.isThinking && message.thinking && (
@@ -219,6 +222,27 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
                   {children}
                 </a>
               ),
+              table: ({ children }) => (
+                <div className="overflow-x-auto my-3">
+                  <table className="w-full border-collapse text-sm">{children}</table>
+                </div>
+              ),
+              thead: ({ children }) => (
+                <thead className="bg-surface-secondary border-b-2 border-border-default">
+                  {children}
+                </thead>
+              ),
+              th: ({ children }) => (
+                <th className="px-4 py-2.5 text-left font-semibold border border-border-subtle text-text-primary whitespace-nowrap">
+                  {children}
+                </th>
+              ),
+              td: ({ children }) => (
+                <td className="px-4 py-2 border border-border-subtle text-text-secondary">
+                  {children}
+                </td>
+              ),
+              tr: ({ children }) => <tr className="even:bg-surface-secondary/50">{children}</tr>,
             }}
           >
             {message.content}
