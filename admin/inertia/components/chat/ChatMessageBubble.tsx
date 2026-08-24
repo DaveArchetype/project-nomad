@@ -131,7 +131,7 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
         </details>
       )}
       {message.role === 'user' && message.images && message.images.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-2">
+        <div className="flex gap-2 mb-2 overflow-x-auto sm:flex-wrap sm:overflow-visible">
           {message.images.map((img, idx) => (
             <button
               key={`${img.slice(0, 24)}-${idx}`}

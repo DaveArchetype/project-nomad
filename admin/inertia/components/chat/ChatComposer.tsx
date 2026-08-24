@@ -5,6 +5,7 @@ import { usePage } from '@inertiajs/react'
 import { useNotifications } from '~/context/NotificationContext'
 import { useIsMobileViewport } from '~/hooks/useIsMobileViewport'
 import StyledModal from '../StyledModal'
+import ImageViewerModal from './ImageViewerModal'
 import api from '~/lib/api'
 import { DEFAULT_QUERY_REWRITE_MODEL } from '../../../constants/ollama'
 
@@ -33,6 +34,7 @@ export default function ChatComposer({
   const [attachments, setAttachments] = useState<string[]>([])
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null)
   const isMobile = useIsMobileViewport()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -172,14 +174,20 @@ export default function ChatComposer({
   return (
     <div className="border-t border-border-subtle bg-surface-primary px-3 sm:px-6 py-3 sm:py-4 shrink-0">
       {hasImages && (
-        <div className="flex flex-wrap gap-2 mb-2">
+        <div className="flex gap-2 mb-2 overflow-x-auto sm:flex-wrap sm:overflow-visible">
           {attachments.map((dataUrl, idx) => (
             <div key={`${dataUrl.slice(0, 32)}-${idx}`} className="relative group shrink-0">
-              <img
-                src={dataUrl}
-                alt={`Attachment ${idx + 1}`}
-                className="h-14 w-14 rounded-md object-cover border border-border-default"
-              />
+              <button
+                type="button"
+                onClick={() => setPreviewIndex(idx)}
+                className="block rounded-md overflow-hidden border border-border-default hover:opacity-90 transition-opacity"
+              >
+                <img
+                  src={dataUrl}
+                  alt={`Attachment ${idx + 1}`}
+                  className="h-14 w-14 object-cover"
+                />
+              </button>
               <button
                 type="button"
                 onClick={() => removeAttachment(idx)}
@@ -288,6 +296,13 @@ export default function ChatComposer({
           OpenAI API interface, please download the model with that software.
         </p>
       </StyledModal>
+      {previewIndex !== null && (
+        <ImageViewerModal
+          images={attachments.map((url) => ({ url }))}
+          startIndex={previewIndex}
+          onClose={() => setPreviewIndex(null)}
+        />
+      )}
     </div>
   )
 }
