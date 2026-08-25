@@ -89,7 +89,15 @@ def _load_wakeword_model():
         wakeword_models.append(preset)
         logger.info(f"Loading bundled wake word preset: {preset}")
 
-    _oww_model = Model(wakeword_models=wakeword_models, inference_framework="onnx")
+    try:
+        _oww_model = Model(wakeword_models=wakeword_models, inference_framework="onnx")
+    except Exception as e:
+        logger.error(
+            f"Failed to load wake word model '{preset}': {e}. "
+            f"If using a bundled preset, ensure openwakeword.download_models() "
+            f"was called at build time (see Dockerfile)."
+        )
+        raise
     return _oww_model
 
 

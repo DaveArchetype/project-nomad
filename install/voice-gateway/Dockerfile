@@ -14,9 +14,11 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Pre-fetch the bundled wake word preset models at build time so a fresh
-# container doesn't stall on first connection downloading them.
-RUN python -c "from openwakeword.model import Model; Model(wakeword_models=['hey_jarvis'], inference_framework='onnx')" || true
+# Pre-fetch the bundled wake word models at build time so a fresh container
+# doesn't stall on first connection downloading them. openWakeWord 0.6.0 does
+# NOT bundle .onnx files in the wheel — download_models() fetches them from
+# the upstream HuggingFace repo into the package's resources directory.
+RUN python -c "import openwakeword; openwakeword.download_models()"
 
 COPY app.py .
 
