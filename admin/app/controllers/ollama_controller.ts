@@ -205,36 +205,47 @@ export default class OllamaController {
         }
       }
 
-      // Voice Assistant: if the user appears to be asking about a specific day
-      // ("what happened yesterday?", "on Tuesday", etc.), pull in that day's
-      // recap (if generated) and/or the most relevant ambient transcript
-      // segments and inject them as additional context. Best-effort — a
-      // missing recap/empty match just means no extra context is added.
+      // Voice Assistant: inject recent ambient transcripts as context so the
+      // model knows what the user has been saying/talking about recently (e.g.
+      // "I'm watching a funny video" said via mic → "what am I doing?" via chat).
+      // Also, if the user appears to be asking about a specific day, pull in
+      // that day's recap and/or semantically similar ambient segments.
       if (rewrittenQuery) {
         const temporal = this.ambientRecallService.detectTemporalReference(rewrittenQuery)
-        if (temporal) {
-          const [recap, ambientMatches] = await Promise.all([
-            this.ambientRecallService.getRecapForDate(temporal.date),
-            this.ambientRecallService.searchSimilar(rewrittenQuery, 5, 0.3, temporal.date),
-          ])
+        const [recentAmbient, recap, ambientMatches] = await Promise.all([
+          this.ambientRecallService.getRecentAmbient(30, 10),
+          temporal
+            ? this.ambientRecallService.getRecapForDate(temporal.date)
+            : Promise.resolve(null),
+          temporal
+            ? this.ambientRecallService.searchSimilar(rewrittenQuery, 5, 0.3, temporal.date)
+            : Promise.resolve([]),
+        ])
 
-          const parts: string[] = []
-          if (recap) {
-            parts.push(`Daily recap for ${temporal.date}:\n${recap.summary}`)
-          }
-          if (ambientMatches.length > 0) {
-            parts.push(
-              `Relevant ambient transcript snippets from ${temporal.date}:\n` +
-                ambientMatches.map((m) => `- "${m.text}"`).join('\n')
-            )
-          }
+        const parts: string[] = []
+        if (recentAmbient.length > 0) {
+          const recentText = recentAmbient
+            .slice()
+            .reverse()
+            .map((m) => `- "${m.text}"`)
+            .join('\n')
+          parts.push(`Recent things the user said (within the last 30 minutes):\n${recentText}`)
+        }
+        if (recap) {
+          parts.push(`Daily recap for ${temporal!.date}:\n${recap.summary}`)
+        }
+        if (ambientMatches.length > 0) {
+          parts.push(
+            `Relevant ambient transcript snippets from ${temporal!.date}:\n` +
+              ambientMatches.map((m) => `- "${m.text}"`).join('\n')
+          )
+        }
 
-          if (parts.length > 0) {
-            reqData.messages.unshift({
-              role: 'system' as const,
-              content: SYSTEM_PROMPTS.rag_context(parts.join('\n\n')),
-            })
-          }
+        if (parts.length > 0) {
+          reqData.messages.unshift({
+            role: 'system' as const,
+            content: SYSTEM_PROMPTS.rag_context(parts.join('\n\n')),
+          })
         }
       }
 

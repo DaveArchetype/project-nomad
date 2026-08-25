@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { IconVolume, IconPlayerStop, IconLoader2 } from '@tabler/icons-react'
 import api from '~/lib/api'
 import { useNotifications } from '~/context/NotificationContext'
@@ -21,6 +21,16 @@ export default function SpeakButton({ text, voice, className }: SpeakButtonProps
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const { addNotification } = useNotifications()
   const { mute, unmute } = useVoice()
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current = null
+        unmute()
+      }
+    }
+  }, [unmute])
 
   const stop = () => {
     audioRef.current?.pause()

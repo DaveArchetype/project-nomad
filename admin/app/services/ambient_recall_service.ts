@@ -8,17 +8,10 @@ import { RagService } from './rag_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { EMBEDDING_MODEL_NAME } from '../../constants/ollama.js'
 import { AMBIENT_RECALL_COLLECTION_NAME } from './voice_ingest_service.js'
+import AmbientRecording from '#models/ambient_recording'
 import DailyRecap from '#models/daily_recap'
 
-const WEEKDAYS = [
-  'sunday',
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-]
+const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 
 export type TemporalMatch = { date: string; label: string }
 
@@ -96,6 +89,20 @@ export class AmbientRecallService {
 
   async getRecapForDate(date: string): Promise<DailyRecap | null> {
     return DailyRecap.query().where('recap_date', date).first()
+  }
+
+  async getRecentAmbient(withinMinutes = 30, limit = 10): Promise<AmbientSearchResult[]> {
+    const cutoff = DateTime.now().minus({ minutes: withinMinutes })
+    const records = await AmbientRecording.query()
+      .where('started_at', '>=', cutoff.toSQL()!)
+      .orderBy('started_at', 'desc')
+      .limit(limit)
+    return records.map((r) => ({
+      text: r.transcript,
+      score: 1,
+      startedAtMs: r.started_at.toMillis(),
+      isWakeWord: r.is_wake_word,
+    }))
   }
 
   async searchSimilar(

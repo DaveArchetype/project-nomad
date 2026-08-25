@@ -39,6 +39,7 @@ export default function Chat({
   const voice = useVoice()
   const lastAutoReadMessageIdRef = useRef<string | null>(null)
   const currentAudioRef = useRef<HTMLAudioElement | null>(null)
+  const playingMessageIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!isMobileSidebarOpen) return
@@ -68,6 +69,7 @@ export default function Chat({
       return
     }
     lastAutoReadMessageIdRef.current = last.id
+    playingMessageIdRef.current = last.id
 
     voice.mute()
 
@@ -75,6 +77,7 @@ export default function Chat({
       .synthesizeSpeech(last.content)
       .then((blob) => {
         if (!blob) return
+        if (playingMessageIdRef.current !== last.id) return
         if (currentAudioRef.current) {
           currentAudioRef.current.pause()
           currentAudioRef.current = null
@@ -82,22 +85,45 @@ export default function Chat({
         const audio = new Audio(URL.createObjectURL(blob))
         currentAudioRef.current = audio
         audio.onended = () => {
+          if (playingMessageIdRef.current === last.id) {
+            playingMessageIdRef.current = null
+          }
           voice.unmute()
           currentAudioRef.current = null
         }
         audio.onerror = () => {
+          if (playingMessageIdRef.current === last.id) {
+            playingMessageIdRef.current = null
+          }
           voice.unmute()
           currentAudioRef.current = null
         }
         audio.play().catch(() => {
+          if (playingMessageIdRef.current === last.id) {
+            playingMessageIdRef.current = null
+          }
           voice.unmute()
           currentAudioRef.current = null
         })
       })
       .catch(() => {
+        playingMessageIdRef.current = null
         voice.unmute()
       })
   }, [messages, autoReadReplies, voice])
+
+  useEffect(() => {
+    if (!playingMessageIdRef.current) return
+    const stillExists = messages.some((m) => m.id === playingMessageIdRef.current)
+    if (!stillExists) {
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause()
+        currentAudioRef.current = null
+      }
+      playingMessageIdRef.current = null
+      voice.unmute()
+    }
+  }, [messages, voice])
 
   const { data: knownCollections = [] } = useQuery({
     queryKey: ['kbCollections'],
