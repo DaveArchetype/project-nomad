@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { IconPlayerStop } from '@tabler/icons-react'
 import ChatSidebar from './ChatSidebar'
 import ChatHeader from './ChatHeader'
 import ChatMessageList from './ChatMessageList'
@@ -40,6 +41,21 @@ export default function Chat({
   const lastAutoReadMessageIdRef = useRef<string | null>(null)
   const currentAudioRef = useRef<HTMLAudioElement | null>(null)
   const playingMessageIdRef = useRef<string | null>(null)
+  const [isSpeaking, setIsSpeaking] = useState(false)
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null)
+  const [speakingWordIndex, setSpeakingWordIndex] = useState(-1)
+
+  const stopSpeaking = () => {
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause()
+      currentAudioRef.current = null
+    }
+    playingMessageIdRef.current = null
+    setIsSpeaking(false)
+    setSpeakingMessageId(null)
+    setSpeakingWordIndex(-1)
+    voice.unmute()
+  }
 
   useEffect(() => {
     if (!isMobileSidebarOpen) return
@@ -70,6 +86,12 @@ export default function Chat({
     }
     lastAutoReadMessageIdRef.current = last.id
     playingMessageIdRef.current = last.id
+    setIsSpeaking(true)
+    setSpeakingMessageId(last.id)
+    setSpeakingWordIndex(-1)
+
+    const words = last.content.split(/\s+/).filter(Boolean)
+    const wordCount = words.length
 
     voice.mute()
 
@@ -84,10 +106,21 @@ export default function Chat({
         }
         const audio = new Audio(URL.createObjectURL(blob))
         currentAudioRef.current = audio
+
+        audio.ontimeupdate = () => {
+          if (!audio.duration || wordCount === 0) return
+          const progress = audio.currentTime / audio.duration
+          const idx = Math.min(wordCount - 1, Math.floor(progress * wordCount))
+          setSpeakingWordIndex(idx)
+        }
+
         audio.onended = () => {
           if (playingMessageIdRef.current === last.id) {
             playingMessageIdRef.current = null
           }
+          setIsSpeaking(false)
+          setSpeakingMessageId(null)
+          setSpeakingWordIndex(-1)
           voice.unmute()
           currentAudioRef.current = null
         }
@@ -95,6 +128,9 @@ export default function Chat({
           if (playingMessageIdRef.current === last.id) {
             playingMessageIdRef.current = null
           }
+          setIsSpeaking(false)
+          setSpeakingMessageId(null)
+          setSpeakingWordIndex(-1)
           voice.unmute()
           currentAudioRef.current = null
         }
@@ -102,12 +138,18 @@ export default function Chat({
           if (playingMessageIdRef.current === last.id) {
             playingMessageIdRef.current = null
           }
+          setIsSpeaking(false)
+          setSpeakingMessageId(null)
+          setSpeakingWordIndex(-1)
           voice.unmute()
           currentAudioRef.current = null
         })
       })
       .catch(() => {
         playingMessageIdRef.current = null
+        setIsSpeaking(false)
+        setSpeakingMessageId(null)
+        setSpeakingWordIndex(-1)
         voice.unmute()
       })
   }, [messages, autoReadReplies, voice])
@@ -116,14 +158,9 @@ export default function Chat({
     if (!playingMessageIdRef.current) return
     const stillExists = messages.some((m) => m.id === playingMessageIdRef.current)
     if (!stillExists) {
-      if (currentAudioRef.current) {
-        currentAudioRef.current.pause()
-        currentAudioRef.current = null
-      }
-      playingMessageIdRef.current = null
-      voice.unmute()
+      stopSpeaking()
     }
-  }, [messages, voice])
+  }, [messages])
 
   const { data: knownCollections = [] } = useQuery({
     queryKey: ['kbCollections'],
@@ -249,7 +286,24 @@ export default function Chat({
             chatSuggestionsEnabled={suggestionsEnabled}
             chatSuggestionsLoading={chatSuggestionsLoading}
             onSuggestionClick={(suggestion) => stream.handleSendMessage(suggestion)}
+            speakingMessageId={speakingMessageId}
+            speakingWordIndex={speakingWordIndex}
           />
+          {isSpeaking && (
+            <div className="flex items-center justify-between gap-3 px-4 py-2 bg-desert-green/10 border-t border-desert-green/30">
+              <span className="text-sm text-desert-green font-medium animate-pulse">
+                Speaking...
+              </span>
+              <button
+                type="button"
+                onClick={stopSpeaking}
+                className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium bg-desert-green text-white hover:bg-desert-green/90 transition-colors cursor-pointer"
+              >
+                <IconPlayerStop className="size-4" />
+                Stop
+              </button>
+            </div>
+          )}
           <ChatComposer
             isLoading={isLoading}
             onSendMessage={stream.handleSendMessage}

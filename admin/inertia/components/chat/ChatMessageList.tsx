@@ -14,6 +14,8 @@ interface ChatMessageListProps {
   chatSuggestionsEnabled?: boolean
   chatSuggestionsLoading?: boolean
   onSuggestionClick: (suggestion: string) => void
+  speakingMessageId?: string | null
+  speakingWordIndex?: number
 }
 
 export default function ChatMessageList({
@@ -24,6 +26,8 @@ export default function ChatMessageList({
   chatSuggestionsEnabled = false,
   chatSuggestionsLoading = false,
   onSuggestionClick,
+  speakingMessageId,
+  speakingWordIndex,
 }: ChatMessageListProps) {
   const { containerRef, setMessageRef } = useAutoScroll(messages, resetKey)
 
@@ -86,7 +90,10 @@ export default function ChatMessageList({
           )}
         >
           {message.role === 'assistant' && <ChatAssistantAvatar />}
-          <ChatMessageBubble message={message} />
+          <ChatMessageBubble
+            message={message}
+            speakingWordIndex={speakingMessageId === message.id ? (speakingWordIndex ?? -1) : -1}
+          />
         </div>
       ))}
       {isLoading && (

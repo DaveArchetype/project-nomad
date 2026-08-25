@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react'
 import { useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { IconDownload, IconTrash, IconLoader2, IconCheck } from '@tabler/icons-react'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
 import StyledButton from '~/components/StyledButton'
@@ -64,11 +65,57 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
     enabled: Boolean(status?.gateway.online),
   })
 
+  const queryClient = useQueryClient()
+
   const { data: ttsVoices } = useQuery({
     queryKey: ['voice', 'tts-voices'],
     queryFn: () => api.getTtsVoices(),
     enabled: Boolean(status?.tts.online),
   })
+
+  const [downloadingVoice, setDownloadingVoice] = useState<string | null>(null)
+  const [deletingVoice, setDeletingVoice] = useState<string | null>(null)
+
+  async function handleDownloadVoice(voice: string) {
+    setDownloadingVoice(voice)
+    try {
+      const res = await api.downloadTtsVoice(voice)
+      if (res?.success) {
+        addNotification({ message: res.message, type: 'success' })
+        queryClient.invalidateQueries({ queryKey: ['voice', 'tts-voices'] })
+      } else {
+        addNotification({ message: res?.message || 'Download failed.', type: 'error' })
+      }
+    } catch {
+      addNotification({ message: 'Failed to download voice.', type: 'error' })
+    } finally {
+      setDownloadingVoice(null)
+    }
+  }
+
+  async function handleDeleteVoice(voice: string) {
+    if (voice === ttsVoice) {
+      addNotification({
+        message: 'Cannot delete the currently selected voice. Switch to another first.',
+        type: 'error',
+      })
+      return
+    }
+    setDeletingVoice(voice)
+    try {
+      const res = await api.deleteTtsVoice(voice)
+      if (res?.success) {
+        addNotification({ message: res.message, type: 'success' })
+        queryClient.invalidateQueries({ queryKey: ['voice', 'tts-voices'] })
+      } else {
+        addNotification({ message: res?.message || 'Delete failed.', type: 'error' })
+      }
+    } catch {
+      addNotification({ message: 'Failed to delete voice.', type: 'error' })
+    } finally {
+      setDeletingVoice(null)
+    }
+  }
 
   const { data: recaps, refetch: refetchRecaps } = useQuery({
     queryKey: ['voice', 'recaps'],
@@ -374,18 +421,15 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
                   }}
                   className="w-full sm:w-64 px-3 py-2 border border-border-default rounded-md bg-surface-primary text-sm"
                 >
-                  {(
-                    ttsVoices?.voices ?? [
-                      'en_US-lessac-medium',
-                      'en_US-amy-medium',
-                      'en_GB-alan-medium',
-                    ]
-                  ).map((v) => (
+                  {(ttsVoices?.downloaded ?? ['en_US-lessac-medium']).map((v) => (
                     <option key={v} value={v}>
-                      {v}
+                      {v.replace(/_/g, ' ')}
                     </option>
                   ))}
                 </select>
+                <p className="text-sm text-text-muted mt-1">
+                  Only downloaded voices appear here. Download more below.
+                </p>
               </div>
               <div>
                 <label className="block text-base font-medium text-text-primary mb-1.5">
@@ -402,6 +446,92 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
                   onTouchEnd={() => save('tts.speechRate', ttsSpeechRate)}
                   className="w-full sm:w-64"
                 />
+              </div>
+
+              <div className="border-t border-border-subtle pt-4">
+                <h3 className="text-sm font-semibold text-text-primary mb-2">Voice library</h3>
+                <p className="text-sm text-text-muted mb-3">
+                  Download additional Piper voices. Downloaded voices appear in the selector above.
+                  Files are ~50-100MB each.
+                </p>
+                <div className="max-h-72 overflow-y-auto rounded-md border border-border-subtle divide-y divide-border-subtle">
+                  {(ttsVoices?.voices ?? []).map((voice) => {
+                    const isDownloaded = (ttsVoices?.downloaded ?? []).includes(voice)
+                    const isSelected = voice === ttsVoice
+                    const isDownloading = downloadingVoice === voice
+                    const isDeleting = deletingVoice === voice
+                    return (
+                      <div
+                        key={voice}
+                        className="flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-surface-secondary/50 transition-colors"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-text-primary truncate">
+                              {voice.replace(/_/g, ' ')}
+                            </span>
+                            {isDownloaded && (
+                              <IconCheck className="size-4 text-desert-green shrink-0" />
+                            )}
+                            {isSelected && (
+                              <span className="text-xs text-desert-green font-medium shrink-0">
+                                (selected)
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs text-text-muted">
+                            {voice.split('-').slice(-1)[0]} quality
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {isDownloaded ? (
+                            <>
+                              <SpeakButton
+                                text="Hello, this is a voice preview."
+                                voice={voice}
+                                className="text-text-muted hover:text-desert-green"
+                              />
+                              {!isSelected && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteVoice(voice)}
+                                  disabled={isDeleting}
+                                  className="text-text-muted hover:text-red-500 transition-colors disabled:opacity-50 cursor-pointer"
+                                  title="Delete voice"
+                                >
+                                  {isDeleting ? (
+                                    <IconLoader2 className="size-4 animate-spin" />
+                                  ) : (
+                                    <IconTrash className="size-4" />
+                                  )}
+                                </button>
+                              )}
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadVoice(voice)}
+                              disabled={isDownloading}
+                              className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium bg-desert-green/10 text-desert-green hover:bg-desert-green/20 transition-colors disabled:opacity-50 cursor-pointer"
+                            >
+                              {isDownloading ? (
+                                <IconLoader2 className="size-3.5 animate-spin" />
+                              ) : (
+                                <IconDownload className="size-3.5" />
+                              )}
+                              {isDownloading ? 'Downloading…' : 'Download'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {ttsVoices && ttsVoices.voices.length === 0 && (
+                    <div className="px-3 py-4 text-sm text-text-muted text-center">
+                      No voices available. Make sure the TTS service is running.
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </section>

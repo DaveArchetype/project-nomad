@@ -1562,9 +1562,33 @@ class API {
 
   async getTtsVoices() {
     return catchInternal(async () => {
-      const response = await this.client.get<{ voices: string[]; default: string }>(
-        '/voice/tts/voices'
+      const response = await this.client.get<{
+        voices: string[]
+        downloaded: string[]
+        default: string
+      }>('/voice/tts/voices')
+      return response.data
+    })()
+  }
+
+  async downloadTtsVoice(voice: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ success: boolean; message: string; voice: string }>(
+        '/voice/tts/voices/download',
+        { voice },
+        { timeout: 120_000 }
       )
+      return response.data
+    })()
+  }
+
+  async deleteTtsVoice(voice: string) {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{
+        success: boolean
+        message: string
+        voice: string
+      }>(`/voice/tts/voices/${encodeURIComponent(voice)}`)
       return response.data
     })()
   }

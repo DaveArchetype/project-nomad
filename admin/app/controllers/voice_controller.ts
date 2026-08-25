@@ -62,6 +62,24 @@ export default class VoiceController {
     return response.status(200).json(voices)
   }
 
+  async downloadTtsVoice({ request, response }: HttpContext) {
+    const voice = request.input('voice')
+    if (typeof voice !== 'string' || !voice.trim()) {
+      return response.status(400).json({ error: 'voice is required.' })
+    }
+    const result = await this.ttsService.downloadVoice(voice.trim())
+    return response.status(result.success ? 200 : 502).json(result)
+  }
+
+  async deleteTtsVoice({ params, response }: HttpContext) {
+    const voice = params.voice
+    if (!voice) {
+      return response.status(400).json({ error: 'voice is required.' })
+    }
+    const result = await this.ttsService.deleteVoice(voice)
+    return response.status(result.success ? 200 : 502).json(result)
+  }
+
   async synthesize({ request, response }: HttpContext) {
     const data = await request.validateUsing(synthesizeSchema)
     const result = await this.ttsService.synthesize(data.text, data.voice)

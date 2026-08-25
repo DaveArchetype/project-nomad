@@ -30,6 +30,7 @@ function stripHrAfterTable() {
 
 export interface ChatMessageBubbleProps {
   message: ChatMessage
+  speakingWordIndex?: number
 }
 
 type SelectedSource = {
@@ -39,7 +40,60 @@ type SelectedSource = {
   kiwixPath?: string
 }
 
-export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
+function stripMarkdownForHighlighting(text: string): string {
+  let s = text
+  s = s.replace(/```[\s\S]*?```/g, ' ')
+  s = s.replace(/`([^`]+)`/g, '$1')
+  s = s.replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+  s = s.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+  s = s.replace(/#{1,6}\s+/g, '')
+  s = s.replace(/\*\*([^*]+)\*\*/g, '$1')
+  s = s.replace(/\*([^*]+)\*/g, '$1')
+  s = s.replace(/__([^_]+)__/g, '$1')
+  s = s.replace(/_([^_]+)_/g, '$1')
+  s = s.replace(/~~([^~]+)~~/g, '$1')
+  s = s.replace(/^\s*[-*+]\s+/gm, '')
+  s = s.replace(/^\s*\d+\.\s+/gm, '')
+  s = s.replace(/^\s*>\s+/gm, '')
+  s = s.replace(/\|/g, ' ')
+  s = s.replace(/[#*~`]/g, '')
+  s = s.replace(/\n{2,}/g, '\n')
+  return s.trim()
+}
+
+function SpeakingText({ text, currentIndex }: { text: string; currentIndex: number }) {
+  const words = text.split(/(\s+)/)
+  let wordIdx = -1
+  return (
+    <span>
+      {words.map((token, i) => {
+        if (/\s/.test(token)) return <span key={i}>{token}</span>
+        wordIdx++
+        const isCurrent = wordIdx === currentIndex
+        const isPast = wordIdx < currentIndex
+        return (
+          <span
+            key={i}
+            className={
+              isCurrent
+                ? 'bg-desert-green/30 rounded px-0.5 transition-colors'
+                : isPast
+                  ? 'text-text-muted'
+                  : ''
+            }
+          >
+            {token}
+          </span>
+        )
+      })}
+    </span>
+  )
+}
+
+export default function ChatMessageBubble({
+  message,
+  speakingWordIndex = -1,
+}: ChatMessageBubbleProps) {
   const [viewingSource, setViewingSource] = useState<SelectedSource | null>(null)
   const [viewingImageIndex, setViewingImageIndex] = useState<number | null>(null)
   const [viewingSourcePreview, setViewingSourcePreview] = useState<number | null>(null)
@@ -187,7 +241,14 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
           message.role === 'assistant' ? 'prose prose-sm max-w-none' : 'whitespace-pre-wrap'
         )}
       >
-        {message.role === 'assistant' ? (
+        {message.role === 'assistant' && speakingWordIndex >= 0 ? (
+          <p className="mb-0">
+            <SpeakingText
+              text={stripMarkdownForHighlighting(message.content)}
+              currentIndex={speakingWordIndex}
+            />
+          </p>
+        ) : message.role === 'assistant' ? (
           <ReactMarkdown
             remarkPlugins={[remarkGfm, stripHrAfterTable]}
             components={{

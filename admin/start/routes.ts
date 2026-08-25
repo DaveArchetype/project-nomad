@@ -373,6 +373,14 @@ router
       summary: 'List available Piper TTS voices',
       tags: ['voice'],
     })
+    documented(router.post('/tts/voices/download', [VoiceController, 'downloadTtsVoice']), {
+      summary: 'Download a Piper TTS voice model',
+      tags: ['voice'],
+    })
+    documented(router.delete('/tts/voices/:voice', [VoiceController, 'deleteTtsVoice']), {
+      summary: 'Delete a downloaded Piper TTS voice model',
+      tags: ['voice'],
+    })
     documented(router.post('/tts/synthesize', [VoiceController, 'synthesize']), {
       summary: 'Synthesize speech from text via Piper',
       tags: ['voice'],

@@ -41,7 +41,7 @@ export class TtsService {
     }
   }
 
-  async listVoices(): Promise<{ voices: string[]; default: string } | null> {
+  async listVoices(): Promise<{ voices: string[]; downloaded: string[]; default: string } | null> {
     const url = await this.getUrl()
     if (!url) return null
     try {
@@ -52,6 +52,34 @@ export class TtsService {
         `[TtsService] Failed to list voices: ${err instanceof Error ? err.message : String(err)}`
       )
       return null
+    }
+  }
+
+  async downloadVoice(voice: string): Promise<{ success: boolean; message: string }> {
+    const url = await this.getUrl()
+    if (!url) return { success: false, message: 'Text-to-Speech service is not installed.' }
+    try {
+      const res = await axios.post(`${url}/voices/download`, { voice }, { timeout: 120_000 })
+      return res.data
+    } catch (err: any) {
+      const message = err?.response?.data?.detail || err?.message || 'Download failed.'
+      logger.error(`[TtsService] Download voice failed: ${message}`)
+      return { success: false, message }
+    }
+  }
+
+  async deleteVoice(voice: string): Promise<{ success: boolean; message: string }> {
+    const url = await this.getUrl()
+    if (!url) return { success: false, message: 'Text-to-Speech service is not installed.' }
+    try {
+      const res = await axios.delete(`${url}/voices/${encodeURIComponent(voice)}`, {
+        timeout: 10_000,
+      })
+      return res.data
+    } catch (err: any) {
+      const message = err?.response?.data?.detail || err?.message || 'Delete failed.'
+      logger.error(`[TtsService] Delete voice failed: ${message}`)
+      return { success: false, message }
     }
   }
 

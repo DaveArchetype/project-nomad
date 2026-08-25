@@ -33,10 +33,42 @@ MODELS_DIR.mkdir(parents=True, exist_ok=True)
 DEFAULT_VOICE = os.environ.get("DEFAULT_VOICE", "en_US-lessac-medium")
 VOICES_BASE_URL = "https://huggingface.co/rhasspy/piper-voices/resolve/main"
 
-CURATED_VOICES = [
+VOICE_CATALOG = [
     "en_US-lessac-medium",
     "en_US-amy-medium",
+    "en_US-amy-low",
+    "en_US-libritts-high",
+    "en_US-ryan-high",
+    "en_US-ryan-medium",
+    "en_US-arctic-medium",
     "en_GB-alan-medium",
+    "en_GB-alan-low",
+    "en_GB-jenny_dioco-medium",
+    "en_GB-northern_english_male-medium",
+    "en_GB-semaine-medium",
+    "en_GB-southern_english_female-low",
+    "en_GB-vctk-medium",
+    "en_IE-nos-low",
+    "en_ZA-google-medium",
+    "fr_FR-siwis-medium",
+    "fr_FR-upmc-medium",
+    "de_DE-thorsten-medium",
+    "de_DE-thorsten-high",
+    "de_DE-ramona-low",
+    "es_ES-carlfm-x_low",
+    "es_ES-davefx-medium",
+    "es_MX-claude-high",
+    "it_IT-riccardo-x_low",
+    "nl_BE-nathaan-medium",
+    "nl_NL-mls-medium",
+    "pl_PL-gosia-medium",
+    "pt_BR-faber-medium",
+    "pt_PT-tugao-medium",
+    "ru_RU-irina-medium",
+    "ru_RU-denis-medium",
+    "vi_VN-vivos-x_low",
+    "zh_CN-huayan-medium",
+    "zh_CN-huayan-x_low",
 ]
 
 app = FastAPI(title="Project NOMAD TTS")
@@ -102,9 +134,62 @@ async def health():
 
 @app.get("/voices")
 async def list_voices():
-    downloaded = sorted(p.stem for p in MODELS_DIR.glob("*.onnx"))
-    catalog = sorted(set(CURATED_VOICES) | set(downloaded))
-    return {"voices": catalog, "downloaded": downloaded, "default": DEFAULT_VOICE}
+    downloaded = sorted(
+        p.name.replace(".onnx", "")
+        for p in MODELS_DIR.glob("*.onnx")
+        if not p.name.endswith(".part")
+    )
+    return {
+        "voices": sorted(VOICE_CATALOG),
+        "downloaded": downloaded,
+        "default": DEFAULT_VOICE,
+    }
+
+
+class DownloadVoiceRequest(BaseModel):
+    voice: str
+
+
+@app.post("/voices/download")
+async def download_voice(req: DownloadVoiceRequest):
+    voice = req.voice.strip()
+    if not voice:
+        raise HTTPException(status_code=400, detail="voice must not be empty.")
+
+    onnx_path = MODELS_DIR / f"{voice}.onnx"
+    json_path = MODELS_DIR / f"{voice}.onnx.json"
+    if onnx_path.exists() and json_path.exists():
+        return {"success": True, "message": f"Voice '{voice}' is already downloaded.", "voice": voice}
+
+    try:
+        _ensure_voice_downloaded(voice)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Download failed: {exc}")
+
+    return {"success": True, "message": f"Voice '{voice}' downloaded.", "voice": voice}
+
+
+@app.delete("/voices/{voice}")
+async def delete_voice(voice: str):
+    if not voice:
+        raise HTTPException(status_code=400, detail="voice must not be empty.")
+
+    deleted_files = []
+    for ext in (".onnx", ".onnx.json"):
+        path = MODELS_DIR / f"{voice}{ext}"
+        if path.exists():
+            path.unlink()
+            deleted_files.append(path.name)
+
+    if voice in _loaded_voices:
+        del _loaded_voices[voice]
+
+    if not deleted_files:
+        raise HTTPException(status_code=404, detail=f"Voice '{voice}' was not downloaded.")
+
+    return {"success": True, "message": f"Voice '{voice}' deleted.", "voice": voice}
 
 
 @app.post("/synthesize")

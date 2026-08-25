@@ -11,9 +11,20 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app.py .
 
+RUN python -c " \
+    import os; os.environ['MODELS_DIR']='/app/voices'; \
+    from pathlib import Path; Path('/app/voices').mkdir(parents=True, exist_ok=True); \
+    import importlib.util; spec=importlib.util.spec_from_file_location('app','/app/app.py'); \
+    m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m); \
+    m._ensure_voice_downloaded('en_US-lessac-medium') \
+    "
+
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 ENV MODELS_DIR=/data
 VOLUME ["/data"]
 
 EXPOSE 8610
 
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8610"]
+CMD ["/usr/local/bin/entrypoint.sh"]
