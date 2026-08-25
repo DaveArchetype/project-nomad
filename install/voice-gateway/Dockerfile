@@ -18,7 +18,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # doesn't stall on first connection downloading them. openWakeWord 0.6.0 does
 # NOT bundle .onnx files in the wheel — download_models() fetches them from
 # the upstream HuggingFace repo into the package's resources directory.
-RUN python -c "import openwakeword; openwakeword.download_models()"
+RUN python -c "import openwakeword.utils; openwakeword.utils.download_models()"
 
 COPY app.py .
 
