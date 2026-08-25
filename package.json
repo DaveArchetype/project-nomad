@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "deploy": "docker compose --env-file .env -f install/management_compose.yaml build && docker compose --env-file .env -f install/management_compose.yaml up -d",
     "migrate": "docker compose --env-file .env -f install/management_compose.yaml exec admin node ace migration:run",
-    "migrate:fresh": "docker compose --env-file .env -f install/management_compose.yaml exec admin node ace migration:fresh",
+    "migrate:fresh:dangerous": "docker compose --env-file .env -f install/management_compose.yaml exec admin node ace migration:fresh",
     "migrate:rollback": "docker compose --env-file .env -f install/management_compose.yaml exec admin node ace migration:rollback"
   },
   "author": "Crosstalk Solutions, LLC",
