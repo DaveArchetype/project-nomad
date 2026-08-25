@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { usePage } from '@inertiajs/react'
 import { VoiceContext, VoiceStatus } from '../context/VoiceContext'
 import { useNotifications } from '~/context/NotificationContext'
-import { UsePageProps } from '../../types/system'
 
 const WAKE_INDICATOR_DURATION_MS = 2500
 // Browsers won't always honor this exactly (Safari in particular), but Chrome/Firefox do — the
@@ -20,8 +18,13 @@ function floatTo16BitPCM(input: Float32Array): ArrayBuffer {
   return buffer
 }
 
-export default function VoiceProvider({ children }: { children: React.ReactNode }) {
-  const { voiceEnabled } = usePage<UsePageProps>().props
+export default function VoiceProvider({
+  children,
+  voiceEnabled = false,
+}: {
+  children: React.ReactNode
+  voiceEnabled?: boolean
+}) {
   const { addNotification } = useNotifications()
 
   const [enabled, setEnabled] = useState(false)

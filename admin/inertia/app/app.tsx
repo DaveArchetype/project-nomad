@@ -36,7 +36,8 @@ createInertiaApp({
   },
 
   setup({ el, App, props }) {
-    const environment = (props.initialPage.props as unknown as UsePageProps).environment
+    const initialProps = props.initialPage.props as unknown as UsePageProps
+    const environment = initialProps.environment
     const showDevtools = ['development', 'staging'].includes(environment)
     createRoot(el).render(
       <QueryClientProvider client={queryClient}>
@@ -47,7 +48,7 @@ createInertiaApp({
           >
             <NotificationsProvider>
               <ModalsProvider>
-                <VoiceProvider>
+                <VoiceProvider voiceEnabled={initialProps.voiceEnabled}>
                   <App {...props} />
                   {showDevtools && (
                     <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
