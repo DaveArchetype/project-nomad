@@ -38,6 +38,7 @@ export default function Chat({
   const effectiveThinkingRef = useRef<(model: string) => boolean>(() => false)
   const voice = useVoice()
   const lastAutoReadMessageIdRef = useRef<string | null>(null)
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null)
 
   useEffect(() => {
     if (!isMobileSidebarOpen) return
@@ -67,15 +68,36 @@ export default function Chat({
       return
     }
     lastAutoReadMessageIdRef.current = last.id
+
+    voice.mute()
+
     api
       .synthesizeSpeech(last.content)
       .then((blob) => {
         if (!blob) return
+        if (currentAudioRef.current) {
+          currentAudioRef.current.pause()
+          currentAudioRef.current = null
+        }
         const audio = new Audio(URL.createObjectURL(blob))
-        audio.play().catch(() => {})
+        currentAudioRef.current = audio
+        audio.onended = () => {
+          voice.unmute()
+          currentAudioRef.current = null
+        }
+        audio.onerror = () => {
+          voice.unmute()
+          currentAudioRef.current = null
+        }
+        audio.play().catch(() => {
+          voice.unmute()
+          currentAudioRef.current = null
+        })
       })
-      .catch(() => {})
-  }, [messages, autoReadReplies])
+      .catch(() => {
+        voice.unmute()
+      })
+  }, [messages, autoReadReplies, voice])
 
   const { data: knownCollections = [] } = useQuery({
     queryKey: ['kbCollections'],

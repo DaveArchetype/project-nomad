@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { IconVolume, IconPlayerStop, IconLoader2 } from '@tabler/icons-react'
 import api from '~/lib/api'
 import { useNotifications } from '~/context/NotificationContext'
+import { useVoice } from '~/context/VoiceContext'
 
 interface SpeakButtonProps {
   text: string
@@ -12,17 +13,20 @@ interface SpeakButtonProps {
 /**
  * Speaker button used on assistant chat messages and daily recap summaries.
  * Synthesizes speech via the Piper-backed `/api/voice/tts/synthesize`
- * endpoint and plays it back with a plain `<audio>` element.
+ * endpoint and plays it back with a plain `<audio>` element. Mutes the mic
+ * while playing to prevent the TTS audio from being picked up and re-transcribed.
  */
 export default function SpeakButton({ text, voice, className }: SpeakButtonProps) {
   const [state, setState] = useState<'idle' | 'loading' | 'playing'>('idle')
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const { addNotification } = useNotifications()
+  const { mute, unmute } = useVoice()
 
   const stop = () => {
     audioRef.current?.pause()
     audioRef.current = null
     setState('idle')
+    unmute()
   }
 
   const play = async () => {
@@ -31,6 +35,7 @@ export default function SpeakButton({ text, voice, className }: SpeakButtonProps
       return
     }
     setState('loading')
+    mute()
     try {
       const blob = await api.synthesizeSpeech(text, voice)
       if (!blob) {
@@ -39,8 +44,14 @@ export default function SpeakButton({ text, voice, className }: SpeakButtonProps
       const url = URL.createObjectURL(blob)
       const audio = new Audio(url)
       audioRef.current = audio
-      audio.onended = () => setState('idle')
-      audio.onerror = () => setState('idle')
+      audio.onended = () => {
+        setState('idle')
+        unmute()
+      }
+      audio.onerror = () => {
+        setState('idle')
+        unmute()
+      }
       await audio.play()
       setState('playing')
     } catch (err) {
@@ -49,6 +60,7 @@ export default function SpeakButton({ text, voice, className }: SpeakButtonProps
         type: 'error',
       })
       setState('idle')
+      unmute()
     }
   }
 

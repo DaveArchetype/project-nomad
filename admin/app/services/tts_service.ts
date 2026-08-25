@@ -65,10 +65,15 @@ export class TtsService {
     const speedRaw = await KVStore.getValue('tts.speechRate')
     const speed = speedRaw ? Number.parseFloat(speedRaw) : 1.0
 
+    const cleanText = sanitizeTextForSpeech(text)
+    if (!cleanText) {
+      return { success: false, message: 'Nothing to synthesize after sanitizing.' }
+    }
+
     try {
       const response = await axios.post(
         `${url}/synthesize`,
-        { text, voice, speed },
+        { text: cleanText, voice, speed },
         { responseType: 'arraybuffer', timeout: 30_000 }
       )
       return { success: true, audio: Buffer.from(response.data), contentType: 'audio/wav' }
@@ -81,4 +86,31 @@ export class TtsService {
       return { success: false, message }
     }
   }
+}
+
+function sanitizeTextForSpeech(text: string): string {
+  let s = text
+
+  s = s.replace(/^#{1,6}\s+/gm, '')
+  s = s.replace(/^\|.*\|$/gm, '')
+  s = s.replace(/^\s*[-:]+\s*$/gm, '')
+  s = s.replace(/```[\s\S]*?```/g, ' code block ')
+  s = s.replace(/`([^`]+)`/g, '$1')
+  s = s.replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+  s = s.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+  s = s.replace(/\*\*([^*]+)\*\*/g, '$1')
+  s = s.replace(/\*([^*]+)\*/g, '$1')
+  s = s.replace(/__([^_]+)__/g, '$1')
+  s = s.replace(/_([^_]+)_/g, '$1')
+  s = s.replace(/~~([^~]+)~~/g, '$1')
+  s = s.replace(/^\s*[-*+]\s+/gm, '')
+  s = s.replace(/^\s*\d+\.\s+/gm, '')
+  s = s.replace(/^\s*>\s+/gm, '')
+  s = s.replace(/\|/g, ' ')
+  s = s.replace(/[#*~`]/g, '')
+  s = s.replace(/\.{3,}/g, ' ')
+  s = s.replace(/\*{2,}/g, ' ')
+  s = s.replace(/\n{3,}/g, '\n\n')
+  s = s.replace(/\s{2,}/g, ' ')
+  return s.trim()
 }

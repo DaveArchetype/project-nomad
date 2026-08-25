@@ -13,10 +13,13 @@ export interface VoiceContextType {
   lastWakeAt: number | null
   /**
    * The finalized transcript of the utterance that contained the wake word (may include the wake
-   * phrase itself, e.g. "hey jarvis what's the weather"). Chat uses this to prefill the composer.
+   * phrase itself, e.g. "hey jarvis what's the weather"). Chat uses this to auto-send.
    */
   lastWakeCommand: { text: string; at: number } | null
   toggle: () => void
+  /** Temporarily silence mic transmission (e.g. while TTS is playing to prevent feedback). */
+  mute: () => void
+  unmute: () => void
 }
 
 export const VoiceContext = createContext<VoiceContextType | undefined>(undefined)

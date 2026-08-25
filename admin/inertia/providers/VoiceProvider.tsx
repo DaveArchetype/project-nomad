@@ -38,6 +38,7 @@ export default function VoiceProvider({
   const streamRef = useRef<MediaStream | null>(null)
   const processorRef = useRef<ScriptProcessorNode | null>(null)
   const wakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const mutedRef = useRef(false)
 
   const stop = useCallback(() => {
     processorRef.current?.disconnect()
@@ -104,8 +105,6 @@ export default function VoiceProvider({
 
       ws.onclose = () => {
         if (streamRef.current) {
-          // The socket dropped while the mic is still supposed to be on — surface it rather
-          // than silently going deaf.
           setStatus('error')
           setError('Lost connection to the Voice Gateway.')
         }
@@ -125,6 +124,7 @@ export default function VoiceProvider({
       processorRef.current = processor
 
       processor.onaudioprocess = (event) => {
+        if (mutedRef.current) return
         if (ws.readyState !== WebSocket.OPEN) return
         const input = event.inputBuffer.getChannelData(0)
         ws.send(floatTo16BitPCM(input))
@@ -143,6 +143,14 @@ export default function VoiceProvider({
 
   const toggle = useCallback(() => {
     setEnabled((prev) => !prev)
+  }, [])
+
+  const mute = useCallback(() => {
+    mutedRef.current = true
+  }, [])
+
+  const unmute = useCallback(() => {
+    mutedRef.current = false
   }, [])
 
   useEffect(() => {
@@ -171,6 +179,8 @@ export default function VoiceProvider({
         lastWakeAt,
         lastWakeCommand,
         toggle,
+        mute,
+        unmute,
       }}
     >
       {children}

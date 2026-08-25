@@ -50,10 +50,10 @@ export default function ChatComposer({
   useEffect(() => {
     if (!voiceCommand || voiceCommand.at === lastVoiceCommandAtRef.current) return
     lastVoiceCommandAtRef.current = voiceCommand.at
-    setInput(voiceCommand.text)
-    textareaRef.current?.focus()
-    addNotification({ message: 'Wake word detected — review and send when ready.', type: 'info' })
-  }, [voiceCommand, addNotification])
+    const text = voiceCommand.text.trim()
+    if (!text || isLoading) return
+    onSendMessage(text)
+  }, [voiceCommand, onSendMessage, isLoading])
 
   const handleDownloadModel = async () => {
     setIsDownloading(true)
