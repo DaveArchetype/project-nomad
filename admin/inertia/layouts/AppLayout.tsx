@@ -10,6 +10,7 @@ import { IconArrowLeft, IconBug } from '@tabler/icons-react'
 import classNames from 'classnames'
 import ThemeToggle from '~/components/ThemeToggle'
 import DebugInfoModal from '~/components/DebugInfoModal'
+import MicStatusIndicator from '~/components/layout/MicStatusIndicator'
 
 export default function AppLayout({
   children,
@@ -80,6 +81,7 @@ export default function AppLayout({
             <IconBug className="size-4" />
             <span className="hidden sm:inline">Debug Info</span>
           </button>
+          <MicStatusIndicator />
           <ThemeToggle />
         </div>
       </header>

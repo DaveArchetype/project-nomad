@@ -18,4 +18,7 @@ export const SERVICE_NAMES = {
   HOMEBOX: 'nomad_homebox',
   VAULTWARDEN: 'nomad_vaultwarden',
   JELLYFIN: 'nomad_jellyfin',
+  // Voice Assistant — CPU-only ambient STT/wake-word/TTS pipeline
+  VOICE_GATEWAY: 'nomad_voice_gateway',
+  TTS: 'nomad_tts',
 }

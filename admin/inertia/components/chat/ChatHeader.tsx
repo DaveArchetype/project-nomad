@@ -4,6 +4,7 @@ import classNames from '~/lib/classNames'
 import { formatBytes } from '~/lib/util'
 import Switch from '~/components/inputs/Switch'
 import InfoTooltip from '~/components/InfoTooltip'
+import MicStatusIndicator from '~/components/layout/MicStatusIndicator'
 import { NomadInstalledModel } from '../../../types/ollama'
 
 interface ChatHeaderProps {
@@ -170,6 +171,7 @@ export default function ChatHeader({
           )}
         </div>
         {thinkingToggle}
+        <MicStatusIndicator />
         {isInModal && (
           <button
             type="button"
@@ -248,6 +250,10 @@ export default function ChatHeader({
             </div>
             {thinkingToggle}
             {remoteBadge}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-text-secondary">Voice Assistant:</span>
+              <MicStatusIndicator />
+            </div>
           </div>
         )}
       </div>

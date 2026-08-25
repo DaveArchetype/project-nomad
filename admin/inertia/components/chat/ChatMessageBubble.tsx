@@ -9,6 +9,7 @@ import FileViewerModal from './knowledge-base/FileViewerModal'
 import ImageViewerModal, { type ImageViewerImage } from './ImageViewerModal'
 import KiwixPreviewModal from './knowledge-base/KiwixPreviewModal'
 import { useKiwixBaseUrl } from '../../hooks/useKiwixBaseUrl'
+import SpeakButton from './SpeakButton'
 
 function imageUrlFor(path: string): string {
   // Optimistic local messages store base64 data URLs; persisted messages store
@@ -268,14 +269,19 @@ export default function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
       </div>
       <div
         className={classNames(
-          'text-xs mt-2',
+          'text-xs mt-2 flex items-center gap-2',
           message.role === 'user' ? 'text-white/70' : 'text-text-muted'
         )}
       >
-        {message.timestamp.toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-        })}
+        <span>
+          {message.timestamp.toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          })}
+        </span>
+        {message.role === 'assistant' && !message.isStreaming && message.content.trim() && (
+          <SpeakButton text={message.content} />
+        )}
       </div>
       {message.role === 'assistant' && message.sources && message.sources.length > 0 && (
         <div className="mt-3 border-t border-border-subtle pt-2">

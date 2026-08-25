@@ -217,7 +217,8 @@ export default class ServiceSeeder extends BaseSeeder {
       friendly_name: 'Stirling PDF',
       powered_by: 'Stirling-Tools',
       display_order: 20,
-      description: 'Locally-hosted PDF manipulation tool — merge, split, compress, convert, and more',
+      description:
+        'Locally-hosted PDF manipulation tool — merge, split, compress, convert, and more',
       icon: 'IconFileDescription',
       container_image: 'ghcr.io/stirling-tools/s-pdf:2.13.1',
       source_repo: 'https://github.com/Stirling-Tools/Stirling-PDF',
@@ -252,7 +253,8 @@ export default class ServiceSeeder extends BaseSeeder {
       friendly_name: 'File Browser',
       powered_by: 'FileBrowser',
       display_order: 21,
-      description: 'Web-based file manager — browse, upload, download, and organize files on your device',
+      description:
+        'Web-based file manager — browse, upload, download, and organize files on your device',
       icon: 'IconFolderOpen',
       container_image: 'filebrowser/filebrowser:v2',
       source_repo: 'https://github.com/filebrowser/filebrowser',
@@ -294,7 +296,7 @@ export default class ServiceSeeder extends BaseSeeder {
           'FB_USERNAME=admin',
           'FB_PASSWORD=$2a$10$Dvu3XTiLxvPTzvdOKu6y6.AmadN6Zt0ddLwK.8MQ.RCIQWunWBQXa',
         ],
-        User: 'root'
+        User: 'root',
       }),
       ui_location: '8410',
       ui_path: '/filebrowser',
@@ -342,7 +344,8 @@ export default class ServiceSeeder extends BaseSeeder {
       friendly_name: 'IT Tools',
       powered_by: 'IT-Tools',
       display_order: 23,
-      description: 'Collection of handy utilities for developers — UUID, hash, encoding, formatters, and more',
+      description:
+        'Collection of handy utilities for developers — UUID, hash, encoding, formatters, and more',
       icon: 'IconTool',
       container_image: 'ghcr.io/corentinth/it-tools:2024.10.22-7ca5933',
       source_repo: 'https://github.com/CorentinTh/it-tools',
@@ -368,7 +371,8 @@ export default class ServiceSeeder extends BaseSeeder {
       friendly_name: 'Excalidraw',
       powered_by: 'Excalidraw',
       display_order: 24,
-      description: 'Virtual whiteboard for sketching hand-drawn-style diagrams — works fully offline',
+      description:
+        'Virtual whiteboard for sketching hand-drawn-style diagrams — works fully offline',
       icon: 'IconPencil',
       container_image: 'excalidraw/excalidraw:sha-4bfc5bb',
       source_repo: 'https://github.com/excalidraw/excalidraw',
@@ -489,7 +493,8 @@ export default class ServiceSeeder extends BaseSeeder {
       friendly_name: 'Vaultwarden',
       powered_by: 'Vaultwarden',
       display_order: 26,
-      description: 'Lightweight Bitwarden-compatible password manager server — secure your credentials offline',
+      description:
+        'Lightweight Bitwarden-compatible password manager server — secure your credentials offline',
       icon: 'IconShieldLock',
       container_image: 'vaultwarden/server:1.36.0',
       source_repo: 'https://github.com/dani-garcia/vaultwarden',
@@ -504,10 +509,7 @@ export default class ServiceSeeder extends BaseSeeder {
         // ROCKET_TLS points at the self-signed cert generated on install by
         // DockerService._runPreinstallActions__Vaultwarden. Vaultwarden's web vault needs a secure
         // context (HTTPS) or it refuses to register/unlock, so it ships HTTPS-on-by-default.
-        Env: [
-          'WEBSOCKET_ENABLED=true',
-          'ROCKET_TLS={certs="/data/cert.pem",key="/data/key.pem"}',
-        ],
+        Env: ['WEBSOCKET_ENABLED=true', 'ROCKET_TLS={certs="/data/cert.pem",key="/data/key.pem"}'],
       }),
       // https: prefix tells getServiceLink to build an https:// Open link on this port.
       ui_location: 'https:8480',
@@ -552,6 +554,13 @@ export default class ServiceSeeder extends BaseSeeder {
       depends_on: null,
       metadata: JSON.stringify({ minMemoryMB: 2048, minDiskMB: 20480 }),
     },
+    // Note: Voice Gateway and TTS (Voice Assistant feature) are intentionally NOT registered
+    // here. Unlike the Supply Depot catalog above, they're built locally from source (see
+    // install/voice-gateway/ and install/tts/) and declared as plain services directly in
+    // install/management_compose.yaml — the same pattern used for `tei`, `mysql`, and `redis` —
+    // rather than pulled from a registry image via the dynamic installer. See
+    // VoiceGatewayClientService / TtsService for how their URLs are resolved without a `services`
+    // table row.
   ]
 
   async run() {
@@ -578,14 +587,16 @@ export default class ServiceSeeder extends BaseSeeder {
     for (const service of ServiceSeeder.DEFAULT_SERVICES) {
       const existing = existingServiceMap.get(service.service_name)
       if (existing && !existing.is_custom && !existing.is_user_modified) {
-        await Service.query().where('service_name', service.service_name).update({
-          container_config: service.container_config,
-          container_command: service.container_command ?? null,
-          metadata: (service as any).metadata ?? null,
-          category: service.category,
-          ui_location: service.ui_location,
-          ui_path: service.ui_path ?? null,
-        })
+        await Service.query()
+          .where('service_name', service.service_name)
+          .update({
+            container_config: service.container_config,
+            container_command: service.container_command ?? null,
+            metadata: (service as any).metadata ?? null,
+            category: service.category,
+            ui_location: service.ui_location,
+            ui_path: service.ui_path ?? null,
+          })
       }
     }
   }

@@ -100,6 +100,42 @@ export const KV_STORE_SCHEMA = {
   // herbal REMEDY sections stay hidden until this flips true. Defaults off
   // (null → false); flipped on after a clinician content-pass, not user-toggled.
   'drugReference.remediesEnabled': 'boolean',
+  // ── Voice Assistant (ambient STT / wake word / TTS) ──────────────────────
+  // Master switch surfaced in AI Settings > Voice. The navbar mic icon is the
+  // moment-to-moment on/off control; this gates whether the feature (and its
+  // navbar control) is available at all.
+  'voice.enabled': 'boolean',
+  // 'browser' | 'host' | 'both' — where ambient audio is captured from.
+  'voice.audioSource': 'string',
+  // Preset id (e.g. "hey_jarvis", "alexa") or "custom" when a trained model
+  // has been uploaded via POST /api/voice/wakeword-model.
+  'voice.wakeWordPreset': 'string',
+  // Set once a custom .onnx/.tflite model has been uploaded; relative path
+  // under storage. Empty when using a bundled preset.
+  'voice.customWakeWordModelPath': 'string',
+  // 0-1 detection threshold passed to openWakeWord. Default 0.5.
+  'voice.wakeWordSensitivity': 'string',
+  // faster-whisper model size: tiny | base | small | medium.
+  'stt.modelSize': 'string',
+  // BCP-47/whisper language code, or "auto".
+  'stt.language': 'string',
+  // 0-3, webrtcvad aggressiveness (higher = more aggressive speech filtering).
+  'stt.vadSensitivity': 'string',
+  // Days of ambient transcript retention before pruning. 0 = keep forever.
+  'voice.retentionDays': 'string',
+  'tts.enabled': 'boolean',
+  // Piper voice id (e.g. "en_US-lessac-medium").
+  'tts.voice': 'string',
+  'tts.autoReadReplies': 'boolean',
+  // 0.5-2.0 playback/synthesis rate multiplier.
+  'tts.speechRate': 'string',
+  'recap.enabled': 'boolean',
+  // 24h HH:MM, local server time, when the nightly recap job should run.
+  'recap.scheduleTime': 'string',
+  'recap.timezone': 'string',
+  // Ollama model name used to summarize the day's transcripts. Empty = reuse
+  // the chat default (chat.lastModel) at run time.
+  'recap.model': 'string',
 } as const
 
 type KVTagToType<T extends string> = T extends 'boolean' ? boolean : string

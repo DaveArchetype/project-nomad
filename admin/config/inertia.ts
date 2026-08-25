@@ -27,10 +27,14 @@ const inertiaConfig = defineConfig({
         return _assistantNameCache.value
       }
       const customName = await KVStore.getValue('ai.assistantCustomName')
-      const value = (customName && customName.trim()) ? customName : 'AI Assistant'
+      const value = customName && customName.trim() ? customName : 'AI Assistant'
       _assistantNameCache = { value, expiresAt: now + 60_000 }
       return value
     },
+    // Master switch for the Voice Assistant feature (AI Settings > Voice).
+    // Shared globally so the navbar mic icon (present on every root page)
+    // knows whether to render at all without an extra request.
+    voiceEnabled: async () => (await KVStore.getValue('voice.enabled')) ?? false,
   },
 
   /**
@@ -38,8 +42,8 @@ const inertiaConfig = defineConfig({
    */
   ssr: {
     enabled: false,
-    entrypoint: 'inertia/app/ssr.tsx'
-  }
+    entrypoint: 'inertia/app/ssr.tsx',
+  },
 })
 
 export default inertiaConfig

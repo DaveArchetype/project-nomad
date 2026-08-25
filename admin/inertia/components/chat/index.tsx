@@ -12,6 +12,7 @@ import { ChatMessage } from '../../../types/chat'
 import { useChatSessions } from './hooks/useChatSessions'
 import { useChatModels } from './hooks/useChatModels'
 import { useChatStream } from './hooks/useChatStream'
+import { useVoice } from '~/context/VoiceContext'
 
 interface ChatProps {
   enabled: boolean
@@ -19,6 +20,7 @@ interface ChatProps {
   onClose?: () => void
   suggestionsEnabled?: boolean
   streamingEnabled?: boolean
+  autoReadReplies?: boolean
 }
 
 export default function Chat({
@@ -27,12 +29,15 @@ export default function Chat({
   onClose,
   suggestionsEnabled = false,
   streamingEnabled = true,
+  autoReadReplies = false,
 }: ChatProps) {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [selectedModel, setSelectedModel] = useState<string>('')
   const effectiveThinkingRef = useRef<(model: string) => boolean>(() => false)
+  const voice = useVoice()
+  const lastAutoReadMessageIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!isMobileSidebarOpen) return
@@ -48,6 +53,29 @@ export default function Chat({
       console.warn('Failed to ensure TEI started on chat mount:', err)
     })
   }, [])
+
+  useEffect(() => {
+    if (!autoReadReplies) return
+    const last = messages[messages.length - 1]
+    if (
+      !last ||
+      last.role !== 'assistant' ||
+      last.isStreaming ||
+      !last.content.trim() ||
+      lastAutoReadMessageIdRef.current === last.id
+    ) {
+      return
+    }
+    lastAutoReadMessageIdRef.current = last.id
+    api
+      .synthesizeSpeech(last.content)
+      .then((blob) => {
+        if (!blob) return
+        const audio = new Audio(URL.createObjectURL(blob))
+        audio.play().catch(() => {})
+      })
+      .catch(() => {})
+  }, [messages, autoReadReplies])
 
   const { data: knownCollections = [] } = useQuery({
     queryKey: ['kbCollections'],
@@ -180,6 +208,7 @@ export default function Chat({
             rewriteModelAvailable={models.rewriteModelAvailable}
             isCheckingModels={models.isLoadingModels}
             selectedModelSupportsVision={models.selectedModelSupportsVision}
+            voiceCommand={voice.lastWakeCommand}
           />
         </div>
       </div>

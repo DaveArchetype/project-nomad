@@ -27,9 +27,11 @@ export default class ChatsController {
     }
 
     const chatSuggestionsEnabled = await KVStore.getValue('chat.suggestionsEnabled')
+    const ttsAutoReadReplies = await KVStore.getValue('tts.autoReadReplies')
     return inertia.render('chat', {
       settings: {
         chatSuggestionsEnabled: chatSuggestionsEnabled ?? false,
+        ttsAutoReadReplies: ttsAutoReadReplies ?? false,
       },
     })
   }

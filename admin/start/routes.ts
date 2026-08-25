@@ -25,6 +25,7 @@ import SystemController from '#controllers/system_controller'
 import CollectionUpdatesController from '#controllers/collection_updates_controller'
 import CreatorPacksController from '#controllers/creator_packs_controller'
 import ZimController from '#controllers/zim_controller'
+import VoiceController from '#controllers/voice_controller'
 import router from '@adonisjs/core/services/router'
 import transmit from '@adonisjs/transmit/services/main'
 import { documented } from '#start/openapi/documented'
@@ -85,6 +86,7 @@ import {
 import { updateNomadMdSchema } from '#validators/nomad_md'
 import { searchDrugValidator, interactionsValidator } from '#validators/drug_reference'
 import { conditionDrugsValidator } from '#validators/conditions'
+import { synthesizeSchema } from '#validators/voice'
 
 transmit.registerRoutes()
 
@@ -142,6 +144,7 @@ router
     router.get('/benchmark', [SettingsController, 'benchmark'])
     router.get('/support', [SettingsController, 'support'])
     router.get('/advanced', [SettingsController, 'advanced'])
+    router.get('/voice', [SettingsController, 'voice'])
   })
   .prefix('/settings')
 
@@ -347,6 +350,52 @@ router
     })
   })
   .prefix('/api/ollama')
+
+router
+  .group(() => {
+    documented(router.get('/status', [VoiceController, 'status']), {
+      summary: 'Get Voice Gateway / TTS health status',
+      tags: ['voice'],
+    })
+    documented(router.get('/wakeword-presets', [VoiceController, 'wakeWordPresets']), {
+      summary: 'List bundled wake word presets and whether a custom model is active',
+      tags: ['voice'],
+    })
+    documented(router.post('/wakeword-model', [VoiceController, 'uploadWakeWordModel']), {
+      summary: 'Upload a custom-trained openWakeWord ONNX model',
+      tags: ['voice'],
+    })
+    documented(router.delete('/wakeword-model', [VoiceController, 'deleteWakeWordModel']), {
+      summary: 'Remove the custom wake word model and revert to the bundled preset',
+      tags: ['voice'],
+    })
+    documented(router.get('/tts/voices', [VoiceController, 'ttsVoices']), {
+      summary: 'List available Piper TTS voices',
+      tags: ['voice'],
+    })
+    documented(router.post('/tts/synthesize', [VoiceController, 'synthesize']), {
+      summary: 'Synthesize speech from text via Piper',
+      tags: ['voice'],
+      request: synthesizeSchema,
+    })
+    documented(router.get('/recaps', [VoiceController, 'listRecaps']), {
+      summary: 'List recent daily recaps',
+      tags: ['voice'],
+    })
+    documented(router.get('/recaps/:date', [VoiceController, 'getRecap']), {
+      summary: 'Get the daily recap for a specific date (YYYY-MM-DD)',
+      tags: ['voice'],
+    })
+    documented(router.post('/recaps/generate', [VoiceController, 'generateRecap']), {
+      summary: 'Manually (re-)generate a daily recap',
+      tags: ['voice'],
+    })
+    documented(router.post('/recaps/reschedule', [VoiceController, 'rescheduleRecapJob']), {
+      summary: 'Re-apply the nightly recap cron schedule after a settings change',
+      tags: ['voice'],
+    })
+  })
+  .prefix('/api/voice')
 
 router
   .group(() => {

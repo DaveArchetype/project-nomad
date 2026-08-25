@@ -24,6 +24,7 @@ export type SystemInformationResponse = {
 export type UsePageProps = {
   appVersion: string
   environment: string
+  voiceEnabled: boolean
 }
 
 export type LSBlockDevice = {
@@ -78,12 +79,11 @@ export type SystemUpdateStatus = {
   timestamp: string
 }
 
-
 export type CheckLatestVersionResult = {
-  success: boolean,
-  updateAvailable: boolean,
-  currentVersion: string,
-  latestVersion: string,
+  success: boolean
+  updateAvailable: boolean
+  currentVersion: string
+  latestVersion: string
   message?: string
 }
 

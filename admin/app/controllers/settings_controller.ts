@@ -137,6 +137,70 @@ export default class SettingsController {
     })
   }
 
+  async voice({ inertia }: HttpContext) {
+    const [
+      voiceEnabled,
+      audioSource,
+      wakeWordPreset,
+      customWakeWordModelPath,
+      wakeWordSensitivity,
+      sttModelSize,
+      sttLanguage,
+      vadSensitivity,
+      retentionDays,
+      ttsEnabled,
+      ttsVoice,
+      ttsAutoReadReplies,
+      ttsSpeechRate,
+      recapEnabled,
+      recapScheduleTime,
+      recapTimezone,
+      recapModel,
+    ] = await Promise.all([
+      KVStore.getValue('voice.enabled'),
+      KVStore.getValue('voice.audioSource'),
+      KVStore.getValue('voice.wakeWordPreset'),
+      KVStore.getValue('voice.customWakeWordModelPath'),
+      KVStore.getValue('voice.wakeWordSensitivity'),
+      KVStore.getValue('stt.modelSize'),
+      KVStore.getValue('stt.language'),
+      KVStore.getValue('stt.vadSensitivity'),
+      KVStore.getValue('voice.retentionDays'),
+      KVStore.getValue('tts.enabled'),
+      KVStore.getValue('tts.voice'),
+      KVStore.getValue('tts.autoReadReplies'),
+      KVStore.getValue('tts.speechRate'),
+      KVStore.getValue('recap.enabled'),
+      KVStore.getValue('recap.scheduleTime'),
+      KVStore.getValue('recap.timezone'),
+      KVStore.getValue('recap.model'),
+    ])
+
+    return inertia.render('settings/voice', {
+      voice: {
+        settings: {
+          enabled: voiceEnabled ?? false,
+          audioSource: audioSource || 'browser',
+          wakeWordPreset: wakeWordPreset || 'hey_jarvis',
+          customWakeWordModelPath: customWakeWordModelPath ?? '',
+          wakeWordSensitivity: wakeWordSensitivity || '0.5',
+          sttModelSize: sttModelSize || 'base',
+          sttLanguage: sttLanguage || 'auto',
+          vadSensitivity: vadSensitivity || '2',
+          retentionDays: retentionDays || '30',
+          ttsEnabled: ttsEnabled ?? false,
+          ttsVoice: ttsVoice || 'en_US-lessac-medium',
+          ttsAutoReadReplies: ttsAutoReadReplies ?? false,
+          ttsSpeechRate: ttsSpeechRate || '1.0',
+          recapEnabled: recapEnabled ?? false,
+          recapScheduleTime: recapScheduleTime || '23:55',
+          recapTimezone: recapTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+          recapModel: recapModel ?? '',
+        },
+      },
+    })
+  }
+
   async advanced({ inertia }: HttpContext) {
     // When the env var is set it always takes precedence over the stored value,
     // so surface that to the UI to disable the field and explain the override.
@@ -163,6 +227,12 @@ export default class SettingsController {
       return response.status(422).send({ success: false, message: valueError })
     }
     await this.systemService.updateSetting(reqData.key, reqData.value)
+
+    if (reqData.key === 'recap.scheduleTime' || reqData.key === 'recap.enabled') {
+      const { DailyRecapJob } = await import('#jobs/daily_recap_job')
+      await DailyRecapJob.schedule().catch(() => {})
+    }
+
     return response.status(200).send({ success: true, message: 'Setting updated successfully' })
   }
 }

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { IconSend, IconPhotoPlus, IconX } from '@tabler/icons-react'
 import classNames from '~/lib/classNames'
 import { usePage } from '@inertiajs/react'
@@ -15,6 +15,12 @@ interface ChatComposerProps {
   rewriteModelAvailable: boolean
   isCheckingModels: boolean
   selectedModelSupportsVision: boolean
+  /**
+   * Set (with a fresh timestamp) when the Voice Assistant wake word fires while on this page —
+   * prefills and focuses the composer with the transcribed utterance instead of auto-sending it,
+   * so the user can review/edit before it goes to the model.
+   */
+  voiceCommand?: { text: string; at: number } | null
 }
 
 const MAX_IMAGE_DIM = 1024
@@ -27,10 +33,12 @@ export default function ChatComposer({
   rewriteModelAvailable,
   isCheckingModels,
   selectedModelSupportsVision,
+  voiceCommand,
 }: ChatComposerProps) {
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
   const { addNotification } = useNotifications()
   const [input, setInput] = useState('')
+  const lastVoiceCommandAtRef = useRef<number | null>(null)
   const [attachments, setAttachments] = useState<string[]>([])
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
@@ -38,6 +46,14 @@ export default function ChatComposer({
   const isMobile = useIsMobileViewport()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!voiceCommand || voiceCommand.at === lastVoiceCommandAtRef.current) return
+    lastVoiceCommandAtRef.current = voiceCommand.at
+    setInput(voiceCommand.text)
+    textareaRef.current?.focus()
+    addNotification({ message: 'Wake word detected — review and send when ready.', type: 'info' })
+  }, [voiceCommand, addNotification])
 
   const handleDownloadModel = async () => {
     setIsDownloading(true)

@@ -4,6 +4,7 @@ import { DockerService } from '#services/docker_service'
 import { NomadMdService } from '#services/nomad_md_service'
 import { OllamaService } from '#services/ollama_service'
 import { RagService } from '#services/rag_service'
+import { AmbientRecallService } from '#services/ambient_recall_service'
 import Service from '#models/service'
 import KVStore from '#models/kv_store'
 import { modelNameSchema } from '#validators/download'
@@ -42,7 +43,8 @@ export default class OllamaController {
     private dockerService: DockerService,
     private ollamaService: OllamaService,
     private ragService: RagService,
-    private nomadMdService: NomadMdService
+    private nomadMdService: NomadMdService,
+    private ambientRecallService: AmbientRecallService
   ) {}
 
   async availableModels({ request }: HttpContext) {
@@ -200,6 +202,39 @@ export default class OllamaController {
           // highest semantic score observed. Reflects only what was actually
           // injected (trimmedDocs), not every retrieved candidate.
           ragSources = this._collectRagSources(trimmedDocs)
+        }
+      }
+
+      // Voice Assistant: if the user appears to be asking about a specific day
+      // ("what happened yesterday?", "on Tuesday", etc.), pull in that day's
+      // recap (if generated) and/or the most relevant ambient transcript
+      // segments and inject them as additional context. Best-effort — a
+      // missing recap/empty match just means no extra context is added.
+      if (rewrittenQuery) {
+        const temporal = this.ambientRecallService.detectTemporalReference(rewrittenQuery)
+        if (temporal) {
+          const [recap, ambientMatches] = await Promise.all([
+            this.ambientRecallService.getRecapForDate(temporal.date),
+            this.ambientRecallService.searchSimilar(rewrittenQuery, 5, 0.3, temporal.date),
+          ])
+
+          const parts: string[] = []
+          if (recap) {
+            parts.push(`Daily recap for ${temporal.date}:\n${recap.summary}`)
+          }
+          if (ambientMatches.length > 0) {
+            parts.push(
+              `Relevant ambient transcript snippets from ${temporal.date}:\n` +
+                ambientMatches.map((m) => `- "${m.text}"`).join('\n')
+            )
+          }
+
+          if (parts.length > 0) {
+            reqData.messages.unshift({
+              role: 'system' as const,
+              content: SYSTEM_PROMPTS.rag_context(parts.join('\n\n')),
+            })
+          }
         }
       }
 

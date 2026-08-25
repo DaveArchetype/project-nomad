@@ -147,6 +147,52 @@ export function validateSettingValue(key: KVStoreKey, value: unknown): string | 
       }
       return null
     }
+    case 'voice.audioSource': {
+      if (!['browser', 'host', 'both'].includes(String(value))) {
+        return 'Audio source must be one of "browser", "host", or "both".'
+      }
+      return null
+    }
+    case 'voice.wakeWordSensitivity': {
+      const num = Number(value)
+      if (Number.isNaN(num) || num < 0 || num > 1) {
+        return 'Wake word sensitivity must be a number between 0 and 1.'
+      }
+      return null
+    }
+    case 'stt.modelSize': {
+      if (!['tiny', 'base', 'small', 'medium'].includes(String(value))) {
+        return 'STT model size must be one of "tiny", "base", "small", or "medium".'
+      }
+      return null
+    }
+    case 'stt.vadSensitivity': {
+      const num = Number(value)
+      if (!Number.isInteger(num) || num < 0 || num > 3) {
+        return 'VAD sensitivity must be a whole number between 0 (least aggressive) and 3 (most aggressive).'
+      }
+      return null
+    }
+    case 'voice.retentionDays': {
+      const num = Number(value)
+      if (!Number.isInteger(num) || num < 0 || num > 3650) {
+        return 'Retention must be a whole number of days between 0 (keep forever) and 3650.'
+      }
+      return null
+    }
+    case 'tts.speechRate': {
+      const num = Number(value)
+      if (Number.isNaN(num) || num < 0.5 || num > 2.0) {
+        return 'Speech rate must be a number between 0.5 and 2.0.'
+      }
+      return null
+    }
+    case 'recap.scheduleTime': {
+      if (typeof value !== 'string' || !HHMM_PATTERN.test(value)) {
+        return 'Recap schedule time must be in 24-hour HH:MM format (e.g. "23:55").'
+      }
+      return null
+    }
     default:
       return null
   }

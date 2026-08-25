@@ -1519,6 +1519,91 @@ class API {
       return response.data
     })()
   }
+
+  async getVoiceStatus() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{
+        gateway: { online: boolean; message?: string }
+        tts: { online: boolean; message?: string }
+      }>('/voice/status')
+      return response.data
+    })()
+  }
+
+  async getWakeWordPresets() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ presets: string[]; hasCustomModel: boolean }>(
+        '/voice/wakeword-presets'
+      )
+      return response.data
+    })()
+  }
+
+  async uploadWakeWordModel(file: File) {
+    return catchInternal(async () => {
+      const form = new FormData()
+      form.append('file', file)
+      const response = await this.client.post<{ success: boolean; message: string }>(
+        '/voice/wakeword-model',
+        form
+      )
+      return response.data
+    })()
+  }
+
+  async deleteWakeWordModel() {
+    return catchInternal(async () => {
+      const response = await this.client.delete<{ success: boolean; message: string }>(
+        '/voice/wakeword-model'
+      )
+      return response.data
+    })()
+  }
+
+  async getTtsVoices() {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ voices: string[]; default: string }>(
+        '/voice/tts/voices'
+      )
+      return response.data
+    })()
+  }
+
+  async synthesizeSpeech(text: string, voice?: string, speed?: number): Promise<Blob | undefined> {
+    return catchInternal(async () => {
+      const response = await this.client.post(
+        '/voice/tts/synthesize',
+        { text, voice, speed },
+        { responseType: 'blob' }
+      )
+      return response.data as Blob
+    })()
+  }
+
+  async listRecaps(limit = 30) {
+    return catchInternal(async () => {
+      const response = await this.client.get<
+        Array<{
+          id: number
+          recap_date: string
+          summary: string
+          source_recording_count: number
+          generated_at: string
+        }>
+      >('/voice/recaps', { params: { limit } })
+      return response.data
+    })()
+  }
+
+  async generateRecap(date?: string) {
+    return catchInternal(async () => {
+      const response = await this.client.post<{ id: number; summary: string }>(
+        '/voice/recaps/generate',
+        { date }
+      )
+      return response.data
+    })()
+  }
 }
 
 export default new API()

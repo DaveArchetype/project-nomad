@@ -9,6 +9,7 @@ import {
   IconGavel,
   IconHeart,
   IconMapRoute,
+  IconMicrophone,
   IconMovie,
   IconSettings,
   IconWand,
@@ -32,7 +33,15 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
   const navigation = [
     ...(aiAssistantInstallStatus.isInstalled
-      ? [{ name: aiAssistantName, href: '/settings/models', icon: IconWand, current: false }]
+      ? [
+          { name: aiAssistantName, href: '/settings/models', icon: IconWand, current: false },
+          {
+            name: 'Voice Assistant',
+            href: '/settings/voice',
+            icon: IconMicrophone,
+            current: false,
+          },
+        ]
       : []),
     { name: 'Supply Depot', href: '/supply-depot', icon: IconBox, current: false },
     { name: 'Benchmark', href: '/settings/benchmark', icon: IconChartBar, current: false },
