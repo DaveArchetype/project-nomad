@@ -10,6 +10,7 @@ import ImageViewerModal, { type ImageViewerImage } from './ImageViewerModal'
 import KiwixPreviewModal from './knowledge-base/KiwixPreviewModal'
 import { useKiwixBaseUrl } from '../../hooks/useKiwixBaseUrl'
 import SpeakButton from './SpeakButton'
+import { stripMarkdownForHighlighting } from '~/lib/voice'
 
 function imageUrlFor(path: string): string {
   // Optimistic local messages store base64 data URLs; persisted messages store
@@ -38,27 +39,6 @@ type SelectedSource = {
   title?: string
   snippet?: string
   kiwixPath?: string
-}
-
-function stripMarkdownForHighlighting(text: string): string {
-  let s = text
-  s = s.replace(/```[\s\S]*?```/g, ' ')
-  s = s.replace(/`([^`]+)`/g, '$1')
-  s = s.replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
-  s = s.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-  s = s.replace(/#{1,6}\s+/g, '')
-  s = s.replace(/\*\*([^*]+)\*\*/g, '$1')
-  s = s.replace(/\*([^*]+)\*/g, '$1')
-  s = s.replace(/__([^_]+)__/g, '$1')
-  s = s.replace(/_([^_]+)_/g, '$1')
-  s = s.replace(/~~([^~]+)~~/g, '$1')
-  s = s.replace(/^\s*[-*+]\s+/gm, '')
-  s = s.replace(/^\s*\d+\.\s+/gm, '')
-  s = s.replace(/^\s*>\s+/gm, '')
-  s = s.replace(/\|/g, ' ')
-  s = s.replace(/[#*~`]/g, '')
-  s = s.replace(/\n{2,}/g, '\n')
-  return s.trim()
 }
 
 function SpeakingText({ text, currentIndex }: { text: string; currentIndex: number }) {

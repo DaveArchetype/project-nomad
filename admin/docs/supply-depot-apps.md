@@ -282,3 +282,25 @@ A browser-based client for [MeshCore](https://meshcore.io) radios. MeshCore is a
 **Your data:** There's nothing to set up or store on your NOMAD for this app. Your radio's settings live on the radio itself, and the app's preferences live in your browser. There's no NOMAD folder to manage.
 
 **Works offline:** Fully offline, which is the whole point of MeshCore. The app is served from your NOMAD and talks to your radio directly over USB or Bluetooth, never the internet.
+
+## Code Server {% #code-server %}
+
+A full copy of Visual Studio Code that runs in your browser, powered by [code-server](https://coder.com/docs/code-server). Open and edit any file or folder on your NOMAD, install extensions, use the integrated terminal, run builds and scripts, and otherwise treat the device like a development machine, all from a laptop, phone, or tablet with nothing installed on it. It's the most powerful app in the Supply Depot, and the one that comes with the most responsibility.
+
+**Official site:** [coder.com/docs/code-server](https://coder.com/docs/code-server) · **Source:** [github.com/coder/code-server](https://github.com/coder/code-server)
+
+**First time you open it:** You'll see code-server's password screen. The default password is `nomad`. **Change it right away** — anyone on your network who knows it can edit every file on your NOMAD. To set a new one:
+
+1. On the Supply Depot page, find Code Server and click **Manage > Edit**.
+2. Under **Environment Variables**, change `PASSWORD=nomad` to `PASSWORD=` followed by your new password.
+3. Save. NOMAD rebuilds the app, and the new password takes effect on the next sign-in.
+
+**What you can see and edit (read this part):** Unlike File Browser, which is scoped to a handful of content folders, Code Server's workspace is the **entire storage tree** on your NOMAD. Every app's data folder is right there in the file explorer: your Vaultwarden vault, your Ollama models, your Calibre library, every app's config and database. That's the whole point — it's a real editor pointed at a real filesystem — but it means a careless edit can break an app or corrupt its data. A few things to keep in mind:
+
+- **Don't edit an app's database or config files while that app is running.** Most apps keep files open and will overwrite your changes, or worse, write a half-edited file and crash. Stop the app from its card in the Supply Depot first, make your edit, then start it again.
+- **Treat `storage/vaultwarden`, `storage/ollama`, and `storage/qdrant` as read-only unless you really know what you're doing.** Those hold encrypted vaults, multi-gigabyte model files, and vector indexes that no text editor can usefully edit and that are easy to corrupt.
+- **The content folders are safe to work in.** Anything you'd normally reach through File Browser (`books`, `media`, `maps`, `kb_uploads`, `zim`) is fine to edit, rename, and organize from Code Server — it's the same files, just opened in an editor instead of a file manager.
+
+**Your data:** Code Server keeps its own settings, extensions, and terminal history in `storage/code-server` (its config directory). The files you edit are wherever you edit them — there's no separate "Code Server project" folder, the workspace root is your whole NOMAD.
+
+**Works offline:** Editing files, using the terminal, and running anything you've already installed works fully offline. The one piece that needs the internet is **installing extensions**: code-server fetches them from its own marketplace proxy, which in turn reaches the Open VSX registry. Once an extension is installed it keeps working offline, but browsing or installing new ones won't do anything when your NOMAD is disconnected.

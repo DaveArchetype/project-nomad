@@ -554,6 +554,38 @@ export default class ServiceSeeder extends BaseSeeder {
       depends_on: null,
       metadata: JSON.stringify({ minMemoryMB: 2048, minDiskMB: 20480 }),
     },
+    {
+      service_name: SERVICE_NAMES.CODE_SERVER,
+      friendly_name: 'Code Server',
+      powered_by: 'code-server',
+      display_order: 28,
+      description:
+        'Browser-based VS Code editor — work on code and files on your NOMAD from any device',
+      icon: 'IconCode',
+      container_image: 'codercom/code-server:4.132.0',
+      source_repo: 'https://github.com/coder/code-server',
+      container_command: null,
+      container_config: JSON.stringify({
+        HostConfig: {
+          RestartPolicy: { Name: 'unless-stopped' },
+          PortBindings: { '8080/tcp': [{ HostPort: '8460' }] },
+          Binds: [
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}:/home/coder/project`,
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/code-server:/home/coder/.local/share/code-server`,
+          ],
+        },
+        ExposedPorts: { '8080/tcp': {} },
+        Env: ['PASSWORD=nomad'],
+      }),
+      ui_location: '8460',
+      ui_path: null,
+      installed: false,
+      installation_status: 'idle',
+      is_dependency_service: false,
+      is_custom: false,
+      category: 'utility',
+      depends_on: null,
+    },
     // Note: Voice Gateway and TTS (Voice Assistant feature) are intentionally NOT registered
     // here. Unlike the Supply Depot catalog above, they're built locally from source (see
     // install/voice-gateway/ and install/tts/) and declared as plain services directly in
