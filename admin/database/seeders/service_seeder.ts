@@ -91,7 +91,7 @@ export default class ServiceSeeder extends BaseSeeder {
       service_name: SERVICE_NAMES.OLLAMA,
       friendly_name: 'AI Assistant',
       powered_by: 'Ollama',
-      display_order: 3,
+      display_order: 0,
       description: 'Local AI chat that runs entirely on your hardware - no internet required',
       icon: 'IconWand',
       container_image: 'ollama/ollama:0.24.0',
@@ -578,7 +578,7 @@ export default class ServiceSeeder extends BaseSeeder {
         Env: ['PASSWORD=nomad'],
       }),
       ui_location: '8460',
-      ui_path: null,
+      ui_path: '/code',
       installed: false,
       installation_status: 'idle',
       is_dependency_service: false,
@@ -586,13 +586,64 @@ export default class ServiceSeeder extends BaseSeeder {
       category: 'utility',
       depends_on: null,
     },
-    // Note: Voice Gateway and TTS (Voice Assistant feature) are intentionally NOT registered
-    // here. Unlike the Supply Depot catalog above, they're built locally from source (see
-    // install/voice-gateway/ and install/tts/) and declared as plain services directly in
-    // install/management_compose.yaml — the same pattern used for `tei`, `mysql`, and `redis` —
-    // rather than pulled from a registry image via the dynamic installer. See
-    // VoiceGatewayClientService / TtsService for how their URLs are resolved without a `services`
-    // table row.
+    {
+      service_name: SERVICE_NAMES.VOICE_GATEWAY,
+      friendly_name: 'Voice Gateway',
+      powered_by: 'openWakeWord + faster-whisper',
+      display_order: 29,
+      description: 'Ambient wake-word listening and speech-to-text for the Voice Assistant',
+      icon: 'IconMicrophone',
+      container_image: 'gitea.dasaroff.com/DaveArchetype/project-nomad-voice-gateway:1.0.0',
+      source_repo: 'https://github.com/DaveArchetype/project-nomad',
+      container_command: null,
+      container_config: JSON.stringify({
+        HostConfig: {
+          RestartPolicy: { Name: 'unless-stopped' },
+          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/voice-gateway:/data`],
+        },
+        Env: [
+          'WHISPER_MODEL_SIZE=base',
+          'WHISPER_LANGUAGE=auto',
+          'WAKE_WORD_PRESET=hey_jarvis',
+          'WAKE_WORD_SENSITIVITY=0.5',
+          'VAD_SENSITIVITY=2',
+        ],
+      }),
+      ui_location: '/settings/voice',
+      ui_path: null,
+      installed: false,
+      installation_status: 'idle',
+      is_dependency_service: false,
+      is_custom: false,
+      category: 'ai',
+      depends_on: null,
+    },
+    {
+      service_name: SERVICE_NAMES.TTS,
+      friendly_name: 'Text-to-Speech',
+      powered_by: 'Piper',
+      display_order: 30,
+      description: 'Local text-to-speech synthesis for chat replies and daily recaps',
+      icon: 'IconVolume',
+      container_image: 'gitea.dasaroff.com/DaveArchetype/project-nomad-tts:1.0.0',
+      source_repo: 'https://github.com/DaveArchetype/project-nomad',
+      container_command: null,
+      container_config: JSON.stringify({
+        HostConfig: {
+          RestartPolicy: { Name: 'unless-stopped' },
+          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/tts:/data`],
+        },
+        Env: ['DEFAULT_VOICE=en_US-lessac-medium'],
+      }),
+      ui_location: '/settings/voice',
+      ui_path: null,
+      installed: false,
+      installation_status: 'idle',
+      is_dependency_service: false,
+      is_custom: false,
+      category: 'ai',
+      depends_on: null,
+    },
   ]
 
   async run() {
@@ -613,9 +664,10 @@ export default class ServiceSeeder extends BaseSeeder {
 
     // Keep curated services in sync with the catalog. Custom services are user-defined and must
     // never be overwritten. User-modified curated services (a user edited their config) are
-    // likewise left alone so the edit survives reboots. ui_location is synced too so a catalog
-    // change to an app's link/scheme/port (e.g. Vaultwarden moving to https:8480, or a corrected
-    // internal port) reaches existing non-modified installs on update, not just fresh ones.
+    // likewise left alone so the edit survives reboots. ui_location/ui_path/display_order are
+    // synced too so a catalog change to an app's link/scheme/port (e.g. Vaultwarden moving to
+    // https:8480, or a corrected internal port), its reverse-proxy subdomain slug, or its home
+    // page position reaches existing non-modified installs on update, not just fresh ones.
     for (const service of ServiceSeeder.DEFAULT_SERVICES) {
       const existing = existingServiceMap.get(service.service_name)
       if (existing && !existing.is_custom && !existing.is_user_modified) {
@@ -628,6 +680,7 @@ export default class ServiceSeeder extends BaseSeeder {
             category: service.category,
             ui_location: service.ui_location,
             ui_path: service.ui_path ?? null,
+            display_order: service.display_order,
           })
       }
     }

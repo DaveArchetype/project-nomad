@@ -2,11 +2,10 @@ import { inject } from '@adonisjs/core'
 import axios from 'axios'
 import logger from '@adonisjs/core/services/logger'
 
-// Voice Gateway is a plain docker-compose service (see install/management_compose.yaml,
-// service `voice-gateway` / container `nomad_voice_gateway`) built locally from source rather
-// than pulled from a registry — there's no `services` table row to resolve a URL through
-// (DockerService.getServiceURL), so its container name + port are hardcoded here, exactly the
-// same pattern OllamaService uses to reach the `nomad_tei` container.
+// Voice Gateway is installed as a normal Supply Depot app (see ServiceSeeder /
+// SERVICE_NAMES.VOICE_GATEWAY), but it has no browser-facing web UI, so nothing else needs to
+// resolve its URL through DockerService.getServiceURL — the container name + port are hardcoded
+// here instead, exactly the same pattern OllamaService uses to reach the `nomad_tei` container.
 const VOICE_GATEWAY_CONTAINER_NAME = 'nomad_voice_gateway'
 const VOICE_GATEWAY_PORT = '8600'
 
@@ -44,8 +43,7 @@ export class VoiceGatewayClientService {
       )
       return {
         online: false,
-        message:
-          'Voice Gateway is not running. Add the `voice-gateway` service from install/management_compose.yaml to your docker-compose.yml and run `docker compose up -d voice-gateway`.',
+        message: 'Voice Gateway is not running. Install it from the Supply Depot.',
       }
     }
   }

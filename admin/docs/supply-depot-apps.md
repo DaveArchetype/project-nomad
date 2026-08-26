@@ -304,3 +304,27 @@ A full copy of Visual Studio Code that runs in your browser, powered by [code-se
 **Your data:** Code Server keeps its own settings, extensions, and terminal history in `storage/code-server` (its config directory). The files you edit are wherever you edit them — there's no separate "Code Server project" folder, the workspace root is your whole NOMAD.
 
 **Works offline:** Editing files, using the terminal, and running anything you've already installed works fully offline. The one piece that needs the internet is **installing extensions**: code-server fetches them from its own marketplace proxy, which in turn reaches the Open VSX registry. Once an extension is installed it keeps working offline, but browsing or installing new ones won't do anything when your NOMAD is disconnected.
+
+## Voice Gateway {% #voice-gateway %}
+
+The ambient listening half of the Voice Assistant feature: wake-word detection and speech-to-text, so NOMAD can hear you without you touching a screen. This card only covers installing and running the container — configuring how it behaves (wake word, sensitivity, STT model size, language) is all done from **Settings → Voice Assistant**, not from here.
+
+**First time you install it:** There's nothing to open — Voice Gateway has no web page of its own. Its card's **Open** button takes you straight to **Settings → Voice Assistant**, which is also where you turn the feature on and pick your wake word.
+
+**Private image:** Unlike every other app in this catalog, Voice Gateway's image is hosted on a private registry. Before installing or updating it, set the registry username and password under **Private Registry Credentials** at the top of this page — without that, the install will fail to pull the image.
+
+**Your data:** Nothing persistent beyond its downloaded speech-to-text model, which lives in `storage/voice-gateway` on your NOMAD.
+
+**Works offline:** Fully offline once installed — wake-word detection and transcription both run locally on your NOMAD's CPU.
+
+## Text-to-Speech {% #text-to-speech %}
+
+The other half of the Voice Assistant feature: turns chat replies and daily recaps into spoken audio using Piper. Like Voice Gateway, this card is just the install/run surface — voices, auto-read, and speech rate are all configured from **Settings → Voice Assistant**.
+
+**First time you install it:** Same as Voice Gateway — no web page of its own. The **Open** button also goes to **Settings → Voice Assistant**, where you pick and download voices.
+
+**Private image:** Also hosted on the private registry — set your credentials under **Private Registry Credentials** at the top of this page before installing or updating.
+
+**Your data:** Downloaded voices live in `storage/tts` on your NOMAD.
+
+**Works offline:** Fully offline once installed and a voice is downloaded — speech synthesis runs locally on your NOMAD's CPU. Downloading a new voice is the only part that needs the internet.

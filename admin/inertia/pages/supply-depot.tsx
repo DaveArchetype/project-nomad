@@ -41,6 +41,7 @@ import useInternetStatus from '~/hooks/useInternetStatus'
 import { useAppAutoUpdateStatus } from '~/hooks/useAppAutoUpdateStatus'
 import useServiceInstallationActivity from '~/hooks/useServiceInstallationActivity'
 import { useReverseProxyBaseDomain } from '~/hooks/useReverseProxyBaseDomain'
+import { useSystemSetting } from '~/hooks/useSystemSetting'
 import { useTransmit } from 'react-adonis-transmit'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast'
 import { ServiceSlim } from '../../types/services'
@@ -145,6 +146,35 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
     }
     updateBaseDomainMutation.mutate(trimmed)
   }
+
+  // Private registry credentials — used by the admin server to pull Voice Gateway / TTS images
+  // from the self-hosted Gitea container registry (gitea.dasaroff.com). Falls back to anonymous
+  // pulls for every other curated app's public image; only these two apps need this configured.
+  const { data: giteaUsernameSetting } = useSystemSetting({ key: 'registry.giteaUsername' })
+  const { data: giteaPasswordSetting } = useSystemSetting({ key: 'registry.giteaPassword' })
+  const [giteaUsernameDraft, setGiteaUsernameDraft] = useState('')
+  const [giteaPasswordDraft, setGiteaPasswordDraft] = useState('')
+  useEffect(() => {
+    setGiteaUsernameDraft((giteaUsernameSetting?.value as string | null | undefined) ?? '')
+  }, [giteaUsernameSetting])
+  useEffect(() => {
+    setGiteaPasswordDraft((giteaPasswordSetting?.value as string | null | undefined) ?? '')
+  }, [giteaPasswordSetting])
+
+  const updateGiteaCredentialsMutation = useMutation({
+    mutationFn: async () => {
+      await api.updateSetting('registry.giteaUsername', giteaUsernameDraft.trim())
+      await api.updateSetting('registry.giteaPassword', giteaPasswordDraft)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['system-setting', 'registry.giteaUsername'] })
+      queryClient.invalidateQueries({ queryKey: ['system-setting', 'registry.giteaPassword'] })
+      addNotification({ message: 'Registry credentials updated.', type: 'success' })
+    },
+    onError: (error: any) => {
+      showError(error?.message || 'Failed to update registry credentials.')
+    },
+  })
 
   // Global master switch for app auto-updates (Settings → Updates). Per-app
   // toggles are inert until this is on, so the UI reflects that state.
@@ -568,6 +598,44 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                         loading={updateBaseDomainMutation.isPending}
                         disabled={updateBaseDomainMutation.isPending}
                         className="mb-0.5"
+                      >
+                        Save
+                      </StyledButton>
+                    </div>
+                  </div>
+                </section>
+
+                <section>
+                  <StyledSectionHeader title="Private Registry Credentials" className="mb-4" />
+                  <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
+                    <p className="text-sm text-text-secondary mb-4">
+                      Voice Gateway and Text-to-Speech are pulled from a private container registry.
+                      Set the credentials below before installing or updating either app — every
+                      other app in the catalog is public and doesn't need this.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                      <Input
+                        name="giteaUsername"
+                        label="Registry Username"
+                        placeholder="DaveArchetype"
+                        value={giteaUsernameDraft}
+                        onChange={(e) => setGiteaUsernameDraft(e.target.value)}
+                      />
+                      <Input
+                        name="giteaPassword"
+                        type="password"
+                        label="Registry Password"
+                        placeholder="Access token or password"
+                        value={giteaPasswordDraft}
+                        onChange={(e) => setGiteaPasswordDraft(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex justify-end mt-3">
+                      <StyledButton
+                        variant="primary"
+                        onClick={() => updateGiteaCredentialsMutation.mutate()}
+                        loading={updateGiteaCredentialsMutation.isPending}
+                        disabled={updateGiteaCredentialsMutation.isPending}
                       >
                         Save
                       </StyledButton>

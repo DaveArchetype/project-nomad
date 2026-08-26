@@ -9,10 +9,10 @@ export type SynthesizeResult =
 
 const DEFAULT_VOICE = 'en_US-lessac-medium'
 
-// TTS (Piper) is a plain docker-compose service (install/management_compose.yaml, service
-// `tts` / container `nomad_tts`) built locally from source — same rationale as
-// VoiceGatewayClientService: no `services` table row, so the container name + port are
-// hardcoded here rather than resolved via DockerService.getServiceURL.
+// TTS (Piper) is installed as a normal Supply Depot app (see ServiceSeeder /
+// SERVICE_NAMES.TTS), but same rationale as VoiceGatewayClientService — it has no
+// browser-facing web UI, so the container name + port are hardcoded here rather than
+// resolved via DockerService.getServiceURL.
 const TTS_CONTAINER_NAME = 'nomad_tts'
 const TTS_PORT = '8610'
 
@@ -35,8 +35,7 @@ export class TtsService {
     } catch {
       return {
         online: false,
-        message:
-          'Text-to-Speech service is not running. Add the `tts` service from install/management_compose.yaml to your docker-compose.yml and run `docker compose up -d tts`.',
+        message: 'Text-to-Speech service is not running. Install it from the Supply Depot.',
       }
     }
   }

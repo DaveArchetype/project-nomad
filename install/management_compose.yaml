@@ -223,54 +223,60 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-  voice-gateway:
-    # Voice Assistant — CPU-only ambient listening (wake word + speech-to-text). Built locally
-    # from source (install/voice-gateway/) rather than pulled from a registry, same as `admin`
-    # above — no image is published for this anywhere. The `#main:install/voice-gateway` suffix
-    # tells Docker to use that subdirectory of the repo as the build context. This MUST point at
-    # a repo/branch YOU control (same as the `admin` service's build line above). Note: a git-URL
-    # build always fetches from the remote, so local edits must be committed and pushed to `main`
-    # before `docker compose build` will pick them up.
-    build: https://github.com/DaveArchetype/project-nomad.git#main:install/voice-gateway
-    image: project-nomad-voice-gateway
-    container_name: nomad_voice_gateway
-    restart: unless-stopped
-    # No host port mapping — only the admin/worker containers talk to this, over the Docker
-    # network by container name (see VoiceGatewayClientService). Uncomment to debug directly:
-    # ports:
-    #   - "8601:8600"
-    volumes:
-      - /mnt/main2tb/project-nomad/storage/voice-gateway:/data
-    environment:
-      - WHISPER_MODEL_SIZE=base
-      - WHISPER_LANGUAGE=auto
-      - WAKE_WORD_PRESET=hey_jarvis
-      - WAKE_WORD_SENSITIVITY=0.5
-      - VAD_SENSITIVITY=2
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8600/health')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-  tts:
-    # Voice Assistant — CPU-only text-to-speech (Piper). Built locally from source
-    # (install/tts/), same rationale as voice-gateway above — point the build URL at a
-    # repo/branch YOU control.
-    build: https://github.com/DaveArchetype/project-nomad.git#main:install/tts
-    image: project-nomad-tts
-    container_name: nomad_tts
-    restart: unless-stopped
-    # ports:
-    #   - "8611:8610"
-    volumes:
-      - /mnt/main2tb/project-nomad/storage/tts:/data
-    environment:
-      - DEFAULT_VOICE=en_US-lessac-medium
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8610/health')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+  # Voice Assistant (voice-gateway + tts) — previously built from source here, now installed
+  # as two regular Supply Depot apps ("Voice Gateway" / "Text-to-Speech") via the admin UI's
+  # own dynamic installer, which pulls versioned images from the private Gitea registry
+  # instead of building locally. Set the registry credentials under Supply Depot > Private
+  # Registry Credentials before installing/updating either one. The blocks below are kept,
+  # commented out, as a manual/advanced fallback if you ever need to build from source again.
+  # voice-gateway:
+  #   # Voice Assistant — CPU-only ambient listening (wake word + speech-to-text). Built locally
+  #   # from source (install/voice-gateway/) rather than pulled from a registry, same as `admin`
+  #   # above — no image is published for this anywhere. The `#main:install/voice-gateway` suffix
+  #   # tells Docker to use that subdirectory of the repo as the build context. This MUST point at
+  #   # a repo/branch YOU control (same as the `admin` service's build line above). Note: a git-URL
+  #   # build always fetches from the remote, so local edits must be committed and pushed to `main`
+  #   # before `docker compose build` will pick them up.
+  #   build: https://github.com/DaveArchetype/project-nomad.git#main:install/voice-gateway
+  #   image: project-nomad-voice-gateway
+  #   container_name: nomad_voice_gateway
+  #   restart: unless-stopped
+  #   # No host port mapping — only the admin/worker containers talk to this, over the Docker
+  #   # network by container name (see VoiceGatewayClientService). Uncomment to debug directly:
+  #   # ports:
+  #   #   - "8601:8600"
+  #   volumes:
+  #     - /mnt/main2tb/project-nomad/storage/voice-gateway:/data
+  #   environment:
+  #     - WHISPER_MODEL_SIZE=base
+  #     - WHISPER_LANGUAGE=auto
+  #     - WAKE_WORD_PRESET=hey_jarvis
+  #     - WAKE_WORD_SENSITIVITY=0.5
+  #     - VAD_SENSITIVITY=2
+  #   healthcheck:
+  #     test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8600/health')"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  # tts:
+  #   # Voice Assistant — CPU-only text-to-speech (Piper). Built locally from source
+  #   # (install/tts/), same rationale as voice-gateway above — point the build URL at a
+  #   # repo/branch YOU control.
+  #   build: https://github.com/DaveArchetype/project-nomad.git#main:install/tts
+  #   image: project-nomad-tts
+  #   container_name: nomad_tts
+  #   restart: unless-stopped
+  #   # ports:
+  #   #   - "8611:8610"
+  #   volumes:
+  #     - /mnt/main2tb/project-nomad/storage/tts:/data
+  #   environment:
+  #     - DEFAULT_VOICE=en_US-lessac-medium
+  #   healthcheck:
+  #     test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8610/health')"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
 
 volumes:
   nomad-update-shared:

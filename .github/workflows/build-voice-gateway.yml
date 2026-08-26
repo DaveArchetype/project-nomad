@@ -1,0 +1,38 @@
+name: Build Voice Gateway Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semantic version to label the Docker image under (no "v" prefix, e.g. "1.0.0")'
+        required: true
+        type: string
+      tag_latest:
+        description: 'Also tag this image as :latest?'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    name: Build voice-gateway image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      - name: Log in to Gitea Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: gitea.dasaroff.com
+          username: ${{ secrets.GITEA_REGISTRY_USERNAME }}
+          password: ${{ secrets.GITEA_REGISTRY_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: install/voice-gateway
+          push: true
+          tags: |
+            gitea.dasaroff.com/${{ secrets.GITEA_REGISTRY_USERNAME }}/project-nomad-voice-gateway:${{ inputs.version }}
+            ${{ inputs.tag_latest && format('gitea.dasaroff.com/{0}/project-nomad-voice-gateway:latest', secrets.GITEA_REGISTRY_USERNAME) || '' }}

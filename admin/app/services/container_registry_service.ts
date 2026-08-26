@@ -1,5 +1,25 @@
 import logger from '@adonisjs/core/services/logger'
 import { isNewerVersion, parseMajorVersion } from '../utils/version.js'
+import KVStore from '#models/kv_store'
+
+/** Self-hosted Gitea container registry hosting the Voice Gateway / TTS images. */
+export const GITEA_REGISTRY_HOST = 'gitea.dasaroff.com'
+const GITEA_DEFAULT_USERNAME = 'DaveArchetype'
+
+/**
+ * Reads the Gitea registry credentials configured in Settings > Supply Depot. Returns null
+ * when no password has been set yet (an unconfigured registry is treated the same as an
+ * anonymous/public one — callers fall back to unauthenticated requests).
+ */
+export async function getGiteaCredentials(): Promise<{
+  username: string
+  password: string
+} | null> {
+  const password = await KVStore.getValue('registry.giteaPassword')
+  if (!password) return null
+  const username = (await KVStore.getValue('registry.giteaUsername')) || GITEA_DEFAULT_USERNAME
+  return { username, password }
+}
 
 export interface ParsedImageReference {
   registry: string
@@ -23,7 +43,18 @@ interface TokenCacheEntry {
 
 const SEMVER_TAG_PATTERN = /^v?(\d+\.\d+(?:\.\d+)?)$/
 const PLATFORM_SUFFIXES = ['-arm64', '-amd64', '-alpine', '-slim', '-cuda', '-rocm']
-const REJECTED_TAGS = new Set(['latest', 'nightly', 'edge', 'dev', 'beta', 'alpha', 'canary', 'rc', 'test', 'debug'])
+const REJECTED_TAGS = new Set([
+  'latest',
+  'nightly',
+  'edge',
+  'dev',
+  'beta',
+  'alpha',
+  'canary',
+  'rc',
+  'test',
+  'debug',
+])
 
 export class ContainerRegistryService {
   private tokenCache = new Map<string, TokenCacheEntry>()
@@ -87,16 +118,30 @@ export class ContainerRegistryService {
     }
 
     let tokenUrl: string
+    let authHeader: string | undefined
     if (registry === 'registry-1.docker.io') {
       tokenUrl = `https://auth.docker.io/token?service=registry.docker.io&scope=repository:${fullName}:pull`
     } else if (registry === 'ghcr.io') {
       tokenUrl = `https://ghcr.io/token?service=ghcr.io&scope=repository:${fullName}:pull`
+    } else if (registry === GITEA_REGISTRY_HOST) {
+      // Gitea's container registry follows the OCI distribution spec, but its token endpoint
+      // lives under /v2/token (not /token like Docker Hub/GHCR) and requires the username +
+      // password configured in Settings > Supply Depot to be sent as HTTP Basic auth to mint a
+      // token for private packages.
+      tokenUrl = `https://${registry}/v2/token?service=container_registry&scope=repository:${fullName}:pull`
+      const credentials = await getGiteaCredentials()
+      if (credentials) {
+        authHeader = `Basic ${Buffer.from(`${credentials.username}:${credentials.password}`).toString('base64')}`
+      }
     } else {
       // For other registries, try the standard v2 token endpoint
       tokenUrl = `https://${registry}/token?service=${registry}&scope=repository:${fullName}:pull`
     }
 
-    const response = await this.fetchWithRetry(tokenUrl)
+    const response = await this.fetchWithRetry(
+      tokenUrl,
+      authHeader ? { headers: { Authorization: authHeader } } : undefined
+    )
     if (!response.ok) {
       throw new Error(`Failed to get auth token from ${registry}: ${response.status}`)
     }
@@ -161,7 +206,11 @@ export class ContainerRegistryService {
   /**
    * Check if a specific tag supports the given architecture by fetching its manifest.
    */
-  async checkArchSupport(parsed: ParsedImageReference, tag: string, hostArch: string): Promise<boolean> {
+  async checkArchSupport(
+    parsed: ParsedImageReference,
+    tag: string,
+    hostArch: string
+  ): Promise<boolean> {
     try {
       const token = await this.getToken(parsed.registry, parsed.fullName)
       const url = `https://${parsed.registry}/v2/${parsed.fullName}/manifests/${tag}`
@@ -193,9 +242,7 @@ export class ContainerRegistryService {
         manifest.manifests
       ) {
         const manifests = manifest.manifests || []
-        return manifests.some(
-          (m: any) => m.platform && m.platform.architecture === hostArch
-        )
+        return manifests.some((m: any) => m.platform && m.platform.architecture === hostArch)
       }
 
       // Single manifest — assume compatible (can't easily determine arch without fetching config blob)
@@ -301,7 +348,11 @@ export class ContainerRegistryService {
 
       const manifest = (await manifestRes.json()) as {
         config?: { digest?: string }
-        manifests?: Array<{ digest?: string; mediaType?: string; platform?: { architecture?: string } }>
+        manifests?: Array<{
+          digest?: string
+          mediaType?: string
+          platform?: { architecture?: string }
+        }>
       }
 
       // If this is a manifest list, pick the first manifest to get the config
@@ -314,7 +365,8 @@ export class ContainerRegistryService {
             {
               headers: {
                 Authorization: `Bearer ${token}`,
-                Accept: 'application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json',
+                Accept:
+                  'application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json',
               },
             }
           )
@@ -349,7 +401,9 @@ export class ContainerRegistryService {
       this.sourceUrlCache.set(cacheKey, sourceUrl)
       return sourceUrl
     } catch (error) {
-      logger.warn(`[ContainerRegistryService] Failed to get source URL for ${cacheKey}: ${error.message}`)
+      logger.warn(
+        `[ContainerRegistryService] Failed to get source URL for ${cacheKey}: ${error.message}`
+      )
       this.sourceUrlCache.set(cacheKey, null)
       return null
     }
@@ -380,7 +434,7 @@ export class ContainerRegistryService {
       // Try v-prefixed first since it's more common
       const vRes = await this.fetchWithRetry(
         `https://api.github.com/repos${cleanPath}/releases/tags/${vTag}`,
-        { headers: { Accept: 'application/vnd.github.v3+json', 'User-Agent': 'ProjectNomad' } },
+        { headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'ProjectNomad' } },
         1
       )
       if (vRes.ok) {
@@ -390,7 +444,7 @@ export class ContainerRegistryService {
 
       const plainRes = await this.fetchWithRetry(
         `https://api.github.com/repos${cleanPath}/releases/tags/${strippedTag}`,
-        { headers: { Accept: 'application/vnd.github.v3+json', 'User-Agent': 'ProjectNomad' } },
+        { headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'ProjectNomad' } },
         1
       )
       if (plainRes.ok) {
@@ -429,11 +483,7 @@ export class ContainerRegistryService {
   /**
    * Filter and sort tags to find compatible updates for a service.
    */
-  filterCompatibleUpdates(
-    tags: string[],
-    currentTag: string,
-    majorVersion: number
-  ): string[] {
+  filterCompatibleUpdates(tags: string[], currentTag: string, majorVersion: number): string[] {
     return tags
       .filter((tag) => {
         // Must match semver pattern
@@ -502,7 +552,9 @@ export class ContainerRegistryService {
         results.push({
           tag,
           isLatest: results.length === 0,
-          releaseUrl: sourceUrl ? this.buildReleaseUrl(sourceUrl, tag, releaseTagPrefix) : undefined,
+          releaseUrl: sourceUrl
+            ? this.buildReleaseUrl(sourceUrl, tag, releaseTagPrefix)
+            : undefined,
         })
       }
     }
@@ -522,22 +574,14 @@ export class ContainerRegistryService {
   /**
    * Fetch with retry and exponential backoff for rate limiting.
    */
-  private async fetchWithRetry(
-    url: string,
-    init?: RequestInit,
-    maxRetries = 3
-  ): Promise<Response> {
+  private async fetchWithRetry(url: string, init?: RequestInit, maxRetries = 3): Promise<Response> {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       const response = await fetch(url, init)
 
       if (response.status === 429 && attempt < maxRetries) {
         const retryAfter = response.headers.get('retry-after')
-        const delay = retryAfter
-          ? parseInt(retryAfter, 10) * 1000
-          : Math.pow(2, attempt) * 1000
-        logger.warn(
-          `[ContainerRegistryService] Rate limited on ${url}, retrying in ${delay}ms`
-        )
+        const delay = retryAfter ? parseInt(retryAfter, 10) * 1000 : Math.pow(2, attempt) * 1000
+        logger.warn(`[ContainerRegistryService] Rate limited on ${url}, retrying in ${delay}ms`)
         await new Promise((resolve) => setTimeout(resolve, delay))
         continue
       }
