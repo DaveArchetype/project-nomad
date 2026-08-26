@@ -28,11 +28,22 @@ jobs:
           registry: registry.dasaroff.com
           username: ${{ secrets.GITEA_REGISTRY_USERNAME }}
           password: ${{ secrets.GITEA_REGISTRY_TOKEN }}
+      - name: Compute lowercase registry namespace
+        # Docker repository names must be all-lowercase; the Gitea username itself (e.g.
+        # "DaveArchetype") isn't, so build the tag from a lowercased copy instead of the raw
+        # secret. `::add-mask::` re-registers the lowercased value so it's still redacted in logs.
+        id: registry_ns
+        env:
+          USERNAME: ${{ secrets.GITEA_REGISTRY_USERNAME }}
+        run: |
+          LOWER="${USERNAME,,}"
+          echo "::add-mask::$LOWER"
+          echo "namespace=$LOWER" >> "$GITHUB_OUTPUT"
       - name: Build and push
         uses: docker/build-push-action@v7
         with:
           context: install/voice-gateway
           push: true
           tags: |
-            registry.dasaroff.com/${{ secrets.GITEA_REGISTRY_USERNAME }}/project-nomad-voice-gateway:${{ inputs.version }}
-            ${{ inputs.tag_latest && format('registry.dasaroff.com/{0}/project-nomad-voice-gateway:latest', secrets.GITEA_REGISTRY_USERNAME) || '' }}
+            registry.dasaroff.com/${{ steps.registry_ns.outputs.namespace }}/project-nomad-voice-gateway:${{ inputs.version }}
+            ${{ inputs.tag_latest && format('registry.dasaroff.com/{0}/project-nomad-voice-gateway:latest', steps.registry_ns.outputs.namespace) || '' }}
