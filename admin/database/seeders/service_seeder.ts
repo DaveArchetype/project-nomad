@@ -593,7 +593,7 @@ export default class ServiceSeeder extends BaseSeeder {
       display_order: 29,
       description: 'Ambient wake-word listening and speech-to-text for the Voice Assistant',
       icon: 'IconMicrophone',
-      container_image: 'gitea.dasaroff.com/DaveArchetype/project-nomad-voice-gateway:1.0.0',
+      container_image: 'registry.dasaroff.com/DaveArchetype/project-nomad-voice-gateway:1.0.0',
       source_repo: 'https://github.com/DaveArchetype/project-nomad',
       container_command: null,
       container_config: JSON.stringify({
@@ -625,7 +625,7 @@ export default class ServiceSeeder extends BaseSeeder {
       display_order: 30,
       description: 'Local text-to-speech synthesis for chat replies and daily recaps',
       icon: 'IconVolume',
-      container_image: 'gitea.dasaroff.com/DaveArchetype/project-nomad-tts:1.0.0',
+      container_image: 'registry.dasaroff.com/DaveArchetype/project-nomad-tts:1.0.0',
       source_repo: 'https://github.com/DaveArchetype/project-nomad',
       container_command: null,
       container_config: JSON.stringify({

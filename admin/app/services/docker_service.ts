@@ -16,6 +16,7 @@ import {
   MESHCORE_WEB_STORAGE_PATH,
   MEDIA_STORAGE_PATH,
   JELLYFIN_MEDIA_SUBFOLDERS,
+  CODE_SERVER_STORAGE_PATH,
 } from '../utils/fs.js'
 import { KiwixLibraryService } from './kiwix_library_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
@@ -761,6 +762,15 @@ export class DockerService {
         )
       }
 
+      if (service.service_name === SERVICE_NAMES.CODE_SERVER) {
+        await this._runPreinstallActions__CodeServer()
+        this._broadcast(
+          service.service_name,
+          'preinstall-complete',
+          `Pre-install actions for Code Server completed successfully.`
+        )
+      }
+
       // GPU-aware configuration for Ollama
       let finalImage = service.container_image
       let gpuHostConfig = containerConfig?.HostConfig || {}
@@ -1110,6 +1120,38 @@ export class DockerService {
         SERVICE_NAMES.CALIBREWEB,
         'preinstall-error',
         `Failed to prepare the Calibre library: ${error.message}`
+      )
+      throw new Error(`Pre-install action failed: ${error.message}`)
+    }
+  }
+
+  /**
+   * Code Server's image runs as the non-root `coder` user (UID/GID 1000), but Docker creates a
+   * fresh bind-mount host directory as root — so without this, code-server crashes on start with
+   * `EACCES: permission denied, mkdir '.../coder-logs'` the first time it tries to write its data
+   * dir (config, extensions, logs). Pre-create the directory and hand it to `coder` up front.
+   */
+  private async _runPreinstallActions__CodeServer(): Promise<void> {
+    // Keep in sync with the UID/GID the codercom/code-server image runs its `coder` user as.
+    const CODE_SERVER_UID = 1000
+    const CODE_SERVER_GID = 1000
+
+    const dataDir = join(process.cwd(), CODE_SERVER_STORAGE_PATH)
+
+    this._broadcast(
+      SERVICE_NAMES.CODE_SERVER,
+      'preinstall',
+      `Running pre-install actions for Code Server...`
+    )
+
+    try {
+      await mkdir(dataDir, { recursive: true })
+      await chown(dataDir, CODE_SERVER_UID, CODE_SERVER_GID)
+    } catch (error: any) {
+      this._broadcast(
+        SERVICE_NAMES.CODE_SERVER,
+        'preinstall-error',
+        `Failed to prepare the Code Server data folder: ${error.message}`
       )
       throw new Error(`Pre-install action failed: ${error.message}`)
     }

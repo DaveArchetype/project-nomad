@@ -25,7 +25,7 @@ jobs:
       - name: Log in to Gitea Container Registry
         uses: docker/login-action@v4
         with:
-          registry: gitea.dasaroff.com
+          registry: registry.dasaroff.com
           username: ${{ secrets.GITEA_REGISTRY_USERNAME }}
           password: ${{ secrets.GITEA_REGISTRY_TOKEN }}
       - name: Build and push
@@ -34,5 +34,5 @@ jobs:
           context: install/tts
           push: true
           tags: |
-            gitea.dasaroff.com/${{ secrets.GITEA_REGISTRY_USERNAME }}/project-nomad-tts:${{ inputs.version }}
-            ${{ inputs.tag_latest && format('gitea.dasaroff.com/{0}/project-nomad-tts:latest', secrets.GITEA_REGISTRY_USERNAME) || '' }}
+            registry.dasaroff.com/${{ secrets.GITEA_REGISTRY_USERNAME }}/project-nomad-tts:${{ inputs.version }}
+            ${{ inputs.tag_latest && format('registry.dasaroff.com/{0}/project-nomad-tts:latest', secrets.GITEA_REGISTRY_USERNAME) || '' }}

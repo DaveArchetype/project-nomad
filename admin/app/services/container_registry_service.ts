@@ -3,7 +3,7 @@ import { isNewerVersion, parseMajorVersion } from '../utils/version.js'
 import KVStore from '#models/kv_store'
 
 /** Self-hosted Gitea container registry hosting the Voice Gateway / TTS images. */
-export const GITEA_REGISTRY_HOST = 'gitea.dasaroff.com'
+export const GITEA_REGISTRY_HOST = 'registry.dasaroff.com'
 const GITEA_DEFAULT_USERNAME = 'DaveArchetype'
 
 /**

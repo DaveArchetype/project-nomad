@@ -22,6 +22,9 @@ export const VAULTWARDEN_STORAGE_PATH = '/storage/vaultwarden'
 // served over HTTPS — required for its Web Bluetooth/Serial connections. See
 // _runPreinstallActions__MeshCoreWeb.
 export const MESHCORE_WEB_STORAGE_PATH = '/storage/meshcore-web'
+// Code Server's user-data volume (settings, extensions, logs). Owned by the container's
+// non-root `coder` user (UID/GID 1000) on install — see _runPreinstallActions__CodeServer.
+export const CODE_SERVER_STORAGE_PATH = '/storage/code-server'
 
 export async function listDirectoryContents(path: string): Promise<FileEntry[]> {
   const entries = await readdir(path, { withFileTypes: true })
@@ -190,7 +193,9 @@ export function matchesDevice(fsPath: string, deviceName: string): boolean {
   return false
 }
 
-export function determineFileType(filename: string): 'image' | 'pdf' | 'text' | 'docx' | 'epub' | 'zim' | 'unknown' {
+export function determineFileType(
+  filename: string
+): 'image' | 'pdf' | 'text' | 'docx' | 'epub' | 'zim' | 'unknown' {
   const ext = path.extname(filename).toLowerCase()
   if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp'].includes(ext)) {
     return 'image'

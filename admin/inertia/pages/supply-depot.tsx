@@ -148,7 +148,7 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
   }
 
   // Private registry credentials — used by the admin server to pull Voice Gateway / TTS images
-  // from the self-hosted Gitea container registry (gitea.dasaroff.com). Falls back to anonymous
+  // from the self-hosted Gitea container registry (registry.dasaroff.com). Falls back to anonymous
   // pulls for every other curated app's public image; only these two apps need this configured.
   const { data: giteaUsernameSetting } = useSystemSetting({ key: 'registry.giteaUsername' })
   const { data: giteaPasswordSetting } = useSystemSetting({ key: 'registry.giteaPassword' })
