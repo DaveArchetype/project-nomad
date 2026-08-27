@@ -6,9 +6,6 @@ contact_links:
   - name: 📖 Documentation
     url: https://projectnomad.us
     about: Check the official documentation and guides
-  - name: 🏆 Community Leaderboard
-    url: https://benchmark.projectnomad.us
-    about: View the NOMAD benchmark leaderboard
   - name: 🤝 Contributing Guide
     url: https://github.com/Crosstalk-Solutions/project-nomad/blob/main/CONTRIBUTING.md
     about: Learn how to contribute to Project NOMAD

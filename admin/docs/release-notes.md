@@ -6,14 +6,6 @@
 - **AI**: nomad.md for custom instructions (#1127). Thanks @jakeaturner for the contribution!
 - **AI**: per-model thinking toggle with global default (off) (#1079). Thanks @chriscrosstalk for the contribution!
 - **API Documentation**: Auto-generating OpenAPI docs with Scalar UI (#1128). Thanks @jakeaturner for the contribution!
-- **Benchmark**: official multi-arch sysbench, resolved digest, platform metadata (#1158). Thanks @chriscrosstalk for the contribution!
-- **Benchmark**: lock Score v2 AI reference to 13.2 (measured, was placeholder) (#1097). Thanks @chriscrosstalk for the contribution!
-- **Benchmark**: dashboard re-run banner prompting a Score v2 re-run (#1096). Thanks @chriscrosstalk for the contribution!
-- **Benchmark**: Score v2 app client — raws, uncapped score, v2 payload + UI. Thanks @chriscrosstalk for the contribution!
-- **Benchmark**: harness hardening — fail loudly + pin sysbench + record provenance (#1089). Thanks @chriscrosstalk for the contribution!
-- **Benchmark**: end-of-run score reveal + NVIDIA GPU-util overlay (#1087). Thanks @chriscrosstalk for the contribution!
-- **Benchmark**: authoritative in-test sysbench numbers + results strip (#1085). Thanks @chriscrosstalk for the contribution!
-- **Benchmark**: live telemetry during benchmark runs (#1082) (#1084). Thanks @chriscrosstalk for the contribution!
 - **Collections**: support gated downloads for self-hosted curated content (#1172). Thanks @chriscrosstalk for the contribution!
 - **Creator Packs**: gated per-creator video packs, offline via Kiwix (#1106). Thanks @chriscrosstalk for the contribution!
 - **Dashboard**: add dismissable "What's new" banner for v1.34 (#1112). Thanks @chriscrosstalk for the contribution!
@@ -29,13 +21,6 @@
 - **AI**: stop forcing HSA_OVERRIDE=11.0.0 on natively-supported AMD iGPUs (#1076). Thanks @chriscrosstalk for the contribution!
 - **AI**: set OLLAMA_IGPU_ENABLE on AMD provisioning so iGPUs are used (#1074). Thanks @chriscrosstalk for the contribution!
 - **AI**: coerce gfx1103 (780M) to HSA_OVERRIDE 11.0.0 so it stays on GPU (#1134). Thanks @jakeaturner for the contribution!
-- **Benchmark**: fix various typescript errors. Thanks @jakeaturner for the contribution!
-- **Benchmark**: partial runs are not the NOMAD Score (relabel + renormalize) (#1088). Thanks @chriscrosstalk for the contribution!
-- **Benchmark**: remove stale progress setter (#1136). Thanks @NgoQuocViet2001 for the contribution!
-- **Benchmark**: surface a clear reason when leaderboard submission fails (#1138). Thanks @chriscrosstalk for the contribution!
-- **Benchmark**: warm the AI model before timed runs for reproducible scores (#1140). Thanks @chriscrosstalk for the contribution!
-- **Benchmark**: block leaderboard submission when AI runs on a remote host (#1157). Thanks @chriscrosstalk for the contribution!
-- **Benchmark**: don't block submission when the AI host is this machine (#1166). Thanks @chriscrosstalk for the contribution!
 - **Chat**: make conversation layout responsive (#1090). Thanks @Bortlesboat for the contribution!
 - **Chat**: open full chat in place instead of a new window (#1181). Thanks @chriscrosstalk for the contribution!
 - **Content**: resolve current ZIM URL before download (#1091). Thanks @NgoQuocViet2001 for the contribution!
@@ -166,7 +151,7 @@
 - **AI:** pre-cap embed input + log fallback reason (#881) (#2dec5bf), closes #369 #670
 - **AI:** preserve semver tag in DB on AMD Ollama updates (#019a5a4)
 - **AI:** rewrite RAG query on first follow-up (off-by-one in skip-rewrite threshold) (#43645e4)
-- **AI:** vendor-aware AMD HSA override + benchmark discrete-GPU detection (#a2e2f7f), closes #804 #804 #810
+- **AI:** vendor-aware AMD HSA override (#a2e2f7f), closes #804 #804 #810
 - **API:** accept notes, marker_type, and position on markers endpoints (#770) (#132ec9c), closes #768
 - **API:** skip compression for Server-Sent Events (#798) (#4b21ea6)
 - **content:** show selected tier on cards while downloads are in flight (#059cf2a), closes #36b6d8e
@@ -257,7 +242,7 @@
 - fix(settings/update): four UI/UX fixes for the System Update page (#827). Thanks @chriscrosstalk!
 - fix(Maps): send filename instead of full path to delete endpoint (#829). Thanks @bgauger!
 - fix(Maps): render notes in marker popup when populated (#830). Thanks @chriscrosstalk!
-- fix(AI): vendor-aware AMD HSA override + benchmark discrete-GPU detection (#832). Thanks @chriscrosstalk!
+- fix(AI): vendor-aware AMD HSA override (#832). Thanks @chriscrosstalk!
 - fix(System): correct NVIDIA VRAM in Graphics card (#850). Thanks @bgauger!
 - fix(Downloads): treat missing Content-Type as octet-stream (#859). Thanks @bgauger!
 - fix(AI): preserve semver tag in DB on AMD Ollama updates (#868). Thanks @chriscrosstalk!
@@ -392,7 +377,6 @@
 ### Features
 
 ### Bug Fixes
-- **Benchmark**: Fixed an issue where CPU and Disk Write scores could be displayed as 0 if the measured values was less than half of the reference mark. Thanks @bortlesboat for the fix!
 - **Content Manager**: Fixed a missing API client method that was causing ZIM file deletions to fail. Thanks @LuisMIguelFurlanettoSousa for the fix!
 - **Install**: Fixed an issue where the install script could incorrectly report the Docker NVIDIA runtime as missing. Thanks @brenex for the fix!
 - **Support the Project**: Fixed a broken link to Rogue Support. Thanks @chriscrosstalk for the fix!
@@ -522,8 +506,6 @@
 - **Collections**: Complete overhaul of collection management with dynamic manifests, database tracking of installed resources, and improved UI for managing ZIM files and map assets
 - **Collections**: Added support for checking if newer versions of installed resources are available based on manifest data
 ### Bug Fixes
-- **Benchmark**: Improved error handling and status code propagation for better user feedback on submission failures
-- **Benchmark**: Fix a race condition in the sysbench container management that could lead to benchmark test failures
 
 ### Improvements
 
@@ -616,8 +598,6 @@
 
 ### 🐛 Bug Fixes
 
-- **Benchmark**: Detect Intel Arc Graphics on Core Ultra processors
-- **Easy Setup**: Remove built-in System Benchmark from wizard (now in Settings)
 - **Icons**: Switch to Tabler Icons for consistency, remove unused icon libraries
 - **Docker**: Avoid re-pulling existing images during install
 
@@ -648,8 +628,6 @@
 
 ### 🚀 Features
 
-- **Benchmark**: Builder Tag system — claim leaderboard spots with NOMAD-themed tags (e.g., "Tactical-Llama-1234")
-- **Benchmark**: Full benchmark with AI now required for community sharing; HMAC-signed submissions
 - **Release Notes**: Subscribe to release notes via email
 - **Maps**: Automatically download base map assets if missing
 
@@ -667,7 +645,6 @@
 
 ### 🐛 Bug Fixes
 
-- **Benchmark**: Fix AI benchmark connectivity (Docker container couldn't reach Ollama on host)
 - **Open WebUI**: Fix install status indicator
 
 ### ✨ Improvements
@@ -680,7 +657,6 @@
 
 ### 🚀 Features
 
-- **System Benchmark**: Hardware scoring with NOMAD Score, circular gauges, and community leaderboard submission
 - **Dashboard**: User-friendly app names with "Powered by" open source attribution
 - **Settings**: Updated nomenclature and added tiered content collections to Settings pages
 - **Queues**: Support working all queues with a single command

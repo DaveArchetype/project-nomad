@@ -8,7 +8,7 @@ import {
   IconWifiOff,
   IconArrowUpRight,
 } from '@tabler/icons-react'
-import { Head, Link, router, usePage } from '@inertiajs/react'
+import { Head, Link, usePage } from '@inertiajs/react'
 import { useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode, MouseEvent as ReactMouseEvent } from 'react'
 import AppLayout from '~/layouts/AppLayout'
@@ -17,13 +17,6 @@ import { ServiceSlim } from '../../types/services'
 import DynamicIcon, { DynamicIconName } from '~/components/DynamicIcon'
 import { useSystemSetting } from '~/hooks/useSystemSetting'
 import { useReverseProxyBaseDomain } from '~/hooks/useReverseProxyBaseDomain'
-import {
-  useBenchmarkRerunBanner,
-  BENCHMARK_RERUN_BANNER_QUERY_KEY,
-} from '~/hooks/useBenchmarkRerunBanner'
-import { useQueryClient } from '@tanstack/react-query'
-import api from '~/lib/api'
-import Alert from '~/components/Alert'
 import WhatsNewBanner from '~/components/WhatsNewBanner'
 import { SERVICE_NAMES } from '../../constants/service_names'
 
@@ -208,15 +201,8 @@ export default function Home(props: {
   drugReferenceInstalled: boolean
 }) {
   const items: DashboardItem[] = []
-  const rerunBanner = useBenchmarkRerunBanner()
-  const queryClient = useQueryClient()
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
   const reverseProxyBaseDomain = useReverseProxyBaseDomain()
-
-  const handleDismissRerunBanner = async () => {
-    await api.updateSetting('benchmark.rerunBannerDismissed', true)
-    queryClient.invalidateQueries({ queryKey: BENCHMARK_RERUN_BANNER_QUERY_KEY })
-  }
 
   // Check if user has visited Easy Setup
   const { data: easySetupVisited } = useSystemSetting({
@@ -283,25 +269,6 @@ export default function Home(props: {
     <AppLayout>
       <Head title="Command Center" />
       <WhatsNewBanner />
-      {rerunBanner?.show && (
-        <div className="flex justify-center items-center px-4 pt-4 w-full">
-          <Alert
-            title="Your benchmark can be re-scored with Score v2"
-            message="We've upgraded the benchmark scoring system. Re-run your benchmark to get an updated Score v2 result on the community leaderboard."
-            type="info-inverted"
-            variant="solid"
-            className="w-full"
-            dismissible
-            onDismiss={handleDismissRerunBanner}
-            buttonProps={{
-              variant: 'primary',
-              children: 'Re-run benchmark',
-              icon: 'IconRefresh',
-              onClick: () => router.visit('/settings/benchmark'),
-            }}
-          />
-        </div>
-      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 p-4 max-w-[1600px] mx-auto items-stretch">
         {items.map((item) => {
           const isEasySetup = item.label === 'Easy Setup'

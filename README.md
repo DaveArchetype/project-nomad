@@ -6,7 +6,6 @@
 
 [![Website](https://img.shields.io/badge/Website-projectnomad.us-blue)](https://www.projectnomad.us)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2)](https://discord.com/invite/crosstalksolutions)
-[![Benchmark](https://img.shields.io/badge/Benchmark-Leaderboard-green)](https://benchmark.projectnomad.us)
 
 </div>
 
@@ -45,7 +44,6 @@ NOMAD is a management UI ("Command Center") and API that orchestrates a collecti
 - **Offline Maps** — downloadable regional maps via [ProtoMaps](https://protomaps.com)
 - **Data Tools** — encryption, encoding, and analysis via [CyberChef](https://gchq.github.io/CyberChef/)
 - **Notes** — local note-taking via [FlatNotes](https://github.com/dullage/flatnotes)
-- **System Benchmark** — hardware scoring with a [community leaderboard](https://benchmark.projectnomad.us)
 - **Supply Depot** — a one-click app catalog (PDF tools, file browser, e-book library, password manager, and more) plus the ability to run your own custom Docker containers
 - **Automatic Updates** — opt-in, hands-off updates for the core software, installed apps, and offline content, on a schedule you control
 - **Easy Setup Wizard** — guided first-time configuration with curated content collections
@@ -62,7 +60,6 @@ NOMAD also includes built-in tools like a Wikipedia content selector, ZIM librar
 | Offline Maps | ProtoMaps | Downloadable regional maps for offline viewing and search |
 | Data Tools | CyberChef | Encryption, encoding, hashing, and data analysis |
 | Notes | FlatNotes | Local note-taking with markdown support |
-| System Benchmark | Built-in | Hardware scoring, Builder Tags, and community leaderboard |
 | Supply Depot | Built-in | One-click app catalog + bring-your-own custom Docker containers |
 
 ## Device Requirements
@@ -159,7 +156,6 @@ It prints the resolved decision — current version, whether the clock is inside
 
 - **Website:** [www.projectnomad.us](https://www.projectnomad.us) - Learn more about the project
 - **Discord:** [Join the Community](https://discord.com/invite/crosstalksolutions) - Get help, share your builds, and connect with other NOMAD users
-- **Benchmark Leaderboard:** [benchmark.projectnomad.us](https://benchmark.projectnomad.us) - See how your hardware stacks up against other NOMAD builds
 - **FAQ:** [FAQ.md](FAQ.md) - Find answers to frequently asked questions
 - **Community Add-Ons:** [admin/docs/community-add-ons.md](admin/docs/community-add-ons.md) - Third-party content packs built by the community
 

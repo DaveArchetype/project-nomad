@@ -9,8 +9,6 @@ interface CircularGaugeProps {
   variant?: 'cpu' | 'memory' | 'disk' | 'default'
   subtext?: string
   animated?: boolean
-  /** Render the ring in a neutral tone (e.g. for a partial, non-NOMAD score). */
-  muted?: boolean
 }
 
 export default function CircularGauge({
@@ -21,7 +19,6 @@ export default function CircularGauge({
   variant = 'default',
   subtext,
   animated = true,
-  muted = false,
 }: CircularGaugeProps) {
   const [animatedValue, setAnimatedValue] = useState(animated ? 0 : value)
 
@@ -37,21 +34,21 @@ export default function CircularGauge({
   // Size configs: container size must match SVG size (2 * (radius + strokeWidth))
   const sizes = {
     sm: {
-      container: 'w-28 h-28',  // 112px = 2 * (48 + 8)
+      container: 'w-28 h-28', // 112px = 2 * (48 + 8)
       strokeWidth: 8,
       radius: 48,
       fontSize: 'text-xl',
       labelSize: 'text-xs',
     },
     md: {
-      container: 'w-[140px] h-[140px]',  // 140px = 2 * (60 + 10)
+      container: 'w-[140px] h-[140px]', // 140px = 2 * (60 + 10)
       strokeWidth: 10,
       radius: 60,
       fontSize: 'text-2xl',
       labelSize: 'text-sm',
     },
     lg: {
-      container: 'w-[244px] h-[244px]',  // 244px = 2 * (110 + 12)
+      container: 'w-[244px] h-[244px]', // 244px = 2 * (110 + 12)
       strokeWidth: 12,
       radius: 110,
       fontSize: 'text-4xl',
@@ -64,9 +61,6 @@ export default function CircularGauge({
   const offset = circumference - (displayValue / 100) * circumference
 
   const getColor = () => {
-    // Neutral tone signals this isn't a real NOMAD Score (partial run).
-    if (muted) return 'desert-stone'
-    // For benchmarks: higher scores = better = green
     if (value >= 75) return 'desert-green'
     if (value >= 50) return 'desert-olive'
     if (value >= 25) return 'desert-orange'

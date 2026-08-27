@@ -1,5 +1,4 @@
 import KVStore from '#models/kv_store'
-import { BenchmarkService } from '#services/benchmark_service'
 import { MapService } from '#services/map_service'
 import { OllamaService } from '#services/ollama_service'
 import { SystemService } from '#services/system_service'
@@ -13,7 +12,6 @@ export default class SettingsController {
   constructor(
     private systemService: SystemService,
     private mapService: MapService,
-    private benchmarkService: BenchmarkService,
     private ollamaService: OllamaService
   ) {}
 
@@ -127,18 +125,6 @@ export default class SettingsController {
 
   async creatorPacks({ inertia }: HttpContext) {
     return inertia.render('settings/creator-packs')
-  }
-
-  async benchmark({ inertia }: HttpContext) {
-    const latestResult = await this.benchmarkService.getLatestResult()
-    const status = this.benchmarkService.getStatus()
-    return inertia.render('settings/benchmark', {
-      benchmark: {
-        latestResult,
-        status: status.status,
-        currentBenchmarkId: status.benchmarkId,
-      },
-    })
   }
 
   async voice({ inertia }: HttpContext) {

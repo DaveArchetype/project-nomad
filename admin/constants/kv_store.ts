@@ -34,7 +34,6 @@ export const SETTINGS_KEYS: KVStoreKey[] = [
   'contentAutoUpdate.windowEnd',
   'contentAutoUpdate.cooloffHours',
   'contentAutoUpdate.maxBytesPerWindow',
-  'benchmark.rerunBannerDismissed',
   'apps.homebox.apiKeyPepper',
   'registry.giteaUsername',
   'registry.giteaPassword',

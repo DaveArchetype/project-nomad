@@ -2,7 +2,6 @@ import {
   IconAdjustments,
   IconArrowBigUpLines,
   IconBox,
-  IconChartBar,
   IconCode,
   IconDashboard,
   IconFolder,
@@ -44,7 +43,6 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         ]
       : []),
     { name: 'Supply Depot', href: '/supply-depot', icon: IconBox, current: false },
-    { name: 'Benchmark', href: '/settings/benchmark', icon: IconChartBar, current: false },
     {
       name: 'Content Explorer',
       href: '/settings/zim/remote-explorer',

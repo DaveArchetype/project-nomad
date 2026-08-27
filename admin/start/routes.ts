@@ -6,7 +6,6 @@
 | The routes file is used for defining the HTTP routes.
 |
 */
-import BenchmarkController from '#controllers/benchmark_controller'
 import ChatsController from '#controllers/chats_controller'
 import ConditionsController from '#controllers/conditions_controller'
 import DocsController from '#controllers/docs_controller'
@@ -76,7 +75,6 @@ import { chatSchema, unloadChatModelsSchema, getAvailableModelsSchema } from '#v
 import { getSettingSchema, updateSettingSchema } from '#validators/settings'
 import { createSessionSchema, updateSessionSchema, addMessageSchema } from '#validators/chat'
 import { downloadJobsByFiletypeSchema, modelNameSchema } from '#validators/download'
-import { runBenchmarkValidator, submitBenchmarkValidator } from '#validators/benchmark'
 import { healthResponse, errorResponse } from '#validators/responses/common'
 import {
   chatSessionResponse,
@@ -141,7 +139,6 @@ router
     router.get('/zim', [SettingsController, 'zim'])
     router.get('/zim/remote-explorer', [SettingsController, 'zimRemote'])
     router.get('/creator-packs', [SettingsController, 'creatorPacks'])
-    router.get('/benchmark', [SettingsController, 'benchmark'])
     router.get('/support', [SettingsController, 'support'])
     router.get('/advanced', [SettingsController, 'advanced'])
     router.get('/voice', [SettingsController, 'voice'])
@@ -889,65 +886,6 @@ router
     })
   })
   .prefix('/api/creator-packs')
-
-router
-  .group(() => {
-    documented(router.post('/run', [BenchmarkController, 'run']), {
-      summary: 'Run a benchmark',
-      tags: ['benchmark'],
-      request: runBenchmarkValidator,
-    })
-    documented(router.post('/run/system', [BenchmarkController, 'runSystem']), {
-      summary: 'Run a system benchmark',
-      tags: ['benchmark'],
-    })
-    documented(router.post('/run/ai', [BenchmarkController, 'runAI']), {
-      summary: 'Run an AI benchmark',
-      tags: ['benchmark'],
-    })
-    documented(router.get('/results', [BenchmarkController, 'results']), {
-      summary: 'List benchmark results',
-      tags: ['benchmark'],
-    })
-    documented(router.get('/results/latest', [BenchmarkController, 'latest']), {
-      summary: 'Get the latest benchmark result',
-      tags: ['benchmark'],
-    })
-    documented(router.get('/results/:id', [BenchmarkController, 'show']), {
-      summary: 'Get a benchmark result',
-      tags: ['benchmark'],
-    })
-    documented(router.post('/submit', [BenchmarkController, 'submit']), {
-      summary: 'Submit a benchmark result',
-      tags: ['benchmark'],
-      request: submitBenchmarkValidator,
-    })
-    documented(router.post('/builder-tag', [BenchmarkController, 'updateBuilderTag']), {
-      summary: 'Update the builder tag',
-      tags: ['benchmark'],
-    })
-    documented(router.get('/comparison', [BenchmarkController, 'comparison']), {
-      summary: 'Get benchmark comparison data',
-      tags: ['benchmark'],
-    })
-    documented(router.get('/status', [BenchmarkController, 'status']), {
-      summary: 'Get benchmark status',
-      tags: ['benchmark'],
-    })
-    documented(router.get('/rerun-banner', [BenchmarkController, 'rerunBanner']), {
-      summary: 'Get the benchmark rerun banner state',
-      tags: ['benchmark'],
-    })
-    documented(router.get('/settings', [BenchmarkController, 'settings']), {
-      summary: 'Get benchmark settings',
-      tags: ['benchmark'],
-    })
-    documented(router.post('/settings', [BenchmarkController, 'updateSettings']), {
-      summary: 'Update benchmark settings',
-      tags: ['benchmark'],
-    })
-  })
-  .prefix('/api/benchmark')
 
 // Drug Reference v1 — offline FDA drug-label search.
 // Page GETs ungated (read-only views). The /api/drug-reference group mirrors

@@ -24,6 +24,6 @@ from the implementation. Prefer it over any hand-written endpoint list.
 **Responses:**
 - Success responses include `{ "success": true }` and an HTTP 2xx status
 - Error responses return the appropriate HTTP status (400, 404, 409, 500) with an error message
-- Long-running operations (downloads, benchmarks, embeddings) return 201 or 202 with a job/benchmark ID for polling
+- Long-running operations (downloads, embeddings) return 201 or 202 with a job ID for polling
 
 **Async pattern:** Submit a job → receive an ID → poll a status endpoint until complete.
