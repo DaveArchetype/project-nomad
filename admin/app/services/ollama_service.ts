@@ -22,7 +22,10 @@ import KVStore from '#models/kv_store'
 
 const NOMAD_MODELS_API_PATH = '/api/v1/ollama/models'
 const MODELS_CACHE_FILE = path.join(process.cwd(), 'storage', 'ollama-models-cache.json')
+const HF_MODELS_CACHE_FILE = path.join(process.cwd(), 'storage', 'ollama-hf-models-cache.json')
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000 // 24 hours
+const HF_GGUF_API_URL = 'https://huggingface.co/api/models'
+const HF_GGUF_FETCH_LIMIT = 200
 
 export type NomadInstalledModel = {
   name: string
@@ -1117,7 +1120,7 @@ export class OllamaService {
       limit,
       force,
     }: {
-      sort?: 'pulls' | 'name'
+      sort?: 'pulls' | 'name' | 'recent'
       recommendedOnly?: boolean
       query: string | null
       limit?: number
@@ -1180,18 +1183,25 @@ export class OllamaService {
   }
 
   private async retrieveAndRefreshModels(
-    sort?: 'pulls' | 'name',
+    sort?: 'pulls' | 'name' | 'recent',
     force?: boolean
   ): Promise<NomadOllamaModel[] | null> {
     try {
       if (!force) {
         const cachedModels = await this.readModelsFromCache()
-        // An empty cached array (e.g. written from a transient empty upstream
-        // response) must not be treated as valid data — fall through to a
-        // fresh fetch and, failing that, the fallback list.
-        if (cachedModels && cachedModels.length > 0) {
+        const cachedHfModels = await this.readHfModelsFromCache()
+        const hasNomadCache = cachedModels && cachedModels.length > 0
+        const hasHfCache = cachedHfModels && cachedHfModels.length > 0
+        if (hasNomadCache || hasHfCache) {
           logger.info('[OllamaService] Using cached available models data')
-          return this.sortModels(cachedModels, sort)
+          const merged = [
+            ...(hasNomadCache ? cachedModels! : []),
+            ...(hasHfCache ? cachedHfModels! : []),
+          ]
+          if (merged.length === 0) {
+            return null
+          }
+          return this.sortModels(merged, sort)
         }
       } else {
         logger.info('[OllamaService] Force refresh requested, bypassing cache')
@@ -1202,41 +1212,170 @@ export class OllamaService {
       const baseUrl = env.get('NOMAD_API_URL') || NOMAD_API_DEFAULT_BASE_URL
       const fullUrl = new URL(NOMAD_MODELS_API_PATH, baseUrl).toString()
 
-      const response = await axios.get(fullUrl, { timeout: 10000 })
-      if (!response.data || !Array.isArray(response.data.models)) {
+      const [nomadResponse, hfModels] = await Promise.allSettled([
+        axios.get(fullUrl, { timeout: 10000 }),
+        this.fetchHuggingFaceGgufModels(),
+      ])
+
+      let nomadModels: NomadOllamaModel[] = []
+      if (nomadResponse.status === 'fulfilled') {
+        const response = nomadResponse.value
+        if (response.data && Array.isArray(response.data.models)) {
+          const rawModels = response.data.models as NomadOllamaModel[]
+          nomadModels = rawModels
+            .map((model) => ({
+              ...model,
+              tags: model.tags.filter((tag) => !tag.cloud),
+            }))
+            .filter((model) => model.tags.length > 0)
+        } else {
+          logger.warn(
+            `[OllamaService] Invalid response format when fetching available models: ${JSON.stringify(response.data)}`
+          )
+        }
+      } else {
         logger.warn(
-          `[OllamaService] Invalid response format when fetching available models: ${JSON.stringify(response.data)}`
+          `[OllamaService] Failed to fetch from Nomad API: ${nomadResponse.reason instanceof Error ? nomadResponse.reason.message : nomadResponse.reason}`
+        )
+      }
+
+      let hfModelsList: NomadOllamaModel[] = []
+      if (hfModels.status === 'fulfilled' && hfModels.value) {
+        hfModelsList = hfModels.value
+        await this.writeHfModelsToCache(hfModelsList)
+      } else if (hfModels.status === 'rejected') {
+        logger.warn(
+          `[OllamaService] Failed to fetch HuggingFace GGUF models: ${hfModels.reason instanceof Error ? hfModels.reason.message : hfModels.reason}`
+        )
+        const cachedHf = await this.readHfModelsFromCache()
+        if (cachedHf && cachedHf.length > 0) {
+          hfModelsList = cachedHf
+        }
+      }
+
+      if (nomadModels.length > 0) {
+        await this.writeModelsToCache(nomadModels)
+      }
+
+      const merged = [...nomadModels, ...hfModelsList]
+      if (merged.length === 0) {
+        logger.warn(
+          '[OllamaService] Both Nomad API and HuggingFace returned no usable models; using fallback'
         )
         return null
       }
 
-      const rawModels = response.data.models as NomadOllamaModel[]
-
-      const noCloud = rawModels
-        .map((model) => ({
-          ...model,
-          tags: model.tags.filter((tag) => !tag.cloud),
-        }))
-        .filter((model) => model.tags.length > 0)
-
-      // A successful-but-empty upstream response (0 models, or all filtered out
-      // as cloud-only) is a soft failure: return null so the caller serves the
-      // fallback list, and don't poison the 24h cache with an empty array.
-      if (noCloud.length === 0) {
-        logger.warn(
-          '[OllamaService] Nomad API returned no usable (non-cloud) models; using fallback'
-        )
-        return null
-      }
-
-      await this.writeModelsToCache(noCloud)
-      return this.sortModels(noCloud, sort)
+      return this.sortModels(merged, sort)
     } catch (error) {
       logger.error(
-        `[OllamaService] Failed to retrieve models from Nomad API: ${error instanceof Error ? error.message : error}`
+        `[OllamaService] Failed to retrieve models: ${error instanceof Error ? error.message : error}`
       )
       return null
     }
+  }
+
+  private async fetchHuggingFaceGgufModels(): Promise<NomadOllamaModel[] | null> {
+    try {
+      const response = await axios.get(HF_GGUF_API_URL, {
+        params: {
+          filter: 'gguf',
+          sort: 'downloads',
+          direction: -1,
+          limit: HF_GGUF_FETCH_LIMIT,
+        },
+        timeout: 15000,
+        headers: { Accept: 'application/json' },
+      })
+
+      if (!response.data || !Array.isArray(response.data)) {
+        logger.warn('[OllamaService] HuggingFace API returned non-array response')
+        return null
+      }
+
+      const hfModels = response.data as Array<{
+        id: string
+        downloads: number
+        likes?: number
+        lastModified: string
+        pipeline_tag?: string
+        tags?: string[]
+      }>
+
+      const mapped: NomadOllamaModel[] = hfModels
+        .filter((m) => m.id && m.lastModified)
+        .map((m) => {
+          const pullName = `hf.co/${m.id}`
+          return {
+            id: `hf-${m.id}`,
+            name: pullName,
+            description: `HuggingFace GGUF model (${m.pipeline_tag || 'text-generation'}). Pulls as ${pullName}.`,
+            estimated_pulls: this.formatDownloadCount(m.downloads),
+            model_last_updated: this.formatRelativeTime(m.lastModified),
+            first_seen: m.lastModified,
+            tags: [
+              {
+                name: pullName,
+                size: 'Unknown',
+                context: 'Unknown',
+                input: 'Text',
+                cloud: false,
+                thinking: false,
+              },
+            ],
+          }
+        })
+
+      logger.info(`[OllamaService] Fetched ${mapped.length} HuggingFace GGUF models`)
+      return mapped
+    } catch (error) {
+      logger.warn(
+        `[OllamaService] Failed to fetch HuggingFace GGUF models: ${error instanceof Error ? error.message : error}`
+      )
+      return null
+    }
+  }
+
+  private formatDownloadCount(count: number): string {
+    if (count >= 1_000_000_000) return `${(count / 1_000_000_000).toFixed(1)}B`
+    if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`
+    if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`
+    return String(count)
+  }
+
+  private formatRelativeTime(isoDate: string): string {
+    const date = new Date(isoDate)
+    const diffMs = Date.now() - date.getTime()
+    const diffSeconds = Math.floor(diffMs / 1000)
+    if (diffSeconds < 60) return `${diffSeconds} seconds ago`
+    const diffMinutes = Math.floor(diffSeconds / 60)
+    if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} ago`
+    const diffHours = Math.floor(diffMinutes / 60)
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
+    const diffDays = Math.floor(diffHours / 24)
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
+    const diffWeeks = Math.floor(diffDays / 7)
+    if (diffWeeks < 5) return `${diffWeeks} week${diffWeeks > 1 ? 's' : ''} ago`
+    const diffMonths = Math.floor(diffDays / 30)
+    if (diffMonths < 12) return `${diffMonths} month${diffMonths > 1 ? 's' : ''} ago`
+    const diffYears = Math.floor(diffDays / 365)
+    return `${diffYears} year${diffYears > 1 ? 's' : ''} ago`
+  }
+
+  private parseRelativeTimeToSeconds(timeStr: string): number {
+    const match = timeStr.match(/(\d+)\s+(second|minute|hour|day|week|month|year)s?\s+ago/i)
+    if (!match) return Infinity
+    const value = Number.parseInt(match[1], 10)
+    const unit = match[2].toLowerCase()
+    const multipliers: Record<string, number> = {
+      second: 1,
+      minute: 60,
+      hour: 3600,
+      day: 86400,
+      week: 604800,
+      month: 2592000,
+      year: 31536000,
+    }
+    return value * (multipliers[unit] || Infinity)
   }
 
   private async readModelsFromCache(): Promise<NomadOllamaModel[] | null> {
@@ -1280,7 +1419,47 @@ export class OllamaService {
     }
   }
 
-  private sortModels(models: NomadOllamaModel[], sort?: 'pulls' | 'name'): NomadOllamaModel[] {
+  private async readHfModelsFromCache(): Promise<NomadOllamaModel[] | null> {
+    try {
+      const stats = await fs.stat(HF_MODELS_CACHE_FILE)
+      const cacheAge = Date.now() - stats.mtimeMs
+      if (cacheAge > CACHE_MAX_AGE_MS) {
+        logger.info('[OllamaService] HuggingFace cache is stale, will fetch fresh data')
+        return null
+      }
+      const cacheData = await fs.readFile(HF_MODELS_CACHE_FILE, 'utf-8')
+      const models = JSON.parse(cacheData) as NomadOllamaModel[]
+      if (!Array.isArray(models)) {
+        logger.warn('[OllamaService] Invalid HuggingFace cache format, will fetch fresh data')
+        return null
+      }
+      return models
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        logger.warn(
+          `[OllamaService] Error reading HuggingFace cache: ${error instanceof Error ? error.message : error}`
+        )
+      }
+      return null
+    }
+  }
+
+  private async writeHfModelsToCache(models: NomadOllamaModel[]): Promise<void> {
+    try {
+      await fs.mkdir(path.dirname(HF_MODELS_CACHE_FILE), { recursive: true })
+      await fs.writeFile(HF_MODELS_CACHE_FILE, JSON.stringify(models, null, 2), 'utf-8')
+      logger.info('[OllamaService] Successfully cached HuggingFace GGUF models')
+    } catch (error) {
+      logger.warn(
+        `[OllamaService] Failed to write HuggingFace models cache: ${error instanceof Error ? error.message : error}`
+      )
+    }
+  }
+
+  private sortModels(
+    models: NomadOllamaModel[],
+    sort?: 'pulls' | 'name' | 'recent'
+  ): NomadOllamaModel[] {
     if (sort === 'pulls') {
       models.sort((a, b) => {
         const parsePulls = (pulls: string) => {
@@ -1297,6 +1476,12 @@ export class OllamaService {
       })
     } else if (sort === 'name') {
       models.sort((a, b) => a.name.localeCompare(b.name))
+    } else if (sort === 'recent') {
+      models.sort(
+        (a, b) =>
+          this.parseRelativeTimeToSeconds(a.model_last_updated) -
+          this.parseRelativeTimeToSeconds(b.model_last_updated)
+      )
     }
 
     models.forEach((model) => {

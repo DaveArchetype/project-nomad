@@ -30,7 +30,7 @@ export const unloadChatModelsSchema = vine.compile(
 
 export const getAvailableModelsSchema = vine.compile(
   vine.object({
-    sort: vine.enum(['pulls', 'name'] as const).optional(),
+    sort: vine.enum(['pulls', 'name', 'recent'] as const).optional(),
     recommendedOnly: vine.boolean().optional(),
     query: vine.string().trim().optional(),
     limit: vine.number().positive().optional(),

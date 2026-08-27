@@ -214,6 +214,9 @@ export default function ModelsPage(props: {
   const [query, setQuery] = useState('')
   const [queryUI, setQueryUI] = useState('')
   const [limit, setLimit] = useState(15)
+  const [sortBy, setSortBy] = useState<'pulls' | 'name' | 'recent'>('pulls')
+  const [tagSortBy, setTagSortBy] = useState<Record<string, 'size' | 'name'>>({})
+  const [tagSortDir, setTagSortDir] = useState<Record<string, 'asc' | 'desc'>>({})
 
   const debouncedSetQuery = debounce((val: string) => {
     setQuery(val)
@@ -227,7 +230,7 @@ export default function ModelsPage(props: {
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: ['ollama', 'availableModels', query, limit],
+    queryKey: ['ollama', 'availableModels', query, limit, sortBy],
     queryFn: async () => {
       const force = forceRefreshRef.current
       forceRefreshRef.current = false
@@ -236,6 +239,7 @@ export default function ModelsPage(props: {
         recommendedOnly: false,
         limit,
         force: force || undefined,
+        sort: sortBy,
       })
       if (!res) {
         return {
@@ -345,6 +349,48 @@ export default function ModelsPage(props: {
       })
     },
   })
+
+  function parseTagSize(size: string): number {
+    if (!size || size === 'Unknown' || size === 'N/A') return 0
+    const multiplier = size.endsWith('KB')
+      ? 1 / 1_000
+      : size.endsWith('MB')
+        ? 1 / 1_000_000
+        : size.endsWith('GB')
+          ? 1
+          : size.endsWith('TB')
+            ? 1_000
+            : 0
+    return parseFloat(size) * multiplier
+  }
+
+  function getSortedTags(
+    modelName: string,
+    tags: (typeof props.models.availableModels)[0]['tags']
+  ) {
+    const by = tagSortBy[modelName] || 'size'
+    const dir = tagSortDir[modelName] || 'asc'
+    return [...tags].sort((a, b) => {
+      let cmp: number
+      if (by === 'name') {
+        cmp = a.name.localeCompare(b.name)
+      } else {
+        cmp = parseTagSize(a.size) - parseTagSize(b.size)
+      }
+      return dir === 'desc' ? -cmp : cmp
+    })
+  }
+
+  function toggleTagSort(modelName: string, by: 'size' | 'name') {
+    const currentBy = tagSortBy[modelName]
+    const currentDir = tagSortDir[modelName]
+    if (currentBy === by) {
+      setTagSortDir({ ...tagSortDir, [modelName]: currentDir === 'asc' ? 'desc' : 'asc' })
+    } else {
+      setTagSortBy({ ...tagSortBy, [modelName]: by })
+      setTagSortDir({ ...tagSortDir, [modelName]: 'asc' })
+    }
+  }
 
   return (
     <SettingsLayout>
@@ -760,6 +806,18 @@ export default function ModelsPage(props: {
               className="w-full sm:w-1/3"
               leftIcon={<IconSearch className="w-5 h-5 text-text-muted" />}
             />
+            <Select
+              name="modelSort"
+              label=""
+              value={sortBy}
+              onChange={(val) => setSortBy(val as 'pulls' | 'name' | 'recent')}
+              options={[
+                { value: 'pulls', label: 'Most pulled' },
+                { value: 'recent', label: 'Recently updated' },
+                { value: 'name', label: 'Name (A-Z)' },
+              ]}
+              className="w-full sm:w-48"
+            />
             <StyledButton
               variant="secondary"
               onClick={handleForceRefresh}
@@ -804,8 +862,13 @@ export default function ModelsPage(props: {
                     <table className="min-w-full divide-y divide-border-subtle">
                       <thead className="bg-surface-primary">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
-                            Tag
+                          <th
+                            className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider cursor-pointer hover:text-text-primary select-none"
+                            onClick={() => toggleTagSort(record.name, 'name')}
+                          >
+                            Tag{' '}
+                            {tagSortBy[record.name] === 'name' &&
+                              (tagSortDir[record.name] === 'desc' ? '↓' : '↑')}
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
                             Input Type
@@ -813,8 +876,13 @@ export default function ModelsPage(props: {
                           <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
                             Context Size
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
-                            Model Size
+                          <th
+                            className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider cursor-pointer hover:text-text-primary select-none"
+                            onClick={() => toggleTagSort(record.name, 'size')}
+                          >
+                            Model Size{' '}
+                            {tagSortBy[record.name] === 'size' &&
+                              (tagSortDir[record.name] === 'desc' ? '↓' : '↑')}
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
                             Action
@@ -822,7 +890,7 @@ export default function ModelsPage(props: {
                         </tr>
                       </thead>
                       <tbody className="bg-surface-primary divide-y divide-border-subtle">
-                        {record.tags.map((tag, tagIndex) => {
+                        {getSortedTags(record.name, record.tags).map((tag, tagIndex) => {
                           const isInstalled = props.models.installedModels.some(
                             (mod) => mod.name === tag.name
                           )

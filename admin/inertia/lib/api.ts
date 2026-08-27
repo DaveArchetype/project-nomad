@@ -344,6 +344,7 @@ class API {
     recommendedOnly?: boolean
     limit?: number
     force?: boolean
+    sort?: 'pulls' | 'name' | 'recent'
   }) {
     return catchInternal(async () => {
       const response = await this.client.get<{
