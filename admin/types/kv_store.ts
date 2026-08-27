@@ -72,6 +72,21 @@ export const KV_STORE_SCHEMA = {
   'gpu.type': 'string',
   'ai.remoteOllamaUrl': 'string',
   'ai.ollamaFlashAttention': 'boolean',
+  // KV cache quantization type passed to Ollama as OLLAMA_KV_CACHE_TYPE at
+  // container creation. FP16 (default) is the most accurate but uses the most
+  // VRAM; q8_0 halves it with negligible quality loss, q4_0 quarters it with
+  // modest loss. Requires Flash Attention to take effect (Ollama silently
+  // falls back to f16 otherwise). Empty/unset = Ollama default (f16).
+  // Takes effect after reinstalling the AI Assistant (env var baked in at
+  // container creation, same as ai.ollamaFlashAttention).
+  'ai.ollamaKvCacheType': 'string',
+  // Per-request context window (num_ctx) sent to Ollama on every chat/RAG
+  // request. Stored as a string (KV schema constraint); parsed to int at read
+  // time by OllamaController.chat. Empty/unset reverts to the hardcoded default
+  // (DEFAULT_OLLAMA_NUM_CTX in the controller). Larger values let long
+  // conversations and large RAG context fit, but allocate a bigger KV cache
+  // (more VRAM); lower it for large models that would otherwise OOM.
+  'ai.ollamaNumCtx': 'string',
   'ai.autoThinking': 'boolean',
   'ai.amdGpuAcceleration': 'boolean',
   'ai.amdHsaOverride': 'string',

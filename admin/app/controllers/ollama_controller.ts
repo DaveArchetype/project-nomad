@@ -17,6 +17,7 @@ import { SERVICE_NAMES } from '../../constants/service_names.js'
 import logger from '@adonisjs/core/services/logger'
 
 const DEFAULT_EMBED_PAUSE_AFTER_CHAT_MINUTES = 15
+const DEFAULT_OLLAMA_NUM_CTX = 262144
 
 type Message = { role: 'system' | 'user' | 'assistant'; content: string; images?: string[] }
 
@@ -249,20 +250,27 @@ export default class OllamaController {
         }
       }
 
-      // If system messages are large (e.g. due to RAG context), request a context window big
-      // enough to fit them. Ollama respects num_ctx per-request; LM Studio ignores it gracefully.
+      // Always send num_ctx so Ollama doesn't fall back to the model's small default
+      // (often 2048-4096), which truncates long conversations and RAG context. The value
+      // is configurable via the ai.ollamaNumCtx KV setting (AI Settings); a high default
+      // suits GPUs with ample VRAM (e.g. RTX 3090). Sending a consistent value also avoids
+      // Ollama reloading the model when the context window changes between requests.
+      // Ollama respects num_ctx per-request; LM Studio ignores it gracefully.
+      const ollamaNumCtxRaw = await KVStore.getValue('ai.ollamaNumCtx')
+      let numCtx = DEFAULT_OLLAMA_NUM_CTX
+      if (ollamaNumCtxRaw !== undefined && ollamaNumCtxRaw !== null && ollamaNumCtxRaw !== '') {
+        const parsed = Number(ollamaNumCtxRaw)
+        if (Number.isInteger(parsed) && parsed >= 2048) {
+          numCtx = parsed
+        }
+      }
       const systemChars = reqData.messages
         .filter((m) => m.role === 'system')
         .reduce((sum, m) => sum + m.content.length, 0)
       const estimatedSystemTokens = Math.ceil(systemChars / 3.5)
-      let numCtx: number | undefined
-      if (estimatedSystemTokens > 3000) {
-        const needed = estimatedSystemTokens + 2048 // leave room for conversation + response
-        numCtx = [8192, 16384, 32768, 65536].find((n) => n >= needed) ?? 65536
-        logger.debug(
-          `[OllamaController] Large system prompt (~${estimatedSystemTokens} tokens), requesting num_ctx: ${numCtx}`
-        )
-      }
+      logger.debug(
+        `[OllamaController] Requesting num_ctx: ${numCtx} (system prompt ~${estimatedSystemTokens} tokens)`
+      )
 
       // Check if the model supports "thinking" capability for enhanced response generation.
       // Thinking is only enabled when the model supports it AND the user wants it: the explicit

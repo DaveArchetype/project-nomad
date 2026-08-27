@@ -866,6 +866,14 @@ export class DockerService {
         if (flashAttentionEnabled !== false) {
           ollamaEnv.push('OLLAMA_FLASH_ATTENTION=1')
         }
+        // KV cache quantization — requires Flash Attention to take effect
+        // (Ollama silently falls back to f16 otherwise). q8_0 halves KV cache
+        // VRAM with negligible quality loss; q4_0 quarters it with modest loss.
+        // Empty/unset = Ollama default (f16).
+        const kvCacheType = await KVStore.getValue('ai.ollamaKvCacheType')
+        if (kvCacheType && typeof kvCacheType === 'string' && kvCacheType.trim() !== '') {
+          ollamaEnv.push(`OLLAMA_KV_CACHE_TYPE=${kvCacheType.trim()}`)
+        }
         if (amdGpuConfigured) {
           // gfx-aware HSA override — only set for cards that actually need it. See
           // _resolveAmdHsaOverride() for the resolution order and gfx → version mapping.

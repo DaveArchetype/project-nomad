@@ -70,6 +70,8 @@ export default class SettingsController {
     const aiAssistantCustomName = await KVStore.getValue('ai.assistantCustomName')
     const remoteOllamaUrl = await KVStore.getValue('ai.remoteOllamaUrl')
     const ollamaFlashAttention = await KVStore.getValue('ai.ollamaFlashAttention')
+    const ollamaKvCacheType = await KVStore.getValue('ai.ollamaKvCacheType')
+    const ollamaNumCtx = await KVStore.getValue('ai.ollamaNumCtx')
     const autoThinking = await KVStore.getValue('ai.autoThinking')
     const embedPauseAfterChatMinutes = await KVStore.getValue('rag.embedPauseAfterChatMinutes')
     const embedConcurrency = await KVStore.getValue('rag.embedConcurrency')
@@ -88,6 +90,8 @@ export default class SettingsController {
           aiAssistantCustomName: aiAssistantCustomName ?? '',
           remoteOllamaUrl: remoteOllamaUrl ?? '',
           ollamaFlashAttention: ollamaFlashAttention ?? true,
+          ollamaKvCacheType: ollamaKvCacheType ?? '',
+          ollamaNumCtx: ollamaNumCtx ?? '',
           autoThinking: autoThinking ?? false,
           embedPauseAfterChatMinutes: embedPauseAfterChatMinutes ?? '',
           embedConcurrency: embedConcurrency ?? '',

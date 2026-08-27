@@ -12,6 +12,8 @@ export const SETTINGS_KEYS: KVStoreKey[] = [
   'ai.assistantCustomName',
   'ai.remoteOllamaUrl',
   'ai.ollamaFlashAttention',
+  'ai.ollamaKvCacheType',
+  'ai.ollamaNumCtx',
   'ai.autoThinking',
   'rag.defaultIngestPolicy',
   'rag.embedPauseAfterChatMinutes',

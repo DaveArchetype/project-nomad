@@ -147,6 +147,24 @@ export function validateSettingValue(key: KVStoreKey, value: unknown): string | 
       }
       return null
     }
+    case 'ai.ollamaNumCtx': {
+      // Empty clears the setting (reverts to the controller's hardcoded default).
+      if (value === '' || value === undefined || value === null) return null
+      const num = Number(value)
+      if (!Number.isInteger(num) || num < 2048 || num > 1048576) {
+        return 'Context window must be a whole number of tokens between 2048 and 1048576.'
+      }
+      return null
+    }
+    case 'ai.ollamaKvCacheType': {
+      // Empty clears the setting (reverts to Ollama's default, f16).
+      if (value === '' || value === undefined || value === null) return null
+      const allowed = ['f16', 'q8_0', 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'iq4_nl']
+      if (!allowed.includes(String(value))) {
+        return 'KV cache type must be one of: f16, q8_0, q4_0, q4_1, q5_0, q5_1, iq4_nl.'
+      }
+      return null
+    }
     case 'voice.audioSource': {
       if (!['browser', 'host', 'both'].includes(String(value))) {
         return 'Audio source must be one of "browser", "host", or "both".'

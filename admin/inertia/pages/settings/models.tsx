@@ -13,6 +13,7 @@ import StyledModal from '~/components/StyledModal'
 import type { NomadInstalledModel } from '../../../types/ollama'
 import { SERVICE_NAMES } from '../../../constants/service_names'
 import Switch from '~/components/inputs/Switch'
+import Select from '~/components/inputs/Select'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import Input from '~/components/inputs/Input'
@@ -31,6 +32,8 @@ export default function ModelsPage(props: {
       aiAssistantCustomName: string
       remoteOllamaUrl: string
       ollamaFlashAttention: boolean
+      ollamaKvCacheType: string
+      ollamaNumCtx: string
       autoThinking: boolean
       embedPauseAfterChatMinutes: string
       embedConcurrency: string
@@ -66,34 +69,36 @@ export default function ModelsPage(props: {
     } catch {}
   }
 
+  const executeReinstallOllama = async () => {
+    closeAllModals()
+    setReinstalling(true)
+    try {
+      const response = await api.forceReinstallService('nomad_ollama')
+      if (!response || !response.success) {
+        throw new Error(response?.message || 'Force reinstall failed')
+      }
+      addNotification({
+        message: `${aiAssistantName} is being reinstalled with GPU support. This page will reload shortly.`,
+        type: 'success',
+      })
+      try {
+        localStorage.removeItem('nomad:gpu-banner-dismissed')
+      } catch {}
+      setTimeout(() => window.location.reload(), 5000)
+    } catch (error) {
+      addNotification({
+        message: `Failed to reinstall: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        type: 'error',
+      })
+      setReinstalling(false)
+    }
+  }
+
   const handleForceReinstallOllama = () => {
     openModal(
       <StyledModal
         title="Reinstall AI Assistant?"
-        onConfirm={async () => {
-          closeAllModals()
-          setReinstalling(true)
-          try {
-            const response = await api.forceReinstallService('nomad_ollama')
-            if (!response || !response.success) {
-              throw new Error(response?.message || 'Force reinstall failed')
-            }
-            addNotification({
-              message: `${aiAssistantName} is being reinstalled with GPU support. This page will reload shortly.`,
-              type: 'success',
-            })
-            try {
-              localStorage.removeItem('nomad:gpu-banner-dismissed')
-            } catch {}
-            setTimeout(() => window.location.reload(), 5000)
-          } catch (error) {
-            addNotification({
-              message: `Failed to reinstall: ${error instanceof Error ? error.message : 'Unknown error'}`,
-              type: 'error',
-            })
-            setReinstalling(false)
-          }
-        }}
+        onConfirm={executeReinstallOllama}
         onCancel={closeAllModals}
         open={true}
         confirmText="Reinstall"
@@ -108,12 +113,40 @@ export default function ModelsPage(props: {
       'gpu-health-force-reinstall-modal'
     )
   }
+
+  const promptReinstallForSettingChange = (settingLabel: string) => {
+    openModal(
+      <StyledModal
+        title="Reinstall to apply changes?"
+        onConfirm={executeReinstallOllama}
+        onCancel={closeAllModals}
+        open={true}
+        confirmText="Reinstall now"
+        cancelText="Later"
+      >
+        <p className="text-text-primary">
+          <strong>{settingLabel}</strong> was saved, but it only takes effect after reinstalling the{' '}
+          {aiAssistantName} — the setting is applied when the Ollama container is recreated. Your
+          downloaded models will be preserved. The service will be briefly unavailable during
+          reinstall.
+        </p>
+        <p className="text-text-muted mt-2">
+          You can reinstall later from the GPU banner at the top of this page if you prefer.
+        </p>
+      </StyledModal>,
+      'setting-change-reinstall-prompt-modal'
+    )
+  }
   const [chatSuggestionsEnabled, setChatSuggestionsEnabled] = useState(
     props.models.settings.chatSuggestionsEnabled
   )
   const [ollamaFlashAttention, setOllamaFlashAttention] = useState(
     props.models.settings.ollamaFlashAttention
   )
+  const [ollamaKvCacheType, setOllamaKvCacheType] = useState(
+    props.models.settings.ollamaKvCacheType
+  )
+  const [ollamaNumCtx, setOllamaNumCtx] = useState(props.models.settings.ollamaNumCtx)
   const [autoThinking, setAutoThinking] = useState(props.models.settings.autoThinking)
   const [aiAssistantCustomName, setAiAssistantCustomName] = useState(
     props.models.settings.aiAssistantCustomName
@@ -284,14 +317,25 @@ export default function ModelsPage(props: {
   }
 
   const updateSettingMutation = useMutation({
-    mutationFn: async ({ key, value }: { key: string; value: boolean | string }) => {
+    mutationFn: async ({
+      key,
+      value,
+    }: {
+      key: string
+      value: boolean | string
+      requiresReinstall?: boolean
+      settingLabel?: string
+    }) => {
       return await api.updateSetting(key, value)
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       addNotification({
         message: 'Setting updated successfully.',
         type: 'success',
       })
+      if (variables.requiresReinstall) {
+        promptReinstallForSettingChange(variables.settingLabel ?? 'This setting')
+      }
     },
     onError: (error) => {
       console.error('Error updating setting:', error)
@@ -360,10 +404,39 @@ export default function ModelsPage(props: {
                 checked={ollamaFlashAttention}
                 onChange={(newVal) => {
                   setOllamaFlashAttention(newVal)
-                  updateSettingMutation.mutate({ key: 'ai.ollamaFlashAttention', value: newVal })
+                  updateSettingMutation.mutate({
+                    key: 'ai.ollamaFlashAttention',
+                    value: newVal,
+                    requiresReinstall: true,
+                    settingLabel: 'Flash Attention',
+                  })
                 }}
                 label="Flash Attention"
                 description="Enables OLLAMA_FLASH_ATTENTION=1 for improved memory efficiency. Disable if you experience instability. Takes effect after reinstalling the AI Assistant."
+              />
+              <Select
+                name="ollamaKvCacheType"
+                label="KV Cache Quantization"
+                value={ollamaKvCacheType || 'f16'}
+                onChange={(val) => {
+                  setOllamaKvCacheType(val)
+                  updateSettingMutation.mutate({
+                    key: 'ai.ollamaKvCacheType',
+                    value: val,
+                    requiresReinstall: true,
+                    settingLabel: 'KV Cache Quantization',
+                  })
+                }}
+                options={[
+                  { value: 'f16', label: 'FP16 (default, most VRAM, best quality)' },
+                  { value: 'q8_0', label: 'INT8 q8_0 (half VRAM, negligible quality loss)' },
+                  { value: 'q4_0', label: 'INT4 q4_0 (quarter VRAM, modest quality loss)' },
+                  { value: 'q4_1', label: 'q4_1 (quarter VRAM, slightly better than q4_0)' },
+                  { value: 'q5_0', label: 'q5_0 (between q4_0 and q8_0)' },
+                  { value: 'q5_1', label: 'q5_1 (between q4_1 and q8_0)' },
+                  { value: 'iq4_nl', label: 'iq4_nl (4-bit, non-linear, model-dependent)' },
+                ]}
+                helpText="Quantizes the KV (context) cache to reduce VRAM. Requires Flash Attention to take effect — Ollama silently falls back to FP16 otherwise. q8_0 is the safe default (half the cache VRAM, near-zero quality loss); q4_0 quarters it with modest loss. Takes effect after reinstalling the AI Assistant."
               />
               <Switch
                 checked={autoThinking}
@@ -373,6 +446,21 @@ export default function ModelsPage(props: {
                 }}
                 label="Use thinking automatically when a model supports it"
                 description="Sets the default for models that can think. You can still turn thinking on or off for an individual model in the chat window."
+              />
+              <Input
+                name="ollamaNumCtx"
+                label="Context window (tokens)"
+                type="number"
+                helpText="The context window (num_ctx) sent to Ollama on every chat request. Larger values fit longer conversations and more RAG context, but allocate a bigger KV cache (more VRAM). Lower this for large models that would otherwise run out of VRAM. Empty = default 262144 (256k)."
+                placeholder="262144"
+                value={ollamaNumCtx}
+                onChange={(e) => setOllamaNumCtx(e.target.value)}
+                onBlur={() =>
+                  updateSettingMutation.mutate({
+                    key: 'ai.ollamaNumCtx',
+                    value: ollamaNumCtx,
+                  })
+                }
               />
               <Input
                 name="aiAssistantCustomName"
