@@ -36,6 +36,7 @@ export type AgentRunCallbacks = {
 }
 
 const MAX_RECURSION_LIMIT = 40
+const MAX_TOOL_CALLS = 6
 
 type LCMessage = { role: 'system' | 'user' | 'assistant'; content: string }
 
@@ -67,8 +68,19 @@ export class AgentService {
 
     const collectedSources: WebSource[] = []
     const toolSteps: ToolStep[] = []
+    let toolCallCount = 0
+    const toolCallGuard = (): boolean => {
+      toolCallCount++
+      return toolCallCount <= MAX_TOOL_CALLS
+    }
 
-    const tools = this._buildTools(enabledTools, collectedSources, toolSteps, callbacks)
+    const tools = this._buildTools(
+      enabledTools,
+      collectedSources,
+      toolSteps,
+      callbacks,
+      toolCallGuard
+    )
 
     if (tools.length === 0) {
       throw new Error('No tools enabled for agent run.')
@@ -76,7 +88,7 @@ export class AgentService {
 
     const systemPrompt = params.systemPrompt
       ? params.systemPrompt
-      : 'You are a helpful AI assistant with access to tools. Use tools when the user asks about current information that requires live data, calculations, or the current time. For general knowledge questions, answer directly without tools. Always cite web sources by including their URLs in your response when you use web search or web fetch results. If a web search returns no results or fails, do NOT retry the same search more than once. Inform the user that the search failed and provide what you know from your training data instead.'
+      : 'You are a helpful AI assistant with access to tools. Use tools when the user asks about current information that requires live data, calculations, or the current time. For general knowledge questions, answer directly without tools. After receiving tool results, you MUST synthesize them into a final answer immediately — do NOT call the same tool again with a similar query. Maximum 2 tool calls per response. Always cite web sources by including their URLs in your response when you use web search or web fetch results. If a web search returns no results or fails, inform the user and provide what you know from your training data.'
 
     const lcMessages = [{ role: 'system' as const, content: systemPrompt }, ...messages]
 
@@ -88,17 +100,33 @@ export class AgentService {
     let fullContent = ''
 
     try {
-      const run = await agent.streamEvents({ messages: lcMessages as any }, {
+      const eventStream = await agent.streamEvents({ messages: lcMessages as any }, {
         version: 'v3',
         signal,
         recursionLimit: MAX_RECURSION_LIMIT,
       } as any)
 
-      for await (const msg of run.messages) {
-        for await (const token of msg.text) {
-          if (typeof token === 'string' && token.length > 0) {
-            fullContent += token
-            callbacks?.onContentChunk?.(token)
+      for await (const event of eventStream as any) {
+        if (toolCallCount > MAX_TOOL_CALLS) {
+          logger.warn(
+            `[AgentService] Tool call limit (${MAX_TOOL_CALLS}) exceeded, stopping agent loop`
+          )
+          break
+        }
+
+        if (event.event === 'on_chat_model_stream') {
+          const chunk = event.data?.chunk
+          if (chunk?.content) {
+            const text =
+              typeof chunk.content === 'string'
+                ? chunk.content
+                : Array.isArray(chunk.content)
+                  ? chunk.content.map((c: any) => c?.text || '').join('')
+                  : ''
+            if (text) {
+              fullContent += text
+              callbacks?.onContentChunk?.(text)
+            }
           }
         }
       }
@@ -113,6 +141,12 @@ export class AgentService {
       throw error
     }
 
+    if (!fullContent && toolCallCount > MAX_TOOL_CALLS) {
+      fullContent =
+        'I searched for information but was unable to synthesize a complete answer. Here is what I found from the web search results above. Please try rephrasing your question.'
+      callbacks?.onContentChunk?.(fullContent)
+    }
+
     return {
       content: fullContent,
       toolSteps,
@@ -124,7 +158,8 @@ export class AgentService {
     enabledTools: AgentToolName[],
     collectedSources: WebSource[],
     _toolSteps: ToolStep[],
-    callbacks?: AgentRunCallbacks
+    callbacks?: AgentRunCallbacks,
+    guard?: () => boolean
   ): any[] {
     const tools: any[] = []
 
@@ -132,6 +167,9 @@ export class AgentService {
       tools.push(
         tool(
           async ({ query }: { query: string }) => {
+            if (guard && !guard()) {
+              return 'Tool call limit reached. Use the search results you already have to answer the user.'
+            }
             const step: ToolStep = { tool: 'web_search', step: 'start', input: { query } }
             callbacks?.onToolStep?.(step)
             try {
@@ -176,6 +214,9 @@ export class AgentService {
       tools.push(
         tool(
           async ({ url }: { url: string }) => {
+            if (guard && !guard()) {
+              return 'Tool call limit reached. Use the information you already have to answer the user.'
+            }
             const step: ToolStep = { tool: 'web_fetch', step: 'start', input: { url } }
             callbacks?.onToolStep?.(step)
             try {
@@ -211,6 +252,9 @@ export class AgentService {
       tools.push(
         tool(
           async ({ expression }: { expression: string }) => {
+            if (guard && !guard()) {
+              return 'Tool call limit reached. Answer the user directly.'
+            }
             const step: ToolStep = {
               tool: 'calculator',
               step: 'start',
@@ -258,6 +302,9 @@ export class AgentService {
       tools.push(
         tool(
           async () => {
+            if (guard && !guard()) {
+              return 'Tool call limit reached. Answer the user directly.'
+            }
             const now = DateTime.now()
             const step: ToolStep = {
               tool: 'current_time',
