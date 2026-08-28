@@ -7,6 +7,45 @@ echo "Starting entrypoint script..."
 # Ensure required storage directories exist (volume may be freshly mounted)
 mkdir -p /app/storage/logs /app/storage/kb_uploads
 
+# Provision SearXNG settings.yml so the JSON API is enabled when the user installs
+# SearXNG via Supply Depot. The ServiceSeeder mounts <storage>/searxng:/etc/searxng,
+# so SearXNG reads this file on startup. We only write if missing (never overwrite
+# user customizations). The secret_key is sourced from SEARXNG_SECRET_KEY (.env).
+mkdir -p /app/storage/searxng
+if [ ! -f /app/storage/searxng/settings.yml ]; then
+  SEARXNG_SECRET="${SEARXNG_SECRET_KEY:-nomad-searxng-default-secret-replace-me}"
+  cat > /app/storage/searxng/settings.yml <<SEARXNG_SETTINGS
+use_default_settings: true
+
+general:
+  instance_name: "Project NOMAD Search"
+  debug: false
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "en"
+  formats:
+    - html
+    - json
+
+server:
+  secret_key: "${SEARXNG_SECRET}"
+  limiter: false
+  image_proxy: true
+  bind_address: "0.0.0.0"
+  port: 8080
+
+ui:
+  static_use_hash: true
+
+outgoing:
+  request_timeout: 10
+  max_request_timeout: 15
+  useragent_suffix: ""
+SEARXNG_SETTINGS
+fi
+
 # Wait for Redis to be reachable before booting anything that opens a BullMQ
 # connection. `depends_on: condition: service_healthy` only gates a clean
 # `up --recreate`; it is NOT re-checked on `docker compose restart` or a

@@ -66,6 +66,7 @@ services:
       # queue when it dies. Default in entrypoint.sh is true, so existing installs that
       # haven't adopted the worker service keep working.
       - START_WORKER=false
+      - SEARXNG_SECRET_KEY=${SEARXNG_SECRET_KEY}
     depends_on:
       mysql:
         condition: service_healthy
