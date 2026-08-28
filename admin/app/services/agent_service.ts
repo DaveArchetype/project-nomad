@@ -35,7 +35,7 @@ export type AgentRunCallbacks = {
   signal?: AbortSignal
 }
 
-const MAX_RECURSION_LIMIT = 25
+const MAX_RECURSION_LIMIT = 40
 
 type LCMessage = { role: 'system' | 'user' | 'assistant'; content: string }
 
@@ -76,7 +76,7 @@ export class AgentService {
 
     const systemPrompt = params.systemPrompt
       ? params.systemPrompt
-      : 'You are a helpful AI assistant with access to tools. Use tools when the user asks about current information that requires live data, calculations, or the current time. For general knowledge questions, answer directly without tools. Always cite web sources by including their URLs in your response when you use web search or web fetch results.'
+      : 'You are a helpful AI assistant with access to tools. Use tools when the user asks about current information that requires live data, calculations, or the current time. For general knowledge questions, answer directly without tools. Always cite web sources by including their URLs in your response when you use web search or web fetch results. If a web search returns no results or fails, do NOT retry the same search more than once. Inform the user that the search failed and provide what you know from your training data instead.'
 
     const lcMessages = [{ role: 'system' as const, content: systemPrompt }, ...messages]
 

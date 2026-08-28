@@ -26,3 +26,17 @@ outgoing:
   request_timeout: 10
   max_request_timeout: 15
   useragent_suffix: ""
+
+engines:
+  - name: duckduckgo
+    disabled: true
+  - name: brave
+    disabled: true
+  - name: startpage
+    disabled: true
+  - name: ahmia
+    disabled: true
+  - name: torch
+    disabled: true
+  - name: wikidata
+    disabled: true
