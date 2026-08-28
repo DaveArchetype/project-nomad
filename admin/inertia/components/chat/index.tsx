@@ -88,7 +88,17 @@ export default function Chat({
       isProcessingQueueRef.current = true
 
       try {
-        const blob = await api.synthesizeSpeech(next.text)
+        let blob: Blob | undefined
+        for (let attempt = 0; attempt < 2; attempt++) {
+          if (isStoppedRef.current || playingMessageIdRef.current !== messageId) break
+          try {
+            blob = await api.synthesizeSpeech(next.text)
+            if (blob) break
+          } catch {
+            // retry once after short delay
+          }
+          if (attempt === 0) await new Promise((r) => setTimeout(r, 500))
+        }
         if (!blob || isStoppedRef.current || playingMessageIdRef.current !== messageId) {
           isProcessingQueueRef.current = false
           if (sentenceQueueRef.current.length > 0 && !isStoppedRef.current) {

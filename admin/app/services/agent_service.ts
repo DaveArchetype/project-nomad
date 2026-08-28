@@ -89,7 +89,7 @@ export class AgentService {
 
     const systemPrompt = params.systemPrompt
       ? params.systemPrompt
-      : 'You are a helpful AI assistant with access to tools. Use tools when the user asks about current information that requires live data, calculations, or the current time. For general knowledge questions, answer directly without tools. CRITICAL RULES: (1) Make at most ONE web search per response. (2) After receiving tool results, you MUST immediately write your final answer to the user — do NOT call any tool again. (3) Never repeat a search you already performed. (4) Synthesize the tool results into a clear, complete answer with citations.'
+      : 'You are a helpful AI assistant with access to tools. Use tools when the user asks about current information that requires live data, calculations, or the current time. For general knowledge questions, answer directly without tools. CRITICAL RULES: (1) Make exactly ONE web_search call per response. (2) After getting search results, use web_fetch on the 1-2 most relevant result URLs to get the actual page content with the data you need. (3) After fetching, you MUST immediately write your final answer using the fetched page content — do NOT call any more tools. (4) Never repeat a search. (5) Always synthesize the fetched data into a complete answer with citations.'
 
     const lcMessages = [{ role: 'system' as const, content: systemPrompt }, ...messages]
 
@@ -99,7 +99,8 @@ export class AgentService {
     })
 
     let fullContent = ''
-    let toolStartedCount = 0
+    let webSearchCount = 0
+    let webFetchCount = 0
     let shouldBreak = false
 
     try {
@@ -132,18 +133,29 @@ export class AgentService {
             callbacks?.onContentChunk?.(delta.fields.text)
           }
         } else if (method === 'tools' && data?.event === 'tool-started') {
-          toolStartedCount++
-          if (toolStartedCount > 1) {
-            logger.info('[AgentService] Second tool call started, breaking to force synthesis')
-            shouldBreak = true
+          const toolName = data?.tool_name || ''
+          if (toolName === 'web_search') {
+            webSearchCount++
+            if (webSearchCount > 1) {
+              logger.info('[AgentService] Second web_search started, breaking to force synthesis')
+              shouldBreak = true
+            }
+          } else if (toolName === 'web_fetch') {
+            webFetchCount++
+            if (webFetchCount > 2) {
+              logger.info('[AgentService] Too many web_fetch calls, breaking to force synthesis')
+              shouldBreak = true
+            }
           }
         } else if (method === 'tools' && data?.event === 'tool-finished') {
-          shouldBreak = true
+          if (webFetchCount > 0) {
+            shouldBreak = true
+          }
         }
       }
 
       logger.info(
-        `[AgentService] Stream finished: fullContent.length=${fullContent.length}, toolCallCount=${toolCallCount}, toolStarted=${toolStartedCount}, sources=${collectedSources.length}`
+        `[AgentService] Stream finished: fullContent.length=${fullContent.length}, webSearch=${webSearchCount}, webFetch=${webFetchCount}, sources=${collectedSources.length}`
       )
     } catch (error: any) {
       if (signal?.aborted || error?.name === 'AbortError') {
