@@ -152,7 +152,9 @@ export class SearxngService {
     }
 
     const hostPort =
-      service.ui_location && parseInt(service.ui_location, 10) ? service.ui_location : internalPort
+      service.ui_location && Number.parseInt(service.ui_location, 10)
+        ? service.ui_location
+        : internalPort
 
     const port = hostname === 'localhost' ? hostPort : internalPort
     return `http://${hostname}:${port}`
