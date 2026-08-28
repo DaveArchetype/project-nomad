@@ -35,7 +35,7 @@ export type AgentRunCallbacks = {
   signal?: AbortSignal
 }
 
-const MAX_RECURSION_LIMIT = 12
+const MAX_RECURSION_LIMIT = 25
 
 type LCMessage = { role: 'system' | 'user' | 'assistant'; content: string }
 

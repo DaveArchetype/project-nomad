@@ -17,7 +17,7 @@ server:
   limiter: false
   image_proxy: true
   bind_address: "0.0.0.0"
-  port: 8080
+  port: 8510
 
 ui:
   static_use_hash: true

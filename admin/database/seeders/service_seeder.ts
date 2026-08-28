@@ -658,10 +658,10 @@ export default class ServiceSeeder extends BaseSeeder {
       container_config: JSON.stringify({
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
-          PortBindings: { '8080/tcp': [{ HostPort: '8510' }] },
+          PortBindings: { '8510/tcp': [{ HostPort: '8510' }] },
           Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/searxng:/etc/searxng`],
         },
-        ExposedPorts: { '8080/tcp': {} },
+        ExposedPorts: { '8510/tcp': {} },
         Env: ['SEARXNG_BASE_URL=http://localhost:8510/', 'UWSGI_WORKERS=4'],
       }),
       ui_location: '8510',
