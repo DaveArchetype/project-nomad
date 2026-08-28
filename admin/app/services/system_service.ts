@@ -1148,11 +1148,15 @@ export class SystemService {
       // Ports used by existing custom services in the DB
       const customServices = await Service.query().where('is_custom', true)
       for (const svc of customServices) {
-        const config = svc.container_config ? JSON.parse(svc.container_config) : null
+        const config = svc.container_config
+          ? typeof svc.container_config === 'object'
+            ? svc.container_config
+            : JSON.parse(svc.container_config as string)
+          : null
         const bindings = config?.HostConfig?.PortBindings ?? {}
         for (const binding of Object.values(bindings) as any[]) {
-          const port = parseInt(binding?.[0]?.HostPort, 10)
-          if (!isNaN(port)) occupied.add(port)
+          const port = Number.parseInt(binding?.[0]?.HostPort, 10)
+          if (!Number.isNaN(port)) occupied.add(port)
         }
       }
 

@@ -132,18 +132,23 @@ export class SearxngService {
     const hostname = process.env.NODE_ENV === 'production' ? SERVICE_NAMES.SEARXNG : 'localhost'
 
     let internalPort: string | null = null
+    let parsedConfig: any = null
     try {
-      const parsed = JSON.parse(service.container_config || '{}')
-      const exposedPorts = parsed.ExposedPorts || {}
-      internalPort = Object.keys(exposedPorts)[0]?.replace('/tcp', '') ?? null
+      const raw = service.container_config
+      if (raw) {
+        parsedConfig = typeof raw === 'object' ? raw : JSON.parse(raw)
+      }
     } catch {}
 
-    if (!internalPort) {
-      const portBindings = service.container_config
-        ? JSON.parse(service.container_config)?.HostConfig?.PortBindings
-        : null
-      if (portBindings) {
-        internalPort = Object.keys(portBindings)[0]?.replace('/tcp', '') ?? null
+    if (parsedConfig) {
+      const exposedPorts = parsedConfig.ExposedPorts || {}
+      internalPort = Object.keys(exposedPorts)[0]?.replace('/tcp', '') ?? null
+
+      if (!internalPort) {
+        const portBindings = parsedConfig.HostConfig?.PortBindings
+        if (portBindings) {
+          internalPort = Object.keys(portBindings)[0]?.replace('/tcp', '') ?? null
+        }
       }
     }
 
