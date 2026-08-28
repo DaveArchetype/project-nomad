@@ -68,6 +68,7 @@ export class AgentService {
     })
 
     const collectedSources: WebSource[] = []
+    const collectedPageContent: string[] = []
     const toolSteps: ToolStep[] = []
     let toolCallCount = 0
     const toolCallGuard = (): boolean => {
@@ -78,6 +79,7 @@ export class AgentService {
     const tools = this._buildTools(
       enabledTools,
       collectedSources,
+      collectedPageContent,
       toolSteps,
       callbacks,
       toolCallGuard
@@ -169,10 +171,14 @@ export class AgentService {
     }
 
     if (!fullContent && collectedSources.length > 0) {
-      logger.info('[AgentService] Forcing synthesis with collected sources')
+      logger.info(
+        `[AgentService] Forcing synthesis with ${collectedSources.length} sources and ${collectedPageContent.length} fetched pages`
+      )
       const sourcesContext = collectedSources
         .map((s, i) => `[${i + 1}] ${s.title}\nURL: ${s.url}\n${s.snippet || ''}`)
         .join('\n\n')
+
+      const pageContentContext = collectedPageContent.join('\n\n')
 
       const firstUserQuestion = messages.find((m) => m.role === 'user')?.content || ''
       const lastUserContent = messages[messages.length - 1]?.content || ''
@@ -183,7 +189,7 @@ export class AgentService {
       const synthesisMessages = [
         {
           role: 'system' as const,
-          content: `You are a helpful assistant that just performed a web search and fetched the actual web pages. The results below contain REAL, CURRENT data extracted from live websites — including full page content with actual numbers, temperatures, forecasts, etc. Your job is to answer the user's question using ALL of this data combined with your own knowledge. NEVER say you cannot access the internet, cannot pull real-time data, that data is missing, or suggest the user check sources themselves — you already have the real data in the results below. Write a confident, complete answer using the actual numbers and facts from the results. Cite sources inline with their URLs. If the user asks for a table, build a table with the actual data from the results.${isRetry ? `\n\nThe user's original question was: "${firstUserQuestion}" — they asked you to try again, so answer that original question.` : ''}\n\nYour web search results and fetched page content:\n${sourcesContext}`,
+          content: `You are a helpful assistant that just performed a web search and fetched the actual web pages. The results below contain REAL, CURRENT data extracted from live websites — including full page content with actual numbers, temperatures, forecasts, etc. Your job is to answer the user's question using ALL of this data combined with your own knowledge. Compare data from ALL available sources to build the most complete answer. NEVER say you cannot access the internet, cannot pull real-time data, that data is missing, or suggest the user check sources themselves — you already have the real data in the results below. Write a confident, complete answer using the actual numbers and facts from the results. Cite sources inline with their URLs. If the user asks for a table, build a table with the actual data from the results.${isRetry ? `\n\nThe user's original question was: "${firstUserQuestion}" — they asked you to try again, so answer that original question.` : ''}\n\nWeb search results:\n${sourcesContext}\n\n=== FULL PAGE CONTENT FROM FETCHED SOURCES (use this for actual data) ===\n${pageContentContext}`,
         },
         ...messages,
       ]
@@ -229,6 +235,7 @@ export class AgentService {
   private _buildTools(
     enabledTools: AgentToolName[],
     collectedSources: WebSource[],
+    collectedPageContent: string[],
     _toolSteps: ToolStep[],
     callbacks?: AgentRunCallbacks,
     guard?: () => boolean
@@ -257,7 +264,7 @@ export class AgentService {
               }
 
               const topUrls = results
-                .slice(0, 2)
+                .slice(0, 3)
                 .map((r) => r.url)
                 .filter(Boolean)
               const fetchedContents: string[] = []
@@ -265,9 +272,9 @@ export class AgentService {
                 try {
                   const page = await this.searxngService.fetchPage(fetchUrl)
                   if (page.text) {
-                    fetchedContents.push(
-                      `--- Content from ${page.title} (${fetchUrl}) ---\n${page.text.slice(0, 3000)}`
-                    )
+                    const content = `--- Content from ${page.title} (${fetchUrl}) ---\n${page.text.slice(0, 4000)}`
+                    fetchedContents.push(content)
+                    collectedPageContent.push(content)
                   }
                 } catch {
                   // skip failed fetches

@@ -208,6 +208,8 @@ export default function Chat({
 
     if (playingMessageIdRef.current !== last.id || isStoppedRef.current) return
 
+    if (!last.isStreaming && playedSentenceCountRef.current > 0) return
+
     const plainText = stripMarkdownForHighlighting(last.content)
     const allSentences = getSentencesWithOffsets(plainText)
     const alreadyQueuedOrPlayed = playedSentenceCountRef.current + sentenceQueueRef.current.length
