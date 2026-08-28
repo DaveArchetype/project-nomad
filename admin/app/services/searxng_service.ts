@@ -4,6 +4,7 @@ import * as cheerio from 'cheerio'
 import logger from '@adonisjs/core/services/logger'
 import { DockerService } from './docker_service.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
+import Service from '#models/service'
 
 export type SearxngSearchResult = {
   title: string
@@ -122,6 +123,38 @@ export class SearxngService {
   }
 
   private async _resolveUrl(): Promise<string | null> {
-    return await this.dockerService.getServiceURL(SERVICE_NAMES.SEARXNG)
+    const service = await Service.query()
+      .where('service_name', SERVICE_NAMES.SEARXNG)
+      .andWhere('installed', true)
+      .first()
+    if (!service) return null
+
+    const hostname = process.env.NODE_ENV === 'production' ? SERVICE_NAMES.SEARXNG : 'localhost'
+
+    let internalPort: string | null = null
+    try {
+      const parsed = JSON.parse(service.container_config || '{}')
+      const exposedPorts = parsed.ExposedPorts || {}
+      internalPort = Object.keys(exposedPorts)[0]?.replace('/tcp', '') ?? null
+    } catch {}
+
+    if (!internalPort) {
+      const portBindings = service.container_config
+        ? JSON.parse(service.container_config)?.HostConfig?.PortBindings
+        : null
+      if (portBindings) {
+        internalPort = Object.keys(portBindings)[0]?.replace('/tcp', '') ?? null
+      }
+    }
+
+    if (!internalPort) {
+      return await this.dockerService.getServiceURL(SERVICE_NAMES.SEARXNG)
+    }
+
+    const hostPort =
+      service.ui_location && parseInt(service.ui_location, 10) ? service.ui_location : internalPort
+
+    const port = hostname === 'localhost' ? hostPort : internalPort
+    return `http://${hostname}:${port}`
   }
 }

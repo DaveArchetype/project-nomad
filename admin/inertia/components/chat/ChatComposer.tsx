@@ -329,7 +329,7 @@ export default function ChatComposer({
             <IconPlus className="h-6 w-6" />
           </button>
           {plusMenuOpen && (
-            <div className="absolute bottom-full left-0 mb-2 z-50 rounded-lg border border-border-default bg-surface-primary shadow-lg min-w-[180px] overflow-hidden">
+            <div className="absolute bottom-full left-0 mb-2 z-50 rounded-lg border border-border-default bg-surface-primary shadow-lg min-w-45 overflow-hidden">
               {selectedModelSupportsVision && (
                 <button
                   type="button"
@@ -386,7 +386,7 @@ export default function ChatComposer({
               )}
             </button>
             {toolsPopoverOpen && (
-              <div className="absolute bottom-full left-0 mb-2 z-50 rounded-lg border border-border-default bg-surface-primary shadow-lg min-w-[200px] overflow-hidden">
+              <div className="absolute bottom-full left-0 mb-2 z-50 rounded-lg border border-border-default bg-surface-primary shadow-lg min-w-50 overflow-hidden">
                 <div className="px-3 py-2 text-xs font-medium text-text-muted border-b border-border-subtle">
                   Agent tools
                 </div>

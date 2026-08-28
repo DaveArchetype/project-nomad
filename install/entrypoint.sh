@@ -20,7 +20,7 @@ if [ ! -f /app/storage/searxng/settings.yml ]; then
   NEEDS_WRITE=1
 elif ! grep -q "^  formats:" /app/storage/searxng/settings.yml 2>/dev/null; then
   NEEDS_WRITE=1
-elif ! grep -q "^  port: 8510" /app/storage/searxng/settings.yml 2>/dev/null; then
+elif ! grep -q "^  port: 8080" /app/storage/searxng/settings.yml 2>/dev/null; then
   NEEDS_WRITE=1
 fi
 if [ "$NEEDS_WRITE" = "1" ]; then
