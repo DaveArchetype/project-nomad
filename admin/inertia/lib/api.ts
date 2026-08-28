@@ -1542,14 +1542,23 @@ class API {
   }
 
   async synthesizeSpeech(text: string, voice?: string, speed?: number): Promise<Blob | undefined> {
-    return catchInternal(async () => {
+    try {
       const response = await this.client.post(
         '/voice/tts/synthesize',
         { text, voice, speed },
         { responseType: 'blob' }
       )
       return response.data as Blob
-    })()
+    } catch (error) {
+      if (
+        error?.name === 'CanceledError' ||
+        error?.name === 'AbortError' ||
+        error?.code === 'ERR_CANCELED'
+      ) {
+        throw error
+      }
+      return undefined
+    }
   }
 
   async listRecaps(limit = 30) {

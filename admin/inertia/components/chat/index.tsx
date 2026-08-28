@@ -51,6 +51,7 @@ export default function Chat({
   const playedSentenceCountRef = useRef(0)
   const isProcessingQueueRef = useRef(false)
   const isStoppedRef = useRef(false)
+  const finalFlushDoneRef = useRef<string | null>(null)
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null)
   const [speakingWordIndex, setSpeakingWordIndex] = useState(-1)
@@ -89,17 +90,18 @@ export default function Chat({
 
       try {
         let blob: Blob | undefined
-        for (let attempt = 0; attempt < 2; attempt++) {
+        for (let attempt = 0; attempt < 3; attempt++) {
           if (isStoppedRef.current || playingMessageIdRef.current !== messageId) break
           try {
             blob = await api.synthesizeSpeech(next.text)
             if (blob) break
           } catch {
-            // retry once after short delay
+            // retry after delay
           }
-          if (attempt === 0) await new Promise((r) => setTimeout(r, 500))
+          if (attempt < 2) await new Promise((r) => setTimeout(r, 800))
         }
         if (!blob || isStoppedRef.current || playingMessageIdRef.current !== messageId) {
+          playedSentenceCountRef.current++
           isProcessingQueueRef.current = false
           if (sentenceQueueRef.current.length > 0 && !isStoppedRef.current) {
             processSentenceQueue(messageId)
@@ -136,6 +138,7 @@ export default function Chat({
 
         audio.onerror = () => {
           currentAudioRef.current = null
+          playedSentenceCountRef.current++
           isProcessingQueueRef.current = false
           if (!isStoppedRef.current && playingMessageIdRef.current === messageId) {
             processSentenceQueue(messageId)
@@ -144,12 +147,14 @@ export default function Chat({
 
         await audio.play().catch(() => {
           currentAudioRef.current = null
+          playedSentenceCountRef.current++
           isProcessingQueueRef.current = false
           if (!isStoppedRef.current && playingMessageIdRef.current === messageId) {
             processSentenceQueue(messageId)
           }
         })
       } catch {
+        playedSentenceCountRef.current++
         isProcessingQueueRef.current = false
         if (!isStoppedRef.current && playingMessageIdRef.current === messageId) {
           processSentenceQueue(messageId)
@@ -200,6 +205,7 @@ export default function Chat({
       sentenceQueueRef.current = []
       playedSentenceCountRef.current = 0
       isProcessingQueueRef.current = false
+      finalFlushDoneRef.current = null
       setIsSpeaking(true)
       setSpeakingMessageId(last.id)
       setSpeakingWordIndex(-1)
@@ -208,12 +214,17 @@ export default function Chat({
 
     if (playingMessageIdRef.current !== last.id || isStoppedRef.current) return
 
-    if (!last.isStreaming && playedSentenceCountRef.current > 0) return
+    if (!last.isStreaming && finalFlushDoneRef.current === last.id) return
 
     const plainText = stripMarkdownForHighlighting(last.content)
     const allSentences = getSentencesWithOffsets(plainText)
     const alreadyQueuedOrPlayed = playedSentenceCountRef.current + sentenceQueueRef.current.length
     const newSentences = allSentences.slice(alreadyQueuedOrPlayed)
+
+    if (newSentences.length === 0 && !last.isStreaming) {
+      finalFlushDoneRef.current = last.id
+      return
+    }
 
     if (newSentences.length === 0) return
 
@@ -226,6 +237,7 @@ export default function Chat({
       for (const s of newSentences) {
         sentenceQueueRef.current.push(s)
       }
+      finalFlushDoneRef.current = last.id
     }
 
     if (!isProcessingQueueRef.current && sentenceQueueRef.current.length > 0) {
