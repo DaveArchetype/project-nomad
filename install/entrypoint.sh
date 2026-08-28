@@ -9,41 +9,20 @@ mkdir -p /app/storage/logs /app/storage/kb_uploads
 
 # Provision SearXNG settings.yml so the JSON API is enabled when the user installs
 # SearXNG via Supply Depot. The ServiceSeeder mounts <storage>/searxng:/etc/searxng,
-# so SearXNG reads this file on startup. We only write if missing (never overwrite
-# user customizations). The secret_key is sourced from SEARXNG_SECRET_KEY (.env).
+# so SearXNG reads this file on startup. We write the bundled template (injecting the
+# secret from SEARXNG_SECRET_KEY) if no settings.yml exists OR if the existing one
+# lacks the "formats:" key (i.e. it's the SearXNG default that blocks the JSON API).
+# User-customized settings that already include formats are left untouched.
 mkdir -p /app/storage/searxng
+NEEDS_WRITE=0
 if [ ! -f /app/storage/searxng/settings.yml ]; then
+  NEEDS_WRITE=1
+elif ! grep -q "^  formats:" /app/storage/searxng/settings.yml 2>/dev/null; then
+  NEEDS_WRITE=1
+fi
+if [ "$NEEDS_WRITE" = "1" ]; then
   SEARXNG_SECRET="${SEARXNG_SECRET_KEY:-nomad-searxng-default-secret-replace-me}"
-  cat > /app/storage/searxng/settings.yml <<SEARXNG_SETTINGS
-use_default_settings: true
-
-general:
-  instance_name: "Project NOMAD Search"
-  debug: false
-
-search:
-  safe_search: 0
-  autocomplete: ""
-  default_lang: "en"
-  formats:
-    - html
-    - json
-
-server:
-  secret_key: "${SEARXNG_SECRET}"
-  limiter: false
-  image_proxy: true
-  bind_address: "0.0.0.0"
-  port: 8080
-
-ui:
-  static_use_hash: true
-
-outgoing:
-  request_timeout: 10
-  max_request_timeout: 15
-  useragent_suffix: ""
-SEARXNG_SETTINGS
+  sed "s/__SEARXNG_SECRET_KEY__/${SEARXNG_SECRET}/" /app/install/searxng/settings.yml > /app/storage/searxng/settings.yml
 fi
 
 # Wait for Redis to be reachable before booting anything that opens a BullMQ

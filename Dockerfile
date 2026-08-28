@@ -2,14 +2,14 @@ FROM node:22-slim AS base
 
 # Install bash & curl for entrypoint script compatibility, graphicsmagick for pdf2pic, and vips-dev & build-base for sharp 
 RUN apt-get update && apt-get install -y \
-      bash \
-      curl \
-      openssl \
-      graphicsmagick \
-      libvips-dev \
-      build-essential \
-      pciutils \
-      && rm -rf /var/lib/apt/lists/*
+  bash \
+  curl \
+  openssl \
+  graphicsmagick \
+  libvips-dev \
+  build-essential \
+  pciutils \
+  && rm -rf /var/lib/apt/lists/*
 
 # All deps stage
 FROM base AS deps
@@ -54,31 +54,31 @@ ARG PMTILES_VERSION=1.30.2
 ARG PMTILES_SHA256_AMD64=2cd3aa18868297fc88425038f794efdc0995e0275f4ca16fa496dd79e245a40c
 ARG PMTILES_SHA256_ARM64=804cdf071834e1156af554c1a26cc42b56b9cde5a2db9c6e3653d16fb846d5fa
 RUN set -eux; \
-    case "${TARGETARCH:-amd64}" in \
-      amd64) PMTILES_ARCH=x86_64; PMTILES_SHA256="${PMTILES_SHA256_AMD64}" ;; \
-      arm64) PMTILES_ARCH=arm64;  PMTILES_SHA256="${PMTILES_SHA256_ARM64}" ;; \
-      *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
-    esac; \
-    TARBALL="go-pmtiles_${PMTILES_VERSION}_Linux_${PMTILES_ARCH}.tar.gz"; \
-    cd /tmp; \
-    curl -fsSL -o "$TARBALL" \
-      "https://github.com/protomaps/go-pmtiles/releases/download/v${PMTILES_VERSION}/${TARBALL}"; \
-    echo "${PMTILES_SHA256}  ${TARBALL}" | sha256sum -c -; \
-    tar -xzf "$TARBALL" -C /usr/local/bin pmtiles; \
-    rm -f "$TARBALL"; \
-    chmod +x /usr/local/bin/pmtiles; \
-    /usr/local/bin/pmtiles version
+  case "${TARGETARCH:-amd64}" in \
+  amd64) PMTILES_ARCH=x86_64; PMTILES_SHA256="${PMTILES_SHA256_AMD64}" ;; \
+  arm64) PMTILES_ARCH=arm64;  PMTILES_SHA256="${PMTILES_SHA256_ARM64}" ;; \
+  *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+  esac; \
+  TARBALL="go-pmtiles_${PMTILES_VERSION}_Linux_${PMTILES_ARCH}.tar.gz"; \
+  cd /tmp; \
+  curl -fsSL -o "$TARBALL" \
+  "https://github.com/protomaps/go-pmtiles/releases/download/v${PMTILES_VERSION}/${TARBALL}"; \
+  echo "${PMTILES_SHA256}  ${TARBALL}" | sha256sum -c -; \
+  tar -xzf "$TARBALL" -C /usr/local/bin pmtiles; \
+  rm -f "$TARBALL"; \
+  chmod +x /usr/local/bin/pmtiles; \
+  /usr/local/bin/pmtiles version
 
 # Labels
 LABEL org.opencontainers.image.title="Project NOMAD" \
-      org.opencontainers.image.description="The Project NOMAD Official Docker image" \
-      org.opencontainers.image.version="${VERSION}" \
-      org.opencontainers.image.created="${BUILD_DATE}" \
-      org.opencontainers.image.revision="${VCS_REF}" \
-      org.opencontainers.image.vendor="Crosstalk Solutions, LLC" \
-      org.opencontainers.image.documentation="https://github.com/CrosstalkSolutions/project-nomad/blob/main/README.md" \
-      org.opencontainers.image.source="https://github.com/CrosstalkSolutions/project-nomad" \
-      org.opencontainers.image.licenses="Apache-2.0"
+  org.opencontainers.image.description="The Project NOMAD Official Docker image" \
+  org.opencontainers.image.version="${VERSION}" \
+  org.opencontainers.image.created="${BUILD_DATE}" \
+  org.opencontainers.image.revision="${VCS_REF}" \
+  org.opencontainers.image.vendor="Crosstalk Solutions, LLC" \
+  org.opencontainers.image.documentation="https://github.com/CrosstalkSolutions/project-nomad/blob/main/README.md" \
+  org.opencontainers.image.source="https://github.com/CrosstalkSolutions/project-nomad" \
+  org.opencontainers.image.licenses="Apache-2.0"
 
 ENV NODE_ENV=production
 
@@ -111,6 +111,10 @@ COPY install/calibre-empty-library/metadata.db /app/assets/calibre/metadata.db
 # Copy entrypoint script and ensure it's executable
 COPY install/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# SearXNG settings template — entrypoint.sh injects the secret key and writes
+# it to <storage>/searxng/settings.yml on container startup.
+COPY install/searxng/settings.yml /app/install/searxng/settings.yml
 
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
