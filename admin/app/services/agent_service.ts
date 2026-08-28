@@ -89,7 +89,7 @@ export class AgentService {
 
     const systemPrompt = params.systemPrompt
       ? params.systemPrompt
-      : 'You are a helpful AI assistant with access to tools. Use tools when the user asks about current information that requires live data, calculations, or the current time. For general knowledge questions, answer directly without tools. CRITICAL RULES: (1) Make exactly ONE web_search call per response. (2) After getting search results, use web_fetch on the 1-2 most relevant result URLs to get the actual page content with the data you need. (3) After fetching, you MUST immediately write your final answer using the fetched page content — do NOT call any more tools. (4) Never repeat a search. (5) Always synthesize the fetched data into a complete answer with citations.'
+      : 'You are a helpful AI assistant with access to tools. Use tools when the user asks about current information that requires live data, calculations, or the current time. For general knowledge questions, answer directly without tools. CRITICAL RULES: (1) Make exactly ONE web_search call — it automatically fetches the full content of the top results, so you do NOT need to call web_fetch separately. (2) After the search returns, you MUST immediately write your final answer using the provided data — do NOT call any more tools. (3) Never repeat a search. (4) The search results include full page content with real numbers — use that data directly in your answer. (5) Always cite sources with their URLs.'
 
     const lcMessages = [{ role: 'system' as const, content: systemPrompt }, ...messages]
 
@@ -183,7 +183,7 @@ export class AgentService {
       const synthesisMessages = [
         {
           role: 'system' as const,
-          content: `You are a helpful assistant that just performed a web search and obtained real, current results. The search results below are REAL and CURRENT — you already searched the web successfully. Your job is to answer the user's question using these results combined with your own knowledge. NEVER say you cannot access the internet, cannot pull real-time data, or suggest the user check sources themselves — you already have the data. Write a confident, complete answer. Cite sources inline with their URLs. If the results are incomplete, supplement with your knowledge and note where to find more detail.${isRetry ? `\n\nThe user's original question was: "${firstUserQuestion}" — they asked you to try again, so answer that original question.` : ''}\n\nYour web search results:\n${sourcesContext}`,
+          content: `You are a helpful assistant that just performed a web search and fetched the actual web pages. The results below contain REAL, CURRENT data extracted from live websites — including full page content with actual numbers, temperatures, forecasts, etc. Your job is to answer the user's question using ALL of this data combined with your own knowledge. NEVER say you cannot access the internet, cannot pull real-time data, that data is missing, or suggest the user check sources themselves — you already have the real data in the results below. Write a confident, complete answer using the actual numbers and facts from the results. Cite sources inline with their URLs. If the user asks for a table, build a table with the actual data from the results.${isRetry ? `\n\nThe user's original question was: "${firstUserQuestion}" — they asked you to try again, so answer that original question.` : ''}\n\nYour web search results and fetched page content:\n${sourcesContext}`,
         },
         ...messages,
       ]
@@ -255,16 +255,41 @@ export class AgentService {
                   })
                 }
               }
+
+              const topUrls = results
+                .slice(0, 2)
+                .map((r) => r.url)
+                .filter(Boolean)
+              const fetchedContents: string[] = []
+              for (const fetchUrl of topUrls) {
+                try {
+                  const page = await this.searxngService.fetchPage(fetchUrl)
+                  if (page.text) {
+                    fetchedContents.push(
+                      `--- Content from ${page.title} (${fetchUrl}) ---\n${page.text.slice(0, 3000)}`
+                    )
+                  }
+                } catch {
+                  // skip failed fetches
+                }
+              }
+
               const formatted = results
                 .map((r, i) => `[${i + 1}] ${r.title}\nURL: ${r.url}\n${r.snippet || ''}`)
                 .join('\n\n')
+
+              const fullResult =
+                fetchedContents.length > 0
+                  ? `${formatted}\n\n=== FULL PAGE CONTENT (use this for actual data) ===\n${fetchedContents.join('\n\n')}`
+                  : formatted
+
               callbacks?.onToolStep?.({
                 tool: 'web_search',
                 step: 'end',
                 input: { query },
-                output: `${results.length} results found`,
+                output: `${results.length} results, ${fetchedContents.length} pages fetched`,
               })
-              return formatted || 'No results found.'
+              return fullResult || 'No results found.'
             } catch (err) {
               const errorStep: ToolStep = {
                 tool: 'web_search',
