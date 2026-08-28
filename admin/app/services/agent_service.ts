@@ -99,7 +99,8 @@ export class AgentService {
     })
 
     let fullContent = ''
-    let toolCompleted = false
+    let toolStartedCount = 0
+    let shouldBreak = false
 
     try {
       const eventStream = await agent.streamEvents({ messages: lcMessages as any }, {
@@ -109,15 +110,10 @@ export class AgentService {
       } as any)
 
       for await (const event of eventStream as any) {
-        if (toolCallCount > MAX_TOOL_CALLS) {
+        if (toolCallCount > MAX_TOOL_CALLS || shouldBreak) {
           logger.warn(
-            `[AgentService] Tool call limit (${MAX_TOOL_CALLS}) exceeded, stopping agent loop`
+            `[AgentService] Breaking agent loop: toolCallCount=${toolCallCount}, shouldBreak=${shouldBreak}`
           )
-          break
-        }
-
-        if (toolCompleted) {
-          logger.info('[AgentService] First tool call completed, breaking to force synthesis')
           break
         }
 
@@ -135,13 +131,19 @@ export class AgentService {
             fullContent += delta.fields.text
             callbacks?.onContentChunk?.(delta.fields.text)
           }
+        } else if (method === 'tools' && data?.event === 'tool-started') {
+          toolStartedCount++
+          if (toolStartedCount > 1) {
+            logger.info('[AgentService] Second tool call started, breaking to force synthesis')
+            shouldBreak = true
+          }
         } else if (method === 'tools' && data?.event === 'tool-finished') {
-          toolCompleted = true
+          shouldBreak = true
         }
       }
 
       logger.info(
-        `[AgentService] Stream finished: fullContent.length=${fullContent.length}, toolCallCount=${toolCallCount}, sources=${collectedSources.length}`
+        `[AgentService] Stream finished: fullContent.length=${fullContent.length}, toolCallCount=${toolCallCount}, toolStarted=${toolStartedCount}, sources=${collectedSources.length}`
       )
     } catch (error: any) {
       if (signal?.aborted || error?.name === 'AbortError') {
@@ -163,7 +165,7 @@ export class AgentService {
       const synthesisMessages = [
         {
           role: 'system' as const,
-          content: `You are a helpful assistant. Using ONLY the web search results below, write a complete answer to the user's question. Cite sources by including their URLs inline. Do not mention that you used a search tool.\n\nSearch results:\n${sourcesContext}`,
+          content: `You are a helpful assistant. You just searched the web and found the results below. Write a complete answer to the user's question using these search results. Cite sources by including their URLs inline. If the search results don't fully answer the question, share what you found and suggest the user check the source links for more details.\n\nWeb search results:\n${sourcesContext}`,
         },
         ...messages,
       ]
