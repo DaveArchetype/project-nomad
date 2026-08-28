@@ -43,6 +43,8 @@ export default function Chat({
   const [selectedModel, setSelectedModel] = useState<string>('')
   const effectiveThinkingRef = useRef<(model: string) => boolean>(() => false)
   const voice = useVoice()
+  const voiceRef = useRef(voice)
+  voiceRef.current = voice
   const lastAutoReadMessageIdRef = useRef<string | null>(null)
   const suppressAutoReadRef = useRef(false)
   const currentAudioRef = useRef<HTMLAudioElement | null>(null)
@@ -66,103 +68,101 @@ export default function Chat({
     sentenceQueueRef.current = []
     playedSentenceCountRef.current = 0
     isProcessingQueueRef.current = false
+    finalFlushDoneRef.current = null
     setIsSpeaking(false)
     setSpeakingMessageId(null)
     setSpeakingWordIndex(-1)
-    voice.unmute()
-  }, [voice])
+    voiceRef.current.unmute()
+  }, [])
 
-  const processSentenceQueue = useCallback(
-    async (messageId: string) => {
-      if (isProcessingQueueRef.current) return
-      if (isStoppedRef.current) return
-      const next = sentenceQueueRef.current.shift()
-      if (!next) {
+  const processSentenceQueue = useCallback(async (messageId: string) => {
+    if (isProcessingQueueRef.current) return
+    if (isStoppedRef.current) return
+    const next = sentenceQueueRef.current.shift()
+    if (!next) {
+      isProcessingQueueRef.current = false
+      playingMessageIdRef.current = null
+      setIsSpeaking(false)
+      setSpeakingMessageId(null)
+      setSpeakingWordIndex(-1)
+      voiceRef.current.unmute()
+      return
+    }
+    isProcessingQueueRef.current = true
+
+    try {
+      let blob: Blob | undefined
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (isStoppedRef.current || playingMessageIdRef.current !== messageId) break
+        try {
+          blob = await api.synthesizeSpeech(next.text)
+          if (blob) break
+        } catch {
+          // retry after delay
+        }
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 800))
+      }
+      if (!blob || isStoppedRef.current || playingMessageIdRef.current !== messageId) {
+        playedSentenceCountRef.current++
         isProcessingQueueRef.current = false
-        playingMessageIdRef.current = null
-        setIsSpeaking(false)
-        setSpeakingMessageId(null)
-        setSpeakingWordIndex(-1)
-        voice.unmute()
+        if (sentenceQueueRef.current.length > 0 && !isStoppedRef.current) {
+          processSentenceQueue(messageId)
+        } else if (sentenceQueueRef.current.length === 0) {
+          playingMessageIdRef.current = null
+          setIsSpeaking(false)
+          setSpeakingMessageId(null)
+          setSpeakingWordIndex(-1)
+          voiceRef.current.unmute()
+        }
         return
       }
-      isProcessingQueueRef.current = true
 
-      try {
-        let blob: Blob | undefined
-        for (let attempt = 0; attempt < 3; attempt++) {
-          if (isStoppedRef.current || playingMessageIdRef.current !== messageId) break
-          try {
-            blob = await api.synthesizeSpeech(next.text)
-            if (blob) break
-          } catch {
-            // retry after delay
-          }
-          if (attempt < 2) await new Promise((r) => setTimeout(r, 800))
+      const audio = new Audio(URL.createObjectURL(blob))
+      currentAudioRef.current = audio
+      const sentenceWords = next.text.split(/\s+/).filter(Boolean)
+      const sentenceWordCount = sentenceWords.length
+
+      audio.ontimeupdate = () => {
+        if (!audio.duration || sentenceWordCount === 0) return
+        const progress = audio.currentTime / audio.duration
+        const localIdx = Math.min(sentenceWordCount - 1, Math.floor(progress * sentenceWordCount))
+        setSpeakingWordIndex(next.startWordOffset + localIdx)
+      }
+
+      audio.onended = () => {
+        playedSentenceCountRef.current++
+        currentAudioRef.current = null
+        isProcessingQueueRef.current = false
+        if (!isStoppedRef.current && playingMessageIdRef.current === messageId) {
+          processSentenceQueue(messageId)
         }
-        if (!blob || isStoppedRef.current || playingMessageIdRef.current !== messageId) {
-          playedSentenceCountRef.current++
-          isProcessingQueueRef.current = false
-          if (sentenceQueueRef.current.length > 0 && !isStoppedRef.current) {
-            processSentenceQueue(messageId)
-          } else if (sentenceQueueRef.current.length === 0) {
-            playingMessageIdRef.current = null
-            setIsSpeaking(false)
-            setSpeakingMessageId(null)
-            setSpeakingWordIndex(-1)
-            voice.unmute()
-          }
-          return
-        }
+      }
 
-        const audio = new Audio(URL.createObjectURL(blob))
-        currentAudioRef.current = audio
-        const sentenceWords = next.text.split(/\s+/).filter(Boolean)
-        const sentenceWordCount = sentenceWords.length
-
-        audio.ontimeupdate = () => {
-          if (!audio.duration || sentenceWordCount === 0) return
-          const progress = audio.currentTime / audio.duration
-          const localIdx = Math.min(sentenceWordCount - 1, Math.floor(progress * sentenceWordCount))
-          setSpeakingWordIndex(next.startWordOffset + localIdx)
-        }
-
-        audio.onended = () => {
-          playedSentenceCountRef.current++
-          currentAudioRef.current = null
-          isProcessingQueueRef.current = false
-          if (!isStoppedRef.current && playingMessageIdRef.current === messageId) {
-            processSentenceQueue(messageId)
-          }
-        }
-
-        audio.onerror = () => {
-          currentAudioRef.current = null
-          playedSentenceCountRef.current++
-          isProcessingQueueRef.current = false
-          if (!isStoppedRef.current && playingMessageIdRef.current === messageId) {
-            processSentenceQueue(messageId)
-          }
-        }
-
-        await audio.play().catch(() => {
-          currentAudioRef.current = null
-          playedSentenceCountRef.current++
-          isProcessingQueueRef.current = false
-          if (!isStoppedRef.current && playingMessageIdRef.current === messageId) {
-            processSentenceQueue(messageId)
-          }
-        })
-      } catch {
+      audio.onerror = () => {
+        currentAudioRef.current = null
         playedSentenceCountRef.current++
         isProcessingQueueRef.current = false
         if (!isStoppedRef.current && playingMessageIdRef.current === messageId) {
           processSentenceQueue(messageId)
         }
       }
-    },
-    [voice]
-  )
+
+      await audio.play().catch(() => {
+        currentAudioRef.current = null
+        playedSentenceCountRef.current++
+        isProcessingQueueRef.current = false
+        if (!isStoppedRef.current && playingMessageIdRef.current === messageId) {
+          processSentenceQueue(messageId)
+        }
+      })
+    } catch {
+      playedSentenceCountRef.current++
+      isProcessingQueueRef.current = false
+      if (!isStoppedRef.current && playingMessageIdRef.current === messageId) {
+        processSentenceQueue(messageId)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (!isMobileSidebarOpen) return
@@ -209,7 +209,7 @@ export default function Chat({
       setIsSpeaking(true)
       setSpeakingMessageId(last.id)
       setSpeakingWordIndex(-1)
-      voice.mute()
+      voiceRef.current.mute()
     }
 
     if (playingMessageIdRef.current !== last.id || isStoppedRef.current) return
@@ -243,7 +243,7 @@ export default function Chat({
     if (!isProcessingQueueRef.current && sentenceQueueRef.current.length > 0) {
       processSentenceQueue(last.id)
     }
-  }, [messages, autoReadReplies, voice, processSentenceQueue])
+  }, [messages, autoReadReplies, processSentenceQueue])
 
   useEffect(() => {
     if (!playingMessageIdRef.current) return
