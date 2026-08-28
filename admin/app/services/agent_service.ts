@@ -122,7 +122,18 @@ export class AgentService {
           }
           try {
             const output = await call.output
-            step.output = typeof output === 'string' ? output : JSON.stringify(output)
+            if (typeof output === 'string') {
+              step.output = output
+            } else if (output && typeof output === 'object' && 'content' in output) {
+              const content = (output as any).content
+              step.output = typeof content === 'string' ? content : JSON.stringify(content)
+            } else {
+              try {
+                step.output = JSON.stringify(output)
+              } catch {
+                step.output = String(output)
+              }
+            }
           } catch (err) {
             step.step = 'error'
             step.error = err instanceof Error ? err.message : String(err)
