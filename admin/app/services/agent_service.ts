@@ -102,48 +102,6 @@ export class AgentService {
           }
         }
       }
-
-      try {
-        for await (const call of run.toolCalls) {
-          let input: Record<string, any> = {}
-          try {
-            input = call.input
-              ? typeof call.input === 'string'
-                ? JSON.parse(call.input)
-                : JSON.parse(JSON.stringify(call.input))
-              : {}
-          } catch {
-            input = { raw: String(call.input) }
-          }
-          const step: ToolStep = {
-            tool: call.name,
-            step: 'end',
-            input,
-          }
-          try {
-            const output = await call.output
-            if (typeof output === 'string') {
-              step.output = output
-            } else if (output && typeof output === 'object' && 'content' in output) {
-              const content = (output as any).content
-              step.output = typeof content === 'string' ? content : JSON.stringify(content)
-            } else {
-              try {
-                step.output = JSON.stringify(output)
-              } catch {
-                step.output = String(output)
-              }
-            }
-          } catch (err) {
-            step.step = 'error'
-            step.error = err instanceof Error ? err.message : String(err)
-          }
-          toolSteps.push(step)
-          callbacks?.onToolStep?.(step)
-        }
-      } catch {
-        // toolCalls stream may end before messages; ignore
-      }
     } catch (error: any) {
       if (signal?.aborted || error?.name === 'AbortError') {
         logger.debug('[AgentService] Agent run aborted by client disconnect')

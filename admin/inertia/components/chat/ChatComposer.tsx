@@ -75,7 +75,13 @@ export default function ChatComposer({
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const [previewIndex, setPreviewIndex] = useState<number | null>(null)
-  const [enabledToolKeys, setEnabledToolKeys] = useState<Set<string>>(new Set())
+  const [enabledToolKeys, setEnabledToolKeys] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem('nomad:agentTools')
+      if (stored) return new Set(JSON.parse(stored))
+    } catch {}
+    return new Set()
+  })
   const [plusMenuOpen, setPlusMenuOpen] = useState(false)
   const [toolsPopoverOpen, setToolsPopoverOpen] = useState(false)
   const isMobile = useIsMobileViewport()
@@ -125,6 +131,9 @@ export default function ChatComposer({
       const next = new Set(prev)
       if (next.has(toolKey)) next.delete(toolKey)
       else next.add(toolKey)
+      try {
+        localStorage.setItem('nomad:agentTools', JSON.stringify([...next]))
+      } catch {}
       return next
     })
   }, [])
@@ -236,7 +245,6 @@ export default function ChatComposer({
       )
       setInput('')
       setAttachments([])
-      setEnabledToolKeys(new Set())
       setPlusMenuOpen(false)
       setToolsPopoverOpen(false)
       if (textareaRef.current) {
