@@ -370,8 +370,8 @@ function safeEvaluate(expr: string): number {
       numStr += sanitized[pos++]
     }
     if (numStr === '') throw new Error('Expected a number')
-    const num = parseFloat(numStr)
-    if (isNaN(num)) throw new Error('Invalid number')
+    const num = Number.parseFloat(numStr)
+    if (Number.isNaN(num)) throw new Error('Invalid number')
     return num
   }
   const result = parseExpression()

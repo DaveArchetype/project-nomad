@@ -68,7 +68,9 @@ export class SearxngService {
           error instanceof Error ? error.message : error
         }`
       )
-      throw new Error(`Web search failed: ${error instanceof Error ? error.message : 'unknown error'}`)
+      throw new Error(
+        `Web search failed: ${error instanceof Error ? error.message : 'unknown error'}`
+      )
     }
   }
 
@@ -82,7 +84,7 @@ export class SearxngService {
         headers: {
           'User-Agent':
             'Mozilla/5.0 (compatible; NomadAIAssistant/1.0; +https://github.com/DaveArchetype/project-nomad)',
-          Accept: 'text/html,application/xhtml+xml',
+          'Accept': 'text/html,application/xhtml+xml',
         },
       })
 
@@ -97,9 +99,7 @@ export class SearxngService {
       $('script, style, noscript, svg, iframe, nav, footer, header, aside, form').remove()
 
       const title = $('title').first().text().trim() || $('h1').first().text().trim() || url
-      const mainEl = $('main, article').first().length
-        ? $('main, article').first()
-        : $('body')
+      const mainEl = $('main, article').first().length ? $('main, article').first() : $('body')
       let text = mainEl.text().replace(/\s+/g, ' ').trim()
       if (!text) {
         text = $('body').text().replace(/\s+/g, ' ').trim()
@@ -115,7 +115,9 @@ export class SearxngService {
           error instanceof Error ? error.message : error
         }`
       )
-      throw new Error(`Failed to fetch page: ${error instanceof Error ? error.message : 'unknown error'}`)
+      throw new Error(
+        `Failed to fetch page: ${error instanceof Error ? error.message : 'unknown error'}`
+      )
     }
   }
 
