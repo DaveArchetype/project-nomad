@@ -14,6 +14,7 @@ interface UseChatModelsResult {
   handleCancelModelSwitch: () => void
   selectedModelSupportsThinking: boolean
   selectedModelSupportsVision: boolean
+  selectedModelSupportsTools: boolean
   effectiveThinking: (model: string) => boolean
   setModelThinking: (model: string, value: boolean) => void
   rewriteModelAvailable: boolean
@@ -78,6 +79,9 @@ export function useChatModels({
 
   const selectedModelSupportsVision =
     installedModels.find((m) => m.name === selectedModel)?.vision === true
+
+  const selectedModelSupportsTools =
+    installedModels.find((m) => m.name === selectedModel)?.tools === true
 
   const effectiveThinking = useCallback(
     (model: string): boolean =>
@@ -164,6 +168,7 @@ export function useChatModels({
     handleCancelModelSwitch,
     selectedModelSupportsThinking,
     selectedModelSupportsVision,
+    selectedModelSupportsTools,
     effectiveThinking,
     setModelThinking,
     rewriteModelAvailable,

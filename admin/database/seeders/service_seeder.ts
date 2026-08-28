@@ -644,6 +644,35 @@ export default class ServiceSeeder extends BaseSeeder {
       category: 'ai',
       depends_on: null,
     },
+    {
+      service_name: SERVICE_NAMES.SEARXNG,
+      friendly_name: 'Web Search',
+      powered_by: 'SearXNG',
+      display_order: 31,
+      description:
+        'Privacy-respecting metasearch engine — powers the AI assistant live internet tools',
+      icon: 'IconWorld',
+      container_image: 'searxng/searxng:latest',
+      source_repo: 'https://github.com/searxng/searxng',
+      container_command: null,
+      container_config: JSON.stringify({
+        HostConfig: {
+          RestartPolicy: { Name: 'unless-stopped' },
+          PortBindings: { '8080/tcp': [{ HostPort: '8510' }] },
+          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/searxng:/etc/searxng`],
+        },
+        ExposedPorts: { '8080/tcp': {} },
+        Env: ['SEARXNG_BASE_URL=http://localhost:8510/', 'UWSGI_WORKERS=4'],
+      }),
+      ui_location: '8510',
+      ui_path: '/searxng',
+      installed: false,
+      installation_status: 'idle',
+      is_dependency_service: false,
+      is_custom: false,
+      category: 'utility',
+      depends_on: null,
+    },
   ]
 
   async run() {

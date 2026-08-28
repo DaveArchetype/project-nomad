@@ -117,6 +117,11 @@ export class OllamaService {
     }
   }
 
+  async getResolvedBaseUrl(): Promise<string | null> {
+    await this._ensureDependencies()
+    return this.baseUrl
+  }
+
   /**
    * Downloads a model from Ollama with progress tracking. Only works with Ollama backends.
    * Use dispatchModelDownload() for background job processing where possible.
@@ -522,6 +527,11 @@ export class OllamaService {
   public async checkModelHasVision(modelName: string): Promise<boolean> {
     const capabilities = await this._getModelCapabilities(modelName)
     return capabilities.includes('vision')
+  }
+
+  public async checkModelHasTools(modelName: string): Promise<boolean> {
+    const capabilities = await this._getModelCapabilities(modelName)
+    return capabilities.includes('tools')
   }
 
   public async deleteModel(modelName: string): Promise<{ success: boolean; message: string }> {

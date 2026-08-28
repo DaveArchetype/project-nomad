@@ -5,6 +5,7 @@ import { NomadMdService } from '#services/nomad_md_service'
 import { OllamaService } from '#services/ollama_service'
 import { RagService } from '#services/rag_service'
 import { AmbientRecallService } from '#services/ambient_recall_service'
+import { AgentService, type AgentToolName, type ToolStep } from '#services/agent_service'
 import Service from '#models/service'
 import KVStore from '#models/kv_store'
 import { modelNameSchema } from '#validators/download'
@@ -35,6 +36,9 @@ export type RagSource = {
    *  with both path-based (`/kiwix/...`) and subdomain (`kiwix.domain/...`)
    *  routing. */
   kiwixPath?: string
+  /** Full URL for web sources (live internet results from the agent's web_search/web_fetch
+   *  tools). Present only for `contentType: 'web'` sources. */
+  url?: string
 }
 
 @inject()
@@ -45,7 +49,8 @@ export default class OllamaController {
     private ollamaService: OllamaService,
     private ragService: RagService,
     private nomadMdService: NomadMdService,
-    private ambientRecallService: AmbientRecallService
+    private ambientRecallService: AmbientRecallService,
+    private agentService: AgentService
   ) {}
 
   async availableModels({ request }: HttpContext) {
@@ -287,9 +292,10 @@ export default class OllamaController {
           : true
         : false
 
-      // Separate sessionId and the resolved thinking preference from the Ollama request payload —
-      // Ollama rejects unknown fields, and `think` is re-derived above (not forwarded raw).
-      const { sessionId, think: _thinkPref, ...ollamaRequest } = reqData
+      // Separate sessionId, the resolved thinking preference, and the tools list from the Ollama
+      // request payload — Ollama rejects unknown fields, and `think` is re-derived above (not
+      // forwarded raw). `tools` drives the agent branch below, not the Ollama API.
+      const { sessionId, think: _thinkPref, tools: requestTools, ...ollamaRequest } = reqData
 
       // Persist any image attachments on user messages to disk and build a separate messages
       // array for OllamaService. We must NOT mutate reqData.messages here: query rewriting and
@@ -330,7 +336,164 @@ export default class OllamaController {
         if (lastUserMsgIdx) {
           userContent = lastUserMsgIdx.m.content
           const savedPaths = savedImagePathsByMsgIndex.get(lastUserMsgIdx.i) ?? null
-          await this.chatService.addMessage(sessionId, 'user', userContent, savedPaths)
+          await this.chatService.addMessage(sessionId, 'user', userContent, savedPaths, null, null)
+        }
+      }
+
+      // ── Agent branch ───────────────────────────────────────────────────────
+      // When tools are requested and the model supports them, route through the LangChain
+      // agent loop instead of the direct Ollama chat. Tool steps and web sources are emitted
+      // as SSE events alongside the streamed answer content.
+      if (requestTools && requestTools.length > 0) {
+        const modelHasTools = await this.ollamaService.checkModelHasTools(reqData.model)
+        if (!modelHasTools) {
+          if (reqData.stream) {
+            response.response.write(
+              `data: ${JSON.stringify({
+                error: true,
+                message: `Model "${reqData.model}" does not support tool calling. Please select a tool-capable model.`,
+              })}\n\n`
+            )
+            response.response.end()
+            return
+          }
+          return response.status(400).json({
+            error: `Model "${reqData.model}" does not support tool calling.`,
+          })
+        }
+
+        logger.debug(
+          `[OllamaController] Agent branch: model="${reqData.model}", tools=[${requestTools.join(', ')}]`
+        )
+
+        // Build the message list for the agent (text-only — images are not passed to the agent).
+        const agentMessages = reqData.messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        }))
+
+        const abortController = new AbortController()
+        if (reqData.stream) {
+          response.response.on('close', () => abortController.abort())
+        }
+
+        const collectedToolSteps: ToolStep[] = []
+
+        try {
+          const result = await this.agentService.runAgent({
+            model: reqData.model,
+            messages: agentMessages,
+            enabledTools: requestTools as AgentToolName[],
+            callbacks: {
+              signal: abortController.signal,
+              onToolStep: (step) => {
+                collectedToolSteps.push(step)
+                if (reqData.stream) {
+                  response.response.write(`data: ${JSON.stringify({ toolStep: step })}\n\n`)
+                }
+              },
+              onContentChunk: (chunk) => {
+                if (reqData.stream) {
+                  response.response.write(
+                    `data: ${JSON.stringify({
+                      message: { content: chunk },
+                      done: false,
+                    })}\n\n`
+                  )
+                }
+              },
+            },
+          })
+
+          if (reqData.stream) {
+            // Emit web sources as a final SSE event (same shape as RAG sources)
+            if (result.webSources.length > 0) {
+              const webRagSources: RagSource[] = result.webSources.map((s) => ({
+                source: s.url,
+                title: s.title,
+                contentType: 'web',
+                snippet: s.snippet || '',
+                url: s.url,
+              }))
+              response.response.write(`data: ${JSON.stringify({ sources: webRagSources })}\n\n`)
+            }
+            // Final done event
+            response.response.write(
+              `data: ${JSON.stringify({
+                message: { content: '' },
+                done: true,
+                toolSteps: collectedToolSteps,
+              })}\n\n`
+            )
+            response.response.end()
+          }
+
+          // Persist assistant message + sources + tool steps
+          if (sessionId && result.content) {
+            const webSourcesForDb =
+              result.webSources.length > 0
+                ? result.webSources.map((s) => ({
+                    source: s.url,
+                    title: s.title,
+                    contentType: 'web',
+                    snippet: s.snippet || '',
+                    url: s.url,
+                  }))
+                : null
+            await this.chatService.addMessage(
+              sessionId,
+              'assistant',
+              result.content,
+              null,
+              webSourcesForDb,
+              collectedToolSteps.length > 0 ? collectedToolSteps : null
+            )
+            const messageCount = await this.chatService.getMessageCount(sessionId)
+            if (messageCount <= 2 && userContent) {
+              this.chatService
+                .generateTitle(sessionId, userContent, result.content, reqData.model)
+                .catch((err) => {
+                  logger.error(
+                    `[OllamaController] Title generation failed: ${err instanceof Error ? err.message : err}`
+                  )
+                })
+            }
+          }
+
+          if (!reqData.stream) {
+            const webRagSources: RagSource[] = result.webSources.map((s) => ({
+              source: s.url,
+              title: s.title,
+              contentType: 'web',
+              snippet: s.snippet || '',
+              url: s.url,
+            }))
+            return {
+              message: { content: result.content },
+              done: true,
+              model: reqData.model,
+              sources: webRagSources.length > 0 ? webRagSources : undefined,
+              toolSteps: collectedToolSteps,
+            }
+          }
+          return
+        } catch (error: any) {
+          if (abortController.signal.aborted) {
+            logger.debug('[OllamaController] Agent run aborted by client disconnect')
+            if (reqData.stream) response.response.end()
+            return
+          }
+          logger.error(
+            `[OllamaController] Agent run failed: ${error instanceof Error ? error.message : error}`
+          )
+          if (reqData.stream) {
+            response.response.write(
+              `data: ${JSON.stringify({ error: true, message: 'Agent run failed' })}\n\n`
+            )
+            response.response.end()
+            return
+          }
+          throw error
         }
       }
 
@@ -619,15 +782,21 @@ export default class OllamaController {
 
   async installedModels({}: HttpContext) {
     const models = await this.ollamaService.getModels()
-    // Enrich each model with its thinking + vision capabilities so the chat picker knows which
-    // models to show the per-model thinking toggle and image-attach UI for. checkModelHasThinking
-    // / checkModelHasVision share a memoized /api/show cache, so this stays cheap on repeat loads.
-    // Best-effort per model.
-    const [thinking, vision] = await Promise.all([
+    // Enrich each model with its thinking + vision + tools capabilities so the chat picker knows
+    // which models to show the per-model thinking toggle, image-attach UI, and tools popover for.
+    // checkModelHasThinking / checkModelHasVision / checkModelHasTools share a memoized /api/show
+    // cache, so this stays cheap on repeat loads. Best-effort per model.
+    const [thinking, vision, tools] = await Promise.all([
       Promise.all(models.map((m) => this.ollamaService.checkModelHasThinking(m.name))),
       Promise.all(models.map((m) => this.ollamaService.checkModelHasVision(m.name))),
+      Promise.all(models.map((m) => this.ollamaService.checkModelHasTools(m.name))),
     ])
-    return models.map((m, i) => ({ ...m, thinking: thinking[i], vision: vision[i] }))
+    return models.map((m, i) => ({
+      ...m,
+      thinking: thinking[i],
+      vision: vision[i],
+      tools: tools[i],
+    }))
   }
 
   /**

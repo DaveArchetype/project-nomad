@@ -18,6 +18,12 @@ export const chatSchema = vine.compile(
     // Effective per-request thinking preference (per-model override or global default),
     // resolved client-side. Omitted -> server falls back to the ai.autoThinking KV default.
     think: vine.boolean().optional(),
+    // Tools to enable for the agent loop. When present and non-empty, the request is routed
+    // through AgentService (LangChain ReAct loop) instead of the direct Ollama chat path.
+    // The "Internet" UI toggle expands to both 'web_search' and 'web_fetch' before sending.
+    tools: vine
+      .array(vine.enum(['web_search', 'web_fetch', 'calculator', 'current_time'] as const))
+      .optional(),
   })
 )
 

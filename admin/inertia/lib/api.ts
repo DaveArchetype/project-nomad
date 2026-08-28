@@ -369,8 +369,16 @@ class API {
         score?: number
         snippet: string
         kiwixPath?: string
+        url?: string
       }>
-    ) => void
+    ) => void,
+    onToolStep?: (step: {
+      tool: string
+      step: 'start' | 'end' | 'error'
+      input?: Record<string, any>
+      output?: string
+      error?: string
+    }) => void
   ): Promise<void> {
     // Axios doesn't support ReadableStream in browser, so need to use fetch
     const response = await fetch('/api/ollama/chat', {
@@ -406,7 +414,14 @@ class API {
             continue /* skip malformed chunks */
           }
 
-          if (data.error) throw new Error('The model encountered an error. Please try again.')
+          if (data.error)
+            throw new Error(data.message || 'The model encountered an error. Please try again.')
+
+          // Agent tool-step event: { toolStep: { tool, step, input, output, error } }
+          if (data.toolStep && onToolStep) {
+            onToolStep(data.toolStep)
+            continue
+          }
 
           // Leading provenance event: { sources: [...] } emitted before the first
           // Ollama chunk. Forward to the caller and skip the content callback.
@@ -462,6 +477,14 @@ class API {
             score?: number
             snippet: string
             kiwixPath?: string
+            url?: string
+          }>
+          toolSteps?: Array<{
+            tool: string
+            step: 'start' | 'end' | 'error'
+            input?: Record<string, any>
+            output?: string
+            error?: string
           }>
           timestamp: string
         }>

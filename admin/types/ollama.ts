@@ -40,6 +40,10 @@ export type OllamaChatRequest = {
   // Effective thinking preference for this request (per-model override or global default).
   think?: boolean
   collection?: string
+  // Tools to enable for the agent loop. When present and non-empty, the request is routed
+  // through the agent path server-side. The "Internet" UI toggle expands to both
+  // 'web_search' and 'web_fetch' before sending.
+  tools?: string[]
 }
 
 export type OllamaChatResponse = {
@@ -61,6 +65,8 @@ export type NomadInstalledModel = {
   thinking?: boolean
   // Whether the model supports image/vision input (set by the installed-models endpoint enrichment).
   vision?: boolean
+  // Whether the model supports tool calling (set by the installed-models endpoint enrichment).
+  tools?: boolean
 }
 
 export type NomadChatResponse = {

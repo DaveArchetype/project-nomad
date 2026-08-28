@@ -1,10 +1,10 @@
 import { useCallback, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '~/lib/api'
-import { ChatMessage } from '../../../../types/chat'
+import { ChatMessage, ChatToolStep } from '../../../../types/chat'
 
 interface UseChatStreamResult {
-  handleSendMessage: (content: string, images?: string[]) => Promise<void>
+  handleSendMessage: (content: string, images?: string[], tools?: string[]) => Promise<void>
   isStreamingResponse: boolean
   isPending: boolean
   collectionFilter: string
@@ -89,7 +89,7 @@ export function useChatStream({
   const { mutate: chatMutate, isPending: chatIsPending } = chatMutation
 
   const handleSendMessage = useCallback(
-    async (content: string, images?: string[]) => {
+    async (content: string, images?: string[], tools?: string[]) => {
       if (isSendingRef.current) return
       isSendingRef.current = true
 
@@ -144,6 +144,7 @@ export function useChatStream({
         // chunk. Stash it here so the first-chunk message creation can include it;
         // if it arrives after the message exists (rare reordering), apply directly.
         let pendingSources: ChatMessage['sources'] | null = null
+        const pendingToolSteps: ChatToolStep[] = []
 
         try {
           await api.streamChatMessage(
@@ -154,6 +155,7 @@ export function useChatStream({
               sessionId: sessionId ? Number(sessionId) : undefined,
               think: effectiveThinkingRef.current(selectedModel),
               collection: collectionFilter || undefined,
+              tools: tools && tools.length > 0 ? tools : undefined,
             },
             (chunkContent, chunkThinking, done) => {
               if (streamingSessionIdRef.current !== sessionId) return
@@ -175,6 +177,7 @@ export function useChatStream({
                     isThinking: chunkThinking.length > 0 && chunkContent.length === 0,
                     thinkingDuration: undefined,
                     sources: pendingSources ?? undefined,
+                    toolSteps: pendingToolSteps.length > 0 ? [...pendingToolSteps] : undefined,
                   },
                 ])
               } else {
@@ -215,6 +218,15 @@ export function useChatStream({
                   prev.map((m) => (m.id === assistantMsgId ? { ...m, sources } : m))
                 )
               }
+            },
+            (toolStep: ChatToolStep) => {
+              if (streamingSessionIdRef.current !== sessionId) return
+              pendingToolSteps.push(toolStep)
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantMsgId ? { ...m, toolSteps: [...pendingToolSteps] } : m
+                )
+              )
             }
           )
         } catch (error: any) {
@@ -261,6 +273,7 @@ export function useChatStream({
           sessionId: sessionId ? Number(sessionId) : undefined,
           think: effectiveThinkingRef.current(selectedModel),
           collection: collectionFilter || undefined,
+          tools: tools && tools.length > 0 ? tools : undefined,
         })
         isSendingRef.current = false
       }

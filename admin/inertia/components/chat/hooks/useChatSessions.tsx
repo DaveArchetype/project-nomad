@@ -143,6 +143,7 @@ export function useChatSessions({
             content: m.content,
             images: m.images,
             sources: m.sources,
+            toolSteps: m.toolSteps,
             timestamp: new Date(m.timestamp),
           }))
         )

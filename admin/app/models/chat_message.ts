@@ -46,6 +46,21 @@ export default class ChatMessage extends BaseModel {
   })
   declare sources: Record<string, any>[] | null
 
+  // JSON array of agent tool-step records (tool name, step type, input/output) backing an
+  // assistant message produced by the agent loop. Persisted so tool-call indicators survive
+  // session reloads. SQLite stores JSON as text, so use consume/prepare.
+  @column({
+    consume: (value: any) =>
+      value === null || value === undefined
+        ? null
+        : typeof value === 'string'
+          ? (JSON.parse(value) as Record<string, any>[])
+          : value,
+    prepare: (value: Record<string, any>[] | null) =>
+      value === null ? null : JSON.stringify(value),
+  })
+  declare tool_steps: Record<string, any>[] | null
+
   @belongsTo(() => ChatSession, { foreignKey: 'session_id', localKey: 'id' })
   declare session: BelongsTo<typeof ChatSession>
 

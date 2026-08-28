@@ -1,10 +1,19 @@
 import { useState } from 'react'
-import { IconFileText } from '@tabler/icons-react'
+import {
+  IconFileText,
+  IconWorldSearch,
+  IconLink,
+  IconCalculator,
+  IconClock,
+  IconLoader2,
+  IconCircleCheck,
+  IconAlertTriangle,
+} from '@tabler/icons-react'
 import classNames from '~/lib/classNames'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import api from '~/lib/api'
-import { ChatMessage } from '../../../types/chat'
+import { ChatMessage, ChatToolStep } from '../../../types/chat'
 import FileViewerModal from './knowledge-base/FileViewerModal'
 import ImageViewerModal, { type ImageViewerImage } from './ImageViewerModal'
 import KiwixPreviewModal from './knowledge-base/KiwixPreviewModal'
@@ -27,6 +36,50 @@ function stripHrAfterTable() {
       return true
     })
   }
+}
+
+const TOOL_ICON_MAP: Record<string, typeof IconWorldSearch> = {
+  web_search: IconWorldSearch,
+  web_fetch: IconLink,
+  calculator: IconCalculator,
+  current_time: IconClock,
+}
+
+const TOOL_LABEL_MAP: Record<string, string> = {
+  web_search: 'Web search',
+  web_fetch: 'Web fetch',
+  calculator: 'Calculator',
+  current_time: 'Current time',
+}
+
+function ToolStepRow({ step }: { step: ChatToolStep }) {
+  const Icon = TOOL_ICON_MAP[step.tool] ?? IconFileText
+  const label = TOOL_LABEL_MAP[step.tool] ?? step.tool
+  const inputDisplay = step.input
+    ? Object.entries(step.input)
+        .map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
+        .join(', ')
+    : ''
+
+  return (
+    <div className="flex items-start gap-2 py-1 text-xs">
+      <Icon className="h-4 w-4 shrink-0 mt-0.5 text-text-muted" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="font-medium text-text-secondary">{label}</span>
+          {step.step === 'start' && (
+            <IconLoader2 className="h-3 w-3 animate-spin text-text-muted" />
+          )}
+          {step.step === 'end' && <IconCircleCheck className="h-3 w-3 text-desert-green" />}
+          {step.step === 'error' && <IconAlertTriangle className="h-3 w-3 text-red-500" />}
+        </div>
+        {inputDisplay && <div className="text-text-muted truncate">{inputDisplay}</div>}
+        {step.step === 'error' && step.error && (
+          <div className="text-red-500 truncate">{step.error}</div>
+        )}
+      </div>
+    </div>
+  )
 }
 
 export interface ChatMessageBubbleProps {
@@ -142,6 +195,21 @@ export default function ChatMessageBubble({
           : `max-w-[92%] ${hasTable ? 'sm:max-w-[90%]' : 'sm:max-w-[75%]'} bg-surface-secondary text-text-primary`
       )}
     >
+      {message.role === 'assistant' && message.toolSteps && message.toolSteps.length > 0 && (
+        <details
+          className="mb-3 rounded border border-border-subtle bg-surface-secondary text-xs"
+          open
+        >
+          <summary className="cursor-pointer px-3 py-2 font-medium text-text-muted hover:text-text-primary select-none">
+            Tool calls ({message.toolSteps.length})
+          </summary>
+          <div className="px-3 pb-3 border-t border-border-subtle pt-2">
+            {message.toolSteps.map((step, idx) => (
+              <ToolStepRow key={`${step.tool}-${idx}`} step={step} />
+            ))}
+          </div>
+        </details>
+      )}
       {message.isThinking && message.thinking && (
         <div className="mb-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs">
           <div className="mb-1 flex items-center gap-1.5 font-medium text-amber-700">
@@ -328,25 +396,43 @@ export default function ChatMessageBubble({
         <div className="mt-3 border-t border-border-subtle pt-2">
           <div className="mb-1.5 text-xs font-medium text-text-muted">Sources</div>
           <div className="flex flex-wrap gap-1.5">
-            {message.sources.map((src, idx) => (
-              <button
-                key={`${src.source}-${idx}`}
-                type="button"
-                onClick={() =>
-                  setViewingSource({
-                    source: src.source,
-                    title: src.title,
-                    snippet: src.snippet,
-                    kiwixPath: src.kiwixPath,
-                  })
-                }
-                title={src.source}
-                className="inline-flex items-center gap-1.5 max-w-full rounded-md border border-border-subtle bg-surface px-2 py-1 text-xs text-text-primary hover:border-desert-green hover:text-desert-green transition-colors"
-              >
-                <IconFileText className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{src.title}</span>
-              </button>
-            ))}
+            {message.sources.map((src, idx) => {
+              const isWebSource = src.contentType === 'web' && src.url
+              if (isWebSource) {
+                return (
+                  <a
+                    key={`${src.source}-${idx}`}
+                    href={src.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={src.url}
+                    className="inline-flex items-center gap-1.5 max-w-full rounded-md border border-border-subtle bg-surface px-2 py-1 text-xs text-text-primary hover:border-desert-green hover:text-desert-green transition-colors"
+                  >
+                    <IconWorldSearch className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{src.title}</span>
+                  </a>
+                )
+              }
+              return (
+                <button
+                  key={`${src.source}-${idx}`}
+                  type="button"
+                  onClick={() =>
+                    setViewingSource({
+                      source: src.source,
+                      title: src.title,
+                      snippet: src.snippet,
+                      kiwixPath: src.kiwixPath,
+                    })
+                  }
+                  title={src.source}
+                  className="inline-flex items-center gap-1.5 max-w-full rounded-md border border-border-subtle bg-surface px-2 py-1 text-xs text-text-primary hover:border-desert-green hover:text-desert-green transition-colors"
+                >
+                  <IconFileText className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{src.title}</span>
+                </button>
+              )
+            })}
           </div>
         </div>
       )}

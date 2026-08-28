@@ -355,6 +355,7 @@ export default function Chat({
             rewriteModelAvailable={models.rewriteModelAvailable}
             isCheckingModels={models.isLoadingModels}
             selectedModelSupportsVision={models.selectedModelSupportsVision}
+            selectedModelSupportsTools={models.selectedModelSupportsTools}
             voiceCommand={voice.lastWakeCommand}
           />
         </div>

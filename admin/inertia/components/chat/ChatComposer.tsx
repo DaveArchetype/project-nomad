@@ -1,5 +1,14 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { IconSend, IconPhotoPlus, IconX } from '@tabler/icons-react'
+import {
+  IconSend,
+  IconPhotoPlus,
+  IconX,
+  IconPlus,
+  IconTools,
+  IconWorld,
+  IconCalculator,
+  IconClock,
+} from '@tabler/icons-react'
 import classNames from '~/lib/classNames'
 import { usePage } from '@inertiajs/react'
 import { useNotifications } from '~/context/NotificationContext'
@@ -11,10 +20,11 @@ import { DEFAULT_QUERY_REWRITE_MODEL } from '../../../constants/ollama'
 
 interface ChatComposerProps {
   isLoading: boolean
-  onSendMessage: (message: string, images?: string[]) => void
+  onSendMessage: (message: string, images?: string[], tools?: string[]) => void
   rewriteModelAvailable: boolean
   isCheckingModels: boolean
   selectedModelSupportsVision: boolean
+  selectedModelSupportsTools: boolean
   /**
    * Set (with a fresh timestamp) when the Voice Assistant wake word fires while on this page —
    * prefills and focuses the composer with the transcribed utterance instead of auto-sending it,
@@ -27,12 +37,34 @@ const MAX_IMAGE_DIM = 1024
 const JPEG_QUALITY = 0.85
 const MAX_ATTACHMENTS = 4
 
+const TOOL_DEFS = [
+  {
+    key: 'internet',
+    label: 'Internet',
+    icon: IconWorld,
+    tools: ['web_search', 'web_fetch'],
+  },
+  {
+    key: 'calculator',
+    label: 'Calculator',
+    icon: IconCalculator,
+    tools: ['calculator'],
+  },
+  {
+    key: 'current_time',
+    label: 'Current time',
+    icon: IconClock,
+    tools: ['current_time'],
+  },
+] as const
+
 export default function ChatComposer({
   isLoading,
   onSendMessage,
   rewriteModelAvailable,
   isCheckingModels,
   selectedModelSupportsVision,
+  selectedModelSupportsTools,
   voiceCommand,
 }: ChatComposerProps) {
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
@@ -43,9 +75,14 @@ export default function ChatComposer({
   const [downloadDialogOpen, setDownloadDialogOpen] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const [previewIndex, setPreviewIndex] = useState<number | null>(null)
+  const [enabledToolKeys, setEnabledToolKeys] = useState<Set<string>>(new Set())
+  const [plusMenuOpen, setPlusMenuOpen] = useState(false)
+  const [toolsPopoverOpen, setToolsPopoverOpen] = useState(false)
   const isMobile = useIsMobileViewport()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const plusMenuRef = useRef<HTMLDivElement>(null)
+  const toolsPopoverRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!voiceCommand || voiceCommand.at === lastVoiceCommandAtRef.current) return
@@ -54,6 +91,51 @@ export default function ChatComposer({
     if (!text || isLoading) return
     onSendMessage(text)
   }, [voiceCommand, onSendMessage, isLoading])
+
+  useEffect(() => {
+    if (!plusMenuOpen && !toolsPopoverOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (plusMenuOpen && plusMenuRef.current && !plusMenuRef.current.contains(e.target as Node)) {
+        setPlusMenuOpen(false)
+      }
+      if (
+        toolsPopoverOpen &&
+        toolsPopoverRef.current &&
+        !toolsPopoverRef.current.contains(e.target as Node)
+      ) {
+        setToolsPopoverOpen(false)
+      }
+    }
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setPlusMenuOpen(false)
+        setToolsPopoverOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [plusMenuOpen, toolsPopoverOpen])
+
+  const toggleTool = useCallback((toolKey: string) => {
+    setEnabledToolKeys((prev) => {
+      const next = new Set(prev)
+      if (next.has(toolKey)) next.delete(toolKey)
+      else next.add(toolKey)
+      return next
+    })
+  }, [])
+
+  const activeTools = useCallback((): string[] => {
+    const tools: string[] = []
+    for (const def of TOOL_DEFS) {
+      if (enabledToolKeys.has(def.key)) tools.push(...def.tools)
+    }
+    return tools
+  }, [enabledToolKeys])
 
   const handleDownloadModel = async () => {
     setIsDownloading(true)
@@ -144,10 +226,19 @@ export default function ChatComposer({
     e.preventDefault()
     const hasText = input.trim().length > 0
     const hasImages = attachments.length > 0
-    if ((hasText || hasImages) && !isLoading) {
-      onSendMessage(hasText ? input.trim() : '', attachments.length > 0 ? attachments : undefined)
+    const tools = activeTools()
+    const hasTools = tools.length > 0
+    if ((hasText || hasImages || hasTools) && !isLoading) {
+      onSendMessage(
+        hasText ? input.trim() : '',
+        attachments.length > 0 ? attachments : undefined,
+        hasTools ? tools : undefined
+      )
       setInput('')
       setAttachments([])
+      setEnabledToolKeys(new Set())
+      setPlusMenuOpen(false)
+      setToolsPopoverOpen(false)
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto'
       }
@@ -185,7 +276,8 @@ export default function ChatComposer({
 
   const hasText = input.trim().length > 0
   const hasImages = attachments.length > 0
-  const canSend = (hasText || hasImages) && !isLoading
+  const hasTools = enabledToolKeys.size > 0
+  const canSend = (hasText || hasImages || hasTools) && !isLoading
 
   return (
     <div className="border-t border-border-subtle bg-surface-primary px-3 sm:px-6 py-3 sm:py-4 shrink-0">
@@ -217,36 +309,128 @@ export default function ChatComposer({
         </div>
       )}
       <form onSubmit={handleSubmit} className="flex gap-3 items-center">
+        <div className="relative shrink-0" ref={plusMenuRef}>
+          <button
+            type="button"
+            onClick={() => setPlusMenuOpen((v) => !v)}
+            disabled={isLoading}
+            aria-label="Add attachment"
+            title="Add attachment"
+            className={classNames(
+              'flex items-center justify-center rounded-lg transition-all duration-200 shrink-0 border',
+              isLoading
+                ? 'bg-surface-secondary text-text-muted border-border-default cursor-not-allowed'
+                : plusMenuOpen
+                  ? 'bg-desert-green/10 text-desert-green border-desert-green'
+                  : 'bg-surface-secondary text-text-secondary border-border-default hover:text-desert-green hover:border-desert-green'
+            )}
+            style={{ height: '50px', width: '50px' }}
+          >
+            <IconPlus className="h-6 w-6" />
+          </button>
+          {plusMenuOpen && (
+            <div className="absolute bottom-full left-0 mb-2 z-50 rounded-lg border border-border-default bg-surface-primary shadow-lg min-w-[180px] overflow-hidden">
+              {selectedModelSupportsVision && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPlusMenuOpen(false)
+                    fileInputRef.current?.click()
+                  }}
+                  disabled={attachments.length >= MAX_ATTACHMENTS}
+                  className="flex items-center gap-3 w-full px-4 py-3 text-sm text-text-primary hover:bg-surface-secondary transition-colors disabled:text-text-muted disabled:cursor-not-allowed text-left"
+                >
+                  <IconPhotoPlus className="h-5 w-5 shrink-0" />
+                  <span>Add image</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
         {selectedModelSupportsVision && (
-          <>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files) handleFiles(e.target.files)
+              e.target.value = ''
+            }}
+          />
+        )}
+        {selectedModelSupportsTools && (
+          <div className="relative shrink-0" ref={toolsPopoverRef}>
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isLoading || attachments.length >= MAX_ATTACHMENTS}
-              aria-label="Attach images"
-              title="Attach images"
+              onClick={() => setToolsPopoverOpen((v) => !v)}
+              disabled={isLoading}
+              aria-label="Agent tools"
+              title="Agent tools"
               className={classNames(
-                'flex items-center justify-center rounded-lg transition-all duration-200 shrink-0 border',
-                isLoading || attachments.length >= MAX_ATTACHMENTS
+                'relative flex items-center justify-center rounded-lg transition-all duration-200 shrink-0 border',
+                isLoading
                   ? 'bg-surface-secondary text-text-muted border-border-default cursor-not-allowed'
-                  : 'bg-surface-secondary text-text-secondary border-border-default hover:text-desert-green hover:border-desert-green'
+                  : toolsPopoverOpen || hasTools
+                    ? 'bg-desert-green/10 text-desert-green border-desert-green'
+                    : 'bg-surface-secondary text-text-secondary border-border-default hover:text-desert-green hover:border-desert-green'
               )}
               style={{ height: '50px', width: '50px' }}
             >
-              <IconPhotoPlus className="h-6 w-6" />
+              <IconTools className="h-6 w-6" />
+              {hasTools && (
+                <span className="absolute -top-1 -right-1 flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-desert-green text-white text-[10px] font-bold leading-none">
+                  {enabledToolKeys.size}
+                </span>
+              )}
             </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files) handleFiles(e.target.files)
-                e.target.value = ''
-              }}
-            />
-          </>
+            {toolsPopoverOpen && (
+              <div className="absolute bottom-full left-0 mb-2 z-50 rounded-lg border border-border-default bg-surface-primary shadow-lg min-w-[200px] overflow-hidden">
+                <div className="px-3 py-2 text-xs font-medium text-text-muted border-b border-border-subtle">
+                  Agent tools
+                </div>
+                {TOOL_DEFS.map((def) => {
+                  const Icon = def.icon
+                  const isActive = enabledToolKeys.has(def.key)
+                  return (
+                    <button
+                      key={def.key}
+                      type="button"
+                      onClick={() => toggleTool(def.key)}
+                      className={classNames(
+                        'flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors text-left',
+                        isActive
+                          ? 'text-desert-green bg-desert-green/5'
+                          : 'text-text-primary hover:bg-surface-secondary'
+                      )}
+                    >
+                      <Icon className="h-5 w-5 shrink-0" />
+                      <span className="flex-1">{def.label}</span>
+                      <span
+                        className={classNames(
+                          'flex items-center justify-center h-5 w-5 rounded-full border transition-colors shrink-0',
+                          isActive
+                            ? 'bg-desert-green border-desert-green text-white'
+                            : 'border-border-default text-transparent'
+                        )}
+                      >
+                        <svg
+                          viewBox="0 0 12 12"
+                          className="h-3 w-3"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path d="M2 6l3 3 5-6" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         )}
         <div className="flex-1 relative min-w-0">
           <textarea
