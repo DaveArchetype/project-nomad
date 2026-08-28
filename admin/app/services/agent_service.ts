@@ -36,7 +36,7 @@ export type AgentRunCallbacks = {
 }
 
 const MAX_RECURSION_LIMIT = 40
-const MAX_TOOL_CALLS = 6
+const MAX_TOOL_CALLS = 3
 
 type LCMessage = { role: 'system' | 'user' | 'assistant'; content: string }
 
@@ -56,10 +56,6 @@ export class AgentService {
   }): Promise<AgentRunResult> {
     const { model, messages, enabledTools, callbacks } = params
     const signal = params.callbacks?.signal
-
-    logger.info(
-      `[AgentService] runAgent called: model=${model}, tools=[${enabledTools.join(', ')}]`
-    )
 
     const baseUrl = await this.ollamaService.getResolvedBaseUrl()
     if (!baseUrl) {
@@ -93,7 +89,7 @@ export class AgentService {
 
     const systemPrompt = params.systemPrompt
       ? params.systemPrompt
-      : 'You are a helpful AI assistant with access to tools. Use tools when the user asks about current information that requires live data, calculations, or the current time. For general knowledge questions, answer directly without tools. After receiving tool results, you MUST synthesize them into a final answer immediately — do NOT call the same tool again with a similar query. Maximum 2 tool calls per response. Always cite web sources by including their URLs in your response when you use web search or web fetch results. If a web search returns no results or fails, inform the user and provide what you know from your training data.'
+      : 'You are a helpful AI assistant with access to tools. Use tools when the user asks about current information that requires live data, calculations, or the current time. For general knowledge questions, answer directly without tools. CRITICAL RULES: (1) Make at most ONE web search per response. (2) After receiving tool results, you MUST immediately write your final answer to the user — do NOT call any tool again. (3) Never repeat a search you already performed. (4) Synthesize the tool results into a clear, complete answer with citations.'
 
     const lcMessages = [{ role: 'system' as const, content: systemPrompt }, ...messages]
 
@@ -122,10 +118,6 @@ export class AgentService {
         const method = event.method
         const data = event.params?.data
 
-        logger.info(
-          `[AgentService] Event: method=${method}, data.event=${data?.event}, delta.type=${data?.delta?.type}, keys=${Object.keys(event).join(',')}`
-        )
-
         if (method === 'messages' && data?.event === 'content-block-delta') {
           const delta = data.delta
           if (delta?.type === 'text-delta' && delta.text) {
@@ -133,6 +125,9 @@ export class AgentService {
             callbacks?.onContentChunk?.(delta.text)
           } else if (delta?.type === 'reasoning-delta' && delta.reasoning) {
             callbacks?.onContentChunk?.('', delta.reasoning)
+          } else if (delta?.type === 'block-delta' && delta.fields?.text) {
+            fullContent += delta.fields.text
+            callbacks?.onContentChunk?.(delta.fields.text)
           }
         }
       }
