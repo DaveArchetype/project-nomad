@@ -162,10 +162,16 @@ export class AgentService {
         .map((s, i) => `[${i + 1}] ${s.title}\nURL: ${s.url}\n${s.snippet || ''}`)
         .join('\n\n')
 
+      const firstUserQuestion = messages.find((m) => m.role === 'user')?.content || ''
+      const lastUserContent = messages[messages.length - 1]?.content || ''
+      const isRetry =
+        /try again|try once more|again|please retry/i.test(lastUserContent) &&
+        firstUserQuestion !== lastUserContent
+
       const synthesisMessages = [
         {
           role: 'system' as const,
-          content: `You are a helpful assistant. You just searched the web and found the results below. Write a complete answer to the user's question using these search results. Cite sources by including their URLs inline. If the search results don't fully answer the question, share what you found and suggest the user check the source links for more details.\n\nWeb search results:\n${sourcesContext}`,
+          content: `You are a helpful assistant that just performed a web search and obtained real, current results. The search results below are REAL and CURRENT — you already searched the web successfully. Your job is to answer the user's question using these results combined with your own knowledge. NEVER say you cannot access the internet, cannot pull real-time data, or suggest the user check sources themselves — you already have the data. Write a confident, complete answer. Cite sources inline with their URLs. If the results are incomplete, supplement with your knowledge and note where to find more detail.${isRetry ? `\n\nThe user's original question was: "${firstUserQuestion}" — they asked you to try again, so answer that original question.` : ''}\n\nYour web search results:\n${sourcesContext}`,
         },
         ...messages,
       ]
