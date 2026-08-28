@@ -31,7 +31,7 @@ export type AgentRunResult = {
 
 export type AgentRunCallbacks = {
   onToolStep?: (step: ToolStep) => void
-  onContentChunk?: (chunk: string) => void
+  onContentChunk?: (chunk: string, thinking?: string) => void
   signal?: AbortSignal
 }
 
@@ -64,6 +64,7 @@ export class AgentService {
 
     const chatModel = new ChatOllama(model, {
       baseUrl,
+      think: true,
     })
 
     const collectedSources: WebSource[] = []
@@ -114,19 +115,16 @@ export class AgentService {
           break
         }
 
-        if (event.event === 'on_chat_model_stream') {
-          const chunk = event.data?.chunk
-          if (chunk?.content) {
-            const text =
-              typeof chunk.content === 'string'
-                ? chunk.content
-                : Array.isArray(chunk.content)
-                  ? chunk.content.map((c: any) => c?.text || '').join('')
-                  : ''
-            if (text) {
-              fullContent += text
-              callbacks?.onContentChunk?.(text)
-            }
+        const method = event.method
+        const data = event.params?.data
+
+        if (method === 'messages' && data?.event === 'content-block-delta') {
+          const delta = data.delta
+          if (delta?.type === 'text-delta' && delta.text) {
+            fullContent += delta.text
+            callbacks?.onContentChunk?.(delta.text)
+          } else if (delta?.type === 'reasoning-delta' && delta.reasoning) {
+            callbacks?.onContentChunk?.('', delta.reasoning)
           }
         }
       }
@@ -141,7 +139,7 @@ export class AgentService {
       throw error
     }
 
-    if (!fullContent && toolCallCount > MAX_TOOL_CALLS) {
+    if (!fullContent) {
       fullContent =
         'I searched for information but was unable to synthesize a complete answer. Here is what I found from the web search results above. Please try rephrasing your question.'
       callbacks?.onContentChunk?.(fullContent)

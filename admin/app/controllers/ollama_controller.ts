@@ -392,11 +392,11 @@ export default class OllamaController {
                   response.response.write(`data: ${JSON.stringify({ toolStep: step })}\n\n`)
                 }
               },
-              onContentChunk: (chunk) => {
+              onContentChunk: (chunk, thinking) => {
                 if (reqData.stream) {
                   response.response.write(
                     `data: ${JSON.stringify({
-                      message: { content: chunk },
+                      message: { content: chunk, thinking: thinking || undefined },
                       done: false,
                     })}\n\n`
                   )
