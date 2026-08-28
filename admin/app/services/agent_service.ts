@@ -105,7 +105,16 @@ export class AgentService {
 
       try {
         for await (const call of run.toolCalls) {
-          const input = call.input as Record<string, any>
+          let input: Record<string, any> = {}
+          try {
+            input = call.input
+              ? typeof call.input === 'string'
+                ? JSON.parse(call.input)
+                : JSON.parse(JSON.stringify(call.input))
+              : {}
+          } catch {
+            input = { raw: String(call.input) }
+          }
           const step: ToolStep = {
             tool: call.name,
             step: 'end',
