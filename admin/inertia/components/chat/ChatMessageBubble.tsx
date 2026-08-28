@@ -135,6 +135,7 @@ export default function ChatMessageBubble({
   const [viewingImageIndex, setViewingImageIndex] = useState<number | null>(null)
   const [viewingSourcePreview, setViewingSourcePreview] = useState<number | null>(null)
   const [failedPreviews, setFailedPreviews] = useState<Set<number>>(new Set())
+  const [readingExpanded, setReadingExpanded] = useState(false)
   const kiwixBaseUrl = useKiwixBaseUrl()
 
   const sortedSources =
@@ -199,6 +200,24 @@ export default function ChatMessageBubble({
           : `max-w-[92%] ${hasTable ? 'sm:max-w-[90%]' : 'sm:max-w-[75%]'} bg-surface-secondary text-text-primary`
       )}
     >
+      {message.role === 'assistant' && speakingWordIndex >= 0 && (
+        <details
+          className="mb-3 rounded bg-surface px-2 py-1.5 text-xs border border-border-subtle"
+          open={readingExpanded}
+          onToggle={(e) => setReadingExpanded((e.target as HTMLDetailsElement).open)}
+        >
+          <summary className="cursor-pointer font-medium text-desert-green select-none flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-desert-green animate-pulse inline-block" />
+            Reading...
+          </summary>
+          <div className="mt-1.5 pt-1.5 border-t border-border-subtle text-text-muted">
+            <SpeakingText
+              text={stripMarkdownForHighlighting(message.content)}
+              currentIndex={speakingWordIndex}
+            />
+          </div>
+        </details>
+      )}
       {message.role === 'assistant' && message.toolSteps && message.toolSteps.length > 0 && (
         <details
           className="mb-3 rounded border border-border-subtle bg-surface-secondary text-xs"
@@ -373,15 +392,6 @@ export default function ChatMessageBubble({
           <span className="inline-block w-2 h-4 ml-1 bg-current animate-pulse" />
         )}
       </div>
-      {message.role === 'assistant' && speakingWordIndex >= 0 && (
-        <div className="mt-2 rounded bg-surface px-3 py-2 text-xs text-text-muted border border-border-subtle">
-          <div className="mb-1 font-medium text-desert-green">Reading...</div>
-          <SpeakingText
-            text={stripMarkdownForHighlighting(message.content)}
-            currentIndex={speakingWordIndex}
-          />
-        </div>
-      )}
       <div
         className={classNames(
           'text-xs mt-2 flex items-center gap-2',

@@ -203,6 +203,8 @@ export default function Chat({
     const alreadyQueuedOrPlayed = playedSentenceCountRef.current + sentenceQueueRef.current.length
     const newSentences = allSentences.slice(alreadyQueuedOrPlayed)
 
+    if (newSentences.length === 0) return
+
     if (last.isStreaming && newSentences.length > 0) {
       const complete = newSentences.slice(0, -1)
       for (const s of complete) {
