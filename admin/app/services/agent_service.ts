@@ -99,6 +99,7 @@ export class AgentService {
     })
 
     let fullContent = ''
+    let toolCompleted = false
 
     try {
       const eventStream = await agent.streamEvents({ messages: lcMessages as any }, {
@@ -112,6 +113,11 @@ export class AgentService {
           logger.warn(
             `[AgentService] Tool call limit (${MAX_TOOL_CALLS}) exceeded, stopping agent loop`
           )
+          break
+        }
+
+        if (toolCompleted) {
+          logger.info('[AgentService] First tool call completed, breaking to force synthesis')
           break
         }
 
@@ -129,6 +135,8 @@ export class AgentService {
             fullContent += delta.fields.text
             callbacks?.onContentChunk?.(delta.fields.text)
           }
+        } else if (method === 'tools' && data?.event === 'tool-finished') {
+          toolCompleted = true
         }
       }
 
@@ -144,6 +152,45 @@ export class AgentService {
         `[AgentService] Agent run failed: ${error instanceof Error ? error.message : error}`
       )
       throw error
+    }
+
+    if (!fullContent && collectedSources.length > 0) {
+      logger.info('[AgentService] Forcing synthesis with collected sources')
+      const sourcesContext = collectedSources
+        .map((s, i) => `[${i + 1}] ${s.title}\nURL: ${s.url}\n${s.snippet || ''}`)
+        .join('\n\n')
+
+      const synthesisMessages = [
+        {
+          role: 'system' as const,
+          content: `You are a helpful assistant. Using ONLY the web search results below, write a complete answer to the user's question. Cite sources by including their URLs inline. Do not mention that you used a search tool.\n\nSearch results:\n${sourcesContext}`,
+        },
+        ...messages,
+      ]
+
+      try {
+        const stream = await chatModel.stream(synthesisMessages as any, { signal } as any)
+        for await (const chunk of stream as any) {
+          if (signal?.aborted) break
+          const text =
+            typeof chunk.content === 'string'
+              ? chunk.content
+              : Array.isArray(chunk.content)
+                ? chunk.content.map((c: any) => c?.text || '').join('')
+                : ''
+          if (text) {
+            fullContent += text
+            callbacks?.onContentChunk?.(text)
+          }
+        }
+      } catch (synthError: any) {
+        if (signal?.aborted || synthError?.name === 'AbortError') {
+          return { content: fullContent, toolSteps, webSources: collectedSources }
+        }
+        logger.error(
+          `[AgentService] Synthesis call failed: ${synthError instanceof Error ? synthError.message : synthError}`
+        )
+      }
     }
 
     if (!fullContent) {
