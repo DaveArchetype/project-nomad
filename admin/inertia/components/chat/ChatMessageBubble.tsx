@@ -293,14 +293,7 @@ export default function ChatMessageBubble({
           message.role === 'assistant' ? 'prose prose-sm max-w-none' : 'whitespace-pre-wrap'
         )}
       >
-        {message.role === 'assistant' && speakingWordIndex >= 0 ? (
-          <p className="mb-0">
-            <SpeakingText
-              text={stripMarkdownForHighlighting(message.content)}
-              currentIndex={speakingWordIndex}
-            />
-          </p>
-        ) : message.role === 'assistant' ? (
+        {message.role === 'assistant' ? (
           <ReactMarkdown
             remarkPlugins={[remarkGfm, stripHrAfterTable]}
             components={{
@@ -380,6 +373,15 @@ export default function ChatMessageBubble({
           <span className="inline-block w-2 h-4 ml-1 bg-current animate-pulse" />
         )}
       </div>
+      {message.role === 'assistant' && speakingWordIndex >= 0 && (
+        <div className="mt-2 rounded bg-surface px-3 py-2 text-xs text-text-muted border border-border-subtle">
+          <div className="mb-1 font-medium text-desert-green">Reading...</div>
+          <SpeakingText
+            text={stripMarkdownForHighlighting(message.content)}
+            currentIndex={speakingWordIndex}
+          />
+        </div>
+      )}
       <div
         className={classNames(
           'text-xs mt-2 flex items-center gap-2',

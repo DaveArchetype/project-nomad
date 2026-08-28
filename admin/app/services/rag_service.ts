@@ -24,6 +24,7 @@ import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { removeStopwords } from 'stopword'
 import { randomUUID } from 'node:crypto'
 import { join, resolve, sep } from 'node:path'
+import axios from 'axios'
 import KVStore from '#models/kv_store'
 import KbIngestState from '#models/kb_ingest_state'
 import { decideScanAction, type IngestPolicy } from '../utils/kb_ingest_decision.js'
@@ -1871,6 +1872,9 @@ export class RagService {
       if (kiwixPath && kiwixPath.trim().length > 0) {
         return await this._getZimArticlePreviewImage(source, kiwixPath, index ?? 0)
       }
+      if (/^https?:\/\//i.test(source)) {
+        return await this._getWebPreviewImage(source, index ?? 0)
+      }
       if ((index ?? 0) > 0) return null
       logger.debug(
         `[RagService.getSourcePreviewImage] non-ZIM source, trying upload path: ${source}`
@@ -2059,6 +2063,82 @@ export class RagService {
     }
     if (raw.startsWith('/')) return raw.replace(/^\/+/, '')
     return (articleDir + raw).replace(/^\/+/, '')
+  }
+
+  private async _getWebPreviewImage(
+    url: string,
+    index: number
+  ): Promise<{ buffer: Buffer; mimeType: string } | { redirect: string } | null> {
+    try {
+      const response = await axios.get(url, {
+        timeout: 8000,
+        responseType: 'text',
+        maxContentLength: 2 * 1024 * 1024,
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (compatible; NomadAIAssistant/1.0; +https://github.com/DaveArchetype/project-nomad)',
+          'Accept': 'text/html,application/xhtml+xml',
+        },
+      })
+
+      const contentType = String(response.headers?.['content-type'] ?? '')
+      if (!contentType.includes('text/html') && !contentType.includes('application/xhtml')) {
+        return null
+      }
+
+      const html = typeof response.data === 'string' ? response.data : String(response.data)
+      const $ = cheerio.load(html)
+
+      const imageCandidates: string[] = []
+
+      const ogImage = $('meta[property="og:image"]').attr('content')
+      if (ogImage) imageCandidates.push(ogImage)
+
+      const twitterImage = $('meta[name="twitter:image"]').attr('content')
+      if (twitterImage) imageCandidates.push(twitterImage)
+
+      $('article img, main img, .content img, figure img, img').each((_, el) => {
+        const src = $(el).attr('src') || $(el).attr('data-src')
+        if (!src) return
+        const width = Number.parseInt($(el).attr('width') || '0', 10)
+        const height = Number.parseInt($(el).attr('height') || '0', 10)
+        if (width > 0 && width < 50) return
+        if (height > 0 && height < 50) return
+        const alt = $(el).attr('alt') || ''
+        if (/logo|icon|avatar|sprite|tracking|pixel|ad-|advert/i.test(src + alt)) return
+        imageCandidates.push(src)
+      })
+
+      if (imageCandidates.length === 0) return null
+      const targetSrc = imageCandidates[Math.min(index, imageCandidates.length - 1)]
+
+      const resolvedUrl = new URL(targetSrc, url).href
+
+      if (/\.(png|jpe?g|webp|gif|avif)$/i.test(resolvedUrl)) {
+        try {
+          const imgResponse = await axios.get(resolvedUrl, {
+            timeout: 8000,
+            responseType: 'arraybuffer',
+            maxContentLength: 5 * 1024 * 1024,
+            headers: {
+              'User-Agent':
+                'Mozilla/5.0 (compatible; NomadAIAssistant/1.0; +https://github.com/DaveArchetype/project-nomad)',
+            },
+          })
+          const buffer = Buffer.from(imgResponse.data)
+          const mimeType = String(imgResponse.headers?.['content-type'] || 'image/jpeg')
+          if (!mimeType.startsWith('image/')) return null
+          return { buffer, mimeType }
+        } catch {
+          return { redirect: resolvedUrl }
+        }
+      }
+
+      return { redirect: resolvedUrl }
+    } catch (error) {
+      logger.warn({ err: error, url }, '[RagService._getWebPreviewImage] failed')
+      return null
+    }
   }
 
   private async _getUploadPreviewImage(

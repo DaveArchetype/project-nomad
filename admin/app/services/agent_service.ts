@@ -246,6 +246,12 @@ export class AgentService {
               const formatted = results
                 .map((r, i) => `[${i + 1}] ${r.title}\nURL: ${r.url}\n${r.snippet || ''}`)
                 .join('\n\n')
+              callbacks?.onToolStep?.({
+                tool: 'web_search',
+                step: 'end',
+                input: { query },
+                output: `${results.length} results found`,
+              })
               return formatted || 'No results found.'
             } catch (err) {
               const errorStep: ToolStep = {
@@ -284,6 +290,12 @@ export class AgentService {
               if (!collectedSources.some((s) => s.url === url)) {
                 collectedSources.push({ title: result.title, url })
               }
+              callbacks?.onToolStep?.({
+                tool: 'web_fetch',
+                step: 'end',
+                input: { url },
+                output: `${result.text.length} chars fetched`,
+              })
               return result.text
             } catch (err) {
               const errorStep: ToolStep = {
