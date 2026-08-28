@@ -118,6 +118,10 @@ export class AgentService {
         const method = event.method
         const data = event.params?.data
 
+        logger.debug(
+          `[AgentService] Event: method=${method}, data.event=${data?.event}, delta.type=${data?.delta?.type}, keys=${Object.keys(event).join(',')}`
+        )
+
         if (method === 'messages' && data?.event === 'content-block-delta') {
           const delta = data.delta
           if (delta?.type === 'text-delta' && delta.text) {
