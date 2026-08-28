@@ -57,6 +57,10 @@ export class AgentService {
     const { model, messages, enabledTools, callbacks } = params
     const signal = params.callbacks?.signal
 
+    logger.info(
+      `[AgentService] runAgent called: model=${model}, tools=[${enabledTools.join(', ')}]`
+    )
+
     const baseUrl = await this.ollamaService.getResolvedBaseUrl()
     if (!baseUrl) {
       throw new Error('AI service is not initialized.')
@@ -118,7 +122,7 @@ export class AgentService {
         const method = event.method
         const data = event.params?.data
 
-        logger.debug(
+        logger.info(
           `[AgentService] Event: method=${method}, data.event=${data?.event}, delta.type=${data?.delta?.type}, keys=${Object.keys(event).join(',')}`
         )
 
@@ -132,6 +136,10 @@ export class AgentService {
           }
         }
       }
+
+      logger.info(
+        `[AgentService] Stream finished: fullContent.length=${fullContent.length}, toolCallCount=${toolCallCount}, sources=${collectedSources.length}`
+      )
     } catch (error: any) {
       if (signal?.aborted || error?.name === 'AbortError') {
         logger.debug('[AgentService] Agent run aborted by client disconnect')

@@ -16,6 +16,7 @@ interface ChatMessageListProps {
   onSuggestionClick: (suggestion: string) => void
   speakingMessageId?: string | null
   speakingWordIndex?: number
+  onStopSpeaking?: () => void
 }
 
 export default function ChatMessageList({
@@ -28,6 +29,7 @@ export default function ChatMessageList({
   onSuggestionClick,
   speakingMessageId,
   speakingWordIndex,
+  onStopSpeaking,
 }: ChatMessageListProps) {
   const { containerRef, setMessageRef } = useAutoScroll(messages, resetKey)
 
@@ -93,6 +95,8 @@ export default function ChatMessageList({
           <ChatMessageBubble
             message={message}
             speakingWordIndex={speakingMessageId === message.id ? (speakingWordIndex ?? -1) : -1}
+            isAutoReading={speakingMessageId === message.id}
+            onStopAutoReading={onStopSpeaking}
           />
         </div>
       ))}

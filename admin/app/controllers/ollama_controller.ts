@@ -362,7 +362,7 @@ export default class OllamaController {
           })
         }
 
-        logger.debug(
+        logger.info(
           `[OllamaController] Agent branch: model="${reqData.model}", tools=[${requestTools.join(', ')}]`
         )
 

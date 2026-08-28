@@ -85,6 +85,8 @@ function ToolStepRow({ step }: { step: ChatToolStep }) {
 export interface ChatMessageBubbleProps {
   message: ChatMessage
   speakingWordIndex?: number
+  isAutoReading?: boolean
+  onStopAutoReading?: () => void
 }
 
 type SelectedSource = {
@@ -126,6 +128,8 @@ function SpeakingText({ text, currentIndex }: { text: string; currentIndex: numb
 export default function ChatMessageBubble({
   message,
   speakingWordIndex = -1,
+  isAutoReading = false,
+  onStopAutoReading,
 }: ChatMessageBubbleProps) {
   const [viewingSource, setViewingSource] = useState<SelectedSource | null>(null)
   const [viewingImageIndex, setViewingImageIndex] = useState<number | null>(null)
@@ -389,7 +393,11 @@ export default function ChatMessageBubble({
           })}
         </span>
         {message.role === 'assistant' && !message.isStreaming && message.content.trim() && (
-          <SpeakButton text={message.content} />
+          <SpeakButton
+            text={message.content}
+            isAutoReading={isAutoReading}
+            onStopAutoReading={onStopAutoReading}
+          />
         )}
       </div>
       {message.role === 'assistant' && message.sources && message.sources.length > 0 && (

@@ -8,6 +8,8 @@ interface SpeakButtonProps {
   text: string
   voice?: string
   className?: string
+  isAutoReading?: boolean
+  onStopAutoReading?: () => void
 }
 
 /**
@@ -15,8 +17,18 @@ interface SpeakButtonProps {
  * Synthesizes speech via the Piper-backed `/api/voice/tts/synthesize`
  * endpoint and plays it back with a plain `<audio>` element. Mutes the mic
  * while playing to prevent the TTS audio from being picked up and re-transcribed.
+ *
+ * When `isAutoReading` is true, the button reflects the auto-read state from
+ * the parent Chat component — showing a stop icon that calls `onStopAutoReading`
+ * instead of managing its own audio playback.
  */
-export default function SpeakButton({ text, voice, className }: SpeakButtonProps) {
+export default function SpeakButton({
+  text,
+  voice,
+  className,
+  isAutoReading = false,
+  onStopAutoReading,
+}: SpeakButtonProps) {
   const [state, setState] = useState<'idle' | 'loading' | 'playing'>('idle')
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const { addNotification } = useNotifications()
@@ -40,6 +52,10 @@ export default function SpeakButton({ text, voice, className }: SpeakButtonProps
   }
 
   const play = async () => {
+    if (isAutoReading) {
+      onStopAutoReading?.()
+      return
+    }
     if (state === 'playing') {
       stop()
       return
@@ -74,17 +90,19 @@ export default function SpeakButton({ text, voice, className }: SpeakButtonProps
     }
   }
 
+  const displayState = isAutoReading ? 'playing' : state
+
   return (
     <button
       type="button"
       onClick={play}
       className={className ?? 'hover:text-desert-green transition-colors cursor-pointer'}
-      aria-label={state === 'playing' ? 'Stop speaking' : 'Read aloud'}
-      title={state === 'playing' ? 'Stop speaking' : 'Read aloud'}
+      aria-label={displayState === 'playing' ? 'Stop speaking' : 'Read aloud'}
+      title={displayState === 'playing' ? 'Stop speaking' : 'Read aloud'}
     >
-      {state === 'loading' ? (
+      {displayState === 'loading' ? (
         <IconLoader2 className="size-3.5 animate-spin" />
-      ) : state === 'playing' ? (
+      ) : displayState === 'playing' ? (
         <IconPlayerStop className="size-3.5" />
       ) : (
         <IconVolume className="size-3.5" />

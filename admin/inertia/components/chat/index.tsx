@@ -44,6 +44,7 @@ export default function Chat({
   const effectiveThinkingRef = useRef<(model: string) => boolean>(() => false)
   const voice = useVoice()
   const lastAutoReadMessageIdRef = useRef<string | null>(null)
+  const suppressAutoReadRef = useRef(false)
   const currentAudioRef = useRef<HTMLAudioElement | null>(null)
   const playingMessageIdRef = useRef<string | null>(null)
   const sentenceQueueRef = useRef<SentenceChunk[]>([])
@@ -77,6 +78,11 @@ export default function Chat({
       const next = sentenceQueueRef.current.shift()
       if (!next) {
         isProcessingQueueRef.current = false
+        playingMessageIdRef.current = null
+        setIsSpeaking(false)
+        setSpeakingMessageId(null)
+        setSpeakingWordIndex(-1)
+        voice.unmute()
         return
       }
       isProcessingQueueRef.current = true
@@ -159,9 +165,23 @@ export default function Chat({
   }, [])
 
   useEffect(() => {
+    stopSpeaking()
+    suppressAutoReadRef.current = true
+  }, [activeSessionId, stopSpeaking])
+
+  useEffect(() => {
     if (!autoReadReplies) return
     const last = messages[messages.length - 1]
-    if (!last || last.role !== 'assistant' || !last.content.trim()) return
+    if (!last || last.role !== 'assistant' || !last.content.trim()) {
+      if (suppressAutoReadRef.current) suppressAutoReadRef.current = false
+      return
+    }
+
+    if (suppressAutoReadRef.current) {
+      suppressAutoReadRef.current = false
+      lastAutoReadMessageIdRef.current = last.id
+      return
+    }
 
     if (lastAutoReadMessageIdRef.current !== last.id) {
       lastAutoReadMessageIdRef.current = last.id
@@ -333,6 +353,7 @@ export default function Chat({
             onSuggestionClick={(suggestion) => stream.handleSendMessage(suggestion)}
             speakingMessageId={speakingMessageId}
             speakingWordIndex={speakingWordIndex}
+            onStopSpeaking={stopSpeaking}
           />
           {isSpeaking && (
             <div className="flex items-center justify-between gap-3 px-4 py-2 bg-desert-green/10 border-t border-desert-green/30">
