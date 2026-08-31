@@ -98,10 +98,7 @@ export async function recreateCustomAppContainer(
       serviceName === SERVICE_NAMES.HOMEBOX &&
       !recreateEnv.some((e: string) => e.startsWith('HBOX_AUTH_API_KEY_PEPPER='))
     ) {
-      recreateEnv = [
-        ...recreateEnv,
-        `HBOX_AUTH_API_KEY_PEPPER=${await ctx.resolveHomeboxPepper()}`,
-      ]
+      recreateEnv = [...recreateEnv, `HBOX_AUTH_API_KEY_PEPPER=${await ctx.resolveHomeboxPepper()}`]
     }
 
     const newContainer = await ctx.docker.createContainer({

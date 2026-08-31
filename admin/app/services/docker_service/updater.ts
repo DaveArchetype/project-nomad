@@ -41,8 +41,8 @@ export async function updateContainer(
     const newImage = `${imageBase}:${targetVersion}`
     let runtimeImage = newImage
 
-    let updatedDeviceRequests: any[] | undefined = undefined
-    let updatedAmdDevices: any[] | undefined = undefined
+    let updatedDeviceRequests: any[] | undefined
+    let updatedAmdDevices: any[] | undefined
     let updatedAmdGpuConfigured = false
     if (serviceName === SERVICE_NAMES.OLLAMA) {
       const gpuResult = await ctx.detectGPUType()
@@ -108,9 +108,8 @@ export async function updateContainer(
 
     const oldName = `${serviceName}_old`
 
-    const staleOld = (await ctx.docker.listContainers({ all: true })).find((c) =>
-      c.Names.includes(`/${oldName}`)
-    )
+    const allContainers = await ctx.docker.listContainers({ all: true })
+    const staleOld = allContainers.find((c) => c.Names.includes(`/${oldName}`))
     if (staleOld) {
       try {
         await ctx.docker.getContainer(staleOld.Id).remove({ force: true })
@@ -122,8 +121,8 @@ export async function updateContainer(
     await oldContainer.rename({ name: oldName })
 
     const rollbackToOld = async () => {
-      const containers = await ctx.docker.listContainers({ all: true })
-      const oldRef = containers.find((c) => c.Names.includes(`/${oldName}`))
+      const rollbackContainers = await ctx.docker.listContainers({ all: true })
+      const oldRef = rollbackContainers.find((c) => c.Names.includes(`/${oldName}`))
       if (oldRef) {
         const rollbackContainer = ctx.docker.getContainer(oldRef.Id)
         await rollbackContainer.rename({ name: serviceName }).catch(() => {})
@@ -236,11 +235,9 @@ export async function updateContainer(
 
     if (newContainerInfo.State?.Running) {
       try {
-        const oldContainerRef = ctx.docker.getContainer(
-          (await ctx.docker.listContainers({ all: true })).find((c) =>
-            c.Names.includes(`/${oldName}`)
-          )?.Id || ''
-        )
+        const cleanupContainers = await ctx.docker.listContainers({ all: true })
+        const oldId = cleanupContainers.find((c) => c.Names.includes(`/${oldName}`))?.Id || ''
+        const oldContainerRef = ctx.docker.getContainer(oldId)
         await oldContainerRef.remove({ force: true })
       } catch {
         // Old container may already be gone
@@ -281,11 +278,7 @@ export async function updateContainer(
     }
   } catch (error: any) {
     ctx.activeInstallations.delete(serviceName)
-    ctx.broadcast(
-      serviceName,
-      'update-rollback',
-      'Update failed. Check server logs for details.'
-    )
+    ctx.broadcast(serviceName, 'update-rollback', 'Update failed. Check server logs for details.')
     logger.error({ err: error }, `[DockerService] Update failed for ${serviceName}`)
     return { success: false, message: 'Update failed. Check server logs for details.' }
   } finally {

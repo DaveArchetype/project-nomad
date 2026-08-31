@@ -96,11 +96,7 @@ export async function migrateKiwixToLibraryMode(ctx: DockerCtx): Promise<void> {
     await service.save()
     ctx.activeInstallations.delete(SERVICE_NAMES.KIWIX)
 
-    ctx.broadcast(
-      SERVICE_NAMES.KIWIX,
-      'migrated',
-      'Kiwix successfully migrated to library mode.'
-    )
+    ctx.broadcast(SERVICE_NAMES.KIWIX, 'migrated', 'Kiwix successfully migrated to library mode.')
     logger.info('[DockerService] Kiwix migration to library mode complete.')
   } catch (error: any) {
     logger.error(`[DockerService] Kiwix migration failed: ${error.message}`)

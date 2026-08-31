@@ -477,8 +477,10 @@ async function createContainer(
         '[DockerService] Ollama installation complete. Triggering Nomad docs discovery...'
       )
 
-      const ollamaService = new (await import('../ollama_service.js')).OllamaService()
-      const ragService = new (await import('../rag_service.js')).RagService(ctx.self, ollamaService)
+      const { OllamaService } = await import('../ollama_service.js')
+      const { RagService } = await import('../rag_service.js')
+      const ollamaService = new OllamaService()
+      const ragService = new RagService(ctx.self, ollamaService)
 
       ragService.discoverNomadDocs().catch((error) => {
         logger.error('[DockerService] Failed to discover Nomad docs:', error)

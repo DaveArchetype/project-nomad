@@ -28,7 +28,7 @@ export async function getServiceURL(serviceName: string): Promise<string | null>
     return `${schemePort[1]}://${hostname}:${schemePort[2]}`
   }
 
-  if (service.ui_location && parseInt(service.ui_location, 10)) {
+  if (service.ui_location && Number.parseInt(service.ui_location, 10)) {
     return `http://${hostname}:${service.ui_location}`
   }
 
