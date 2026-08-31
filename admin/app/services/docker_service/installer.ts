@@ -10,6 +10,7 @@ import {
   runPreinstallActions__Jellyfin,
   runPreinstallActions__MeshCoreWeb,
   runPreinstallActions__CodeServer,
+  runPreinstallActions__Comfyui,
 } from './preinstall_actions.js'
 
 const PREINSTALL_MAP: Record<string, (ctx: DockerCtx) => Promise<void>> = {
@@ -19,6 +20,7 @@ const PREINSTALL_MAP: Record<string, (ctx: DockerCtx) => Promise<void>> = {
   [SERVICE_NAMES.JELLYFIN]: runPreinstallActions__Jellyfin,
   [SERVICE_NAMES.MESHCORE_WEB]: runPreinstallActions__MeshCoreWeb,
   [SERVICE_NAMES.CODE_SERVER]: runPreinstallActions__CodeServer,
+  [SERVICE_NAMES.COMFYUI]: runPreinstallActions__Comfyui,
 }
 
 export async function createContainerPreflight(

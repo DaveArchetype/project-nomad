@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
-import { mkdir, copyFile, chown, chmod, access, writeFile } from 'node:fs/promises'
+import { mkdir, copyFile, chown, chmod, access, writeFile, readdir } from 'node:fs/promises'
 import logger from '@adonisjs/core/services/logger'
 import { doResumableDownloadWithRetry } from '../../utils/downloads.js'
 import {
@@ -13,6 +13,7 @@ import {
   MEDIA_STORAGE_PATH,
   JELLYFIN_MEDIA_SUBFOLDERS,
   CODE_SERVER_STORAGE_PATH,
+  COMFYUI_STORAGE_PATH,
 } from '../../utils/fs.js'
 import { KiwixLibraryService } from '../kiwix_library_service.js'
 import { SERVICE_NAMES } from '../../../constants/service_names.js'
@@ -255,6 +256,54 @@ export async function runPreinstallActions__Jellyfin(ctx: DockerCtx): Promise<vo
       SERVICE_NAMES.JELLYFIN,
       'preinstall-error',
       `Failed to prepare the Jellyfin media folders: ${error.message}`
+    )
+    throw new Error(`Pre-install action failed: ${error.message}`)
+  }
+}
+
+const COMFYUI_RUNPODDIRECT_REPO = 'https://github.com/MadiatorLabs/ComfyUI-RunpodDirect.git'
+
+export async function runPreinstallActions__Comfyui(ctx: DockerCtx): Promise<void> {
+  const customNodesDir = join(process.cwd(), COMFYUI_STORAGE_PATH, 'custom_nodes')
+  const targetDir = join(customNodesDir, 'ComfyUI-RunpodDirect')
+
+  ctx.broadcast(
+    SERVICE_NAMES.COMFYUI,
+    'preinstall',
+    `Running pre-install actions for Image Studio...`
+  )
+
+  try {
+    await mkdir(customNodesDir, { recursive: true })
+
+    const existing = await readdir(targetDir).catch(() => null)
+    if (existing && existing.length > 0) {
+      ctx.broadcast(
+        SERVICE_NAMES.COMFYUI,
+        'preinstall',
+        `ComfyUI-RunpodDirect already present — updating via git pull...`
+      )
+      await execAsync('git pull', { cwd: targetDir })
+      ctx.broadcast(SERVICE_NAMES.COMFYUI, 'preinstall', `ComfyUI-RunpodDirect updated to latest.`)
+      return
+    }
+
+    ctx.broadcast(
+      SERVICE_NAMES.COMFYUI,
+      'preinstall',
+      `Cloning ComfyUI-RunpodDirect custom node...`
+    )
+    await execAsync(`git clone ${COMFYUI_RUNPODDIRECT_REPO} "${targetDir}"`)
+    ctx.broadcast(
+      SERVICE_NAMES.COMFYUI,
+      'preinstall',
+      `Cloned ComfyUI-RunpodDirect into custom_nodes.`
+    )
+  } catch (error: any) {
+    ctx.broadcast(
+      SERVICE_NAMES.COMFYUI,
+      'preinstall-error',
+      `Failed to set up ComfyUI-RunpodDirect: ${error.message}`
     )
     throw new Error(`Pre-install action failed: ${error.message}`)
   }

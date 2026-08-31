@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
   libvips-dev \
   build-essential \
   pciutils \
+  git \
   && rm -rf /var/lib/apt/lists/*
 
 # All deps stage

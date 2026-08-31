@@ -25,6 +25,9 @@ export const MESHCORE_WEB_STORAGE_PATH = '/storage/meshcore-web'
 // Code Server's user-data volume (settings, extensions, logs). Owned by the container's
 // non-root `coder` user (UID/GID 1000) on install — see _runPreinstallActions__CodeServer.
 export const CODE_SERVER_STORAGE_PATH = '/storage/code-server'
+// ComfyUI (Image Studio) storage root. The custom_nodes subdir is populated with
+// ComfyUI-RunpodDirect on install — see runPreinstallActions__Comfyui.
+export const COMFYUI_STORAGE_PATH = '/storage/comfyui'
 
 export async function listDirectoryContents(path: string): Promise<FileEntry[]> {
   const entries = await readdir(path, { withFileTypes: true })
