@@ -295,7 +295,7 @@ export default class OllamaController {
       // Separate sessionId, the resolved thinking preference, and the tools list from the Ollama
       // request payload — Ollama rejects unknown fields, and `think` is re-derived above (not
       // forwarded raw). `tools` drives the agent branch below, not the Ollama API.
-      const { sessionId, think: _thinkPref, tools: requestTools, ...ollamaRequest } = reqData
+      const { sessionId, think: thinkPref, tools: requestTools, ...ollamaRequest } = reqData
 
       // Persist any image attachments on user messages to disk and build a separate messages
       // array for OllamaService. We must NOT mutate reqData.messages here: query rewriting and
