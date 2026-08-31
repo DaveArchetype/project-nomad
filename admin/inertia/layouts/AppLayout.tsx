@@ -88,11 +88,12 @@ export default function AppLayout({
 
       {!compact && isHome && (
         <div
-          className="flex flex-col items-center justify-center gap-2 py-6 cursor-pointer"
+          className="flex flex-col items-center justify-center gap-2 py-8 cursor-pointer"
           onClick={() => router.visit('/home')}
         >
           <img src="/project_nomad_logo.webp" alt="Project NOMAD Logo" className="h-20 w-20" />
           <h1 className="font-bold text-3xl text-desert-green leading-tight">Command Center</h1>
+          <p className="text-base text-text-secondary">Your offline-first command center</p>
         </div>
       )}
 

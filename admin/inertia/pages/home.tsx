@@ -21,7 +21,7 @@ import WhatsNewBanner from '~/components/WhatsNewBanner'
 import { SERVICE_NAMES } from '../../constants/service_names'
 
 // Maps is a Core Capability (display_order: 4)
-const MAPS_ITEM = {
+const MAPS_ITEM: DashboardItem = {
   label: 'Maps',
   to: '/maps',
   target: '',
@@ -30,12 +30,13 @@ const MAPS_ITEM = {
   installed: true,
   displayOrder: 4,
   poweredBy: null,
+  category: 'core',
 }
 
 // Drug Reference + "When to use what" — offline medical reference tiles.
 // icon and displayOrder here are a reasonable default; both are open for the
 // maintainer to re-pick to fit the dashboard's ordering conventions.
-const DRUG_REFERENCE_ITEM = {
+const DRUG_REFERENCE_ITEM: DashboardItem = {
   label: 'Drug Reference',
   to: '/drug-reference',
   target: '',
@@ -45,10 +46,11 @@ const DRUG_REFERENCE_ITEM = {
   installed: true,
   displayOrder: 5,
   poweredBy: null,
+  category: 'core',
 }
 
 // System items shown after all apps
-const SYSTEM_ITEMS = [
+const SYSTEM_ITEMS: DashboardItem[] = [
   {
     label: 'Easy Setup',
     to: '/easy-setup',
@@ -58,6 +60,7 @@ const SYSTEM_ITEMS = [
     installed: true,
     displayOrder: 50,
     poweredBy: null,
+    category: 'system',
   },
   {
     label: 'Supply Depot',
@@ -68,6 +71,7 @@ const SYSTEM_ITEMS = [
     installed: true,
     displayOrder: 51,
     poweredBy: null,
+    category: 'system',
   },
   {
     label: 'Docs',
@@ -78,6 +82,7 @@ const SYSTEM_ITEMS = [
     installed: true,
     displayOrder: 52,
     poweredBy: null,
+    category: 'system',
   },
   {
     label: 'Settings',
@@ -88,6 +93,7 @@ const SYSTEM_ITEMS = [
     installed: true,
     displayOrder: 53,
     poweredBy: null,
+    category: 'system',
   },
 ]
 
@@ -100,6 +106,28 @@ interface DashboardItem {
   installed: boolean
   displayOrder: number
   poweredBy: string | null
+  category: string | null
+}
+
+// Per-category icon background + text color. Falls back to the default green
+// accent for unknown / null categories. All tokens come from app.css so dark
+// mode keeps working with no extra CSS.
+const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
+  ai: { bg: 'bg-desert-orange-lighter', text: 'text-desert-orange-dark' },
+  education: { bg: 'bg-desert-olive-lighter', text: 'text-desert-olive-dark' },
+  utility: { bg: 'bg-desert-stone-lighter', text: 'text-desert-stone-dark' },
+  productivity: { bg: 'bg-desert-tan-lighter', text: 'text-desert-tan-dark' },
+  media: { bg: 'bg-desert-red-lighter', text: 'text-desert-red-dark' },
+  networking: { bg: 'bg-desert-green-lighter', text: 'text-desert-green' },
+  security: { bg: 'bg-desert-red-lighter', text: 'text-desert-red-dark' },
+  core: { bg: 'bg-desert-green-lighter', text: 'text-desert-green' },
+  system: { bg: 'bg-desert-green-lighter', text: 'text-desert-green' },
+}
+
+const DEFAULT_CATEGORY_COLOR = CATEGORY_COLORS.core
+
+function categoryColor(category: string | null) {
+  return (category && CATEGORY_COLORS[category]) || DEFAULT_CATEGORY_COLOR
 }
 
 function DashboardTile({
@@ -113,6 +141,7 @@ function DashboardTile({
   const [isClamped, setIsClamped] = useState(false)
   const descRef = useRef<HTMLParagraphElement>(null)
   const isExternal = item.target === '_blank'
+  const colors = categoryColor(item.category)
 
   useLayoutEffect(() => {
     const el = descRef.current
@@ -128,10 +157,8 @@ function DashboardTile({
 
   const tileContent = (
     <div
-      className={`group relative rounded-xl border-2 p-5 bg-surface-primary shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-1 cursor-pointer flex flex-col min-h-44 ${
-        shouldHighlight
-          ? 'border-desert-orange-light'
-          : 'border-border-subtle hover:border-desert-green-light'
+      className={`group relative rounded-2xl border border-border-subtle p-6 bg-surface-primary shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-1 hover:ring-1 hover:ring-desert-green-light/40 cursor-pointer flex flex-col min-h-44 ${
+        shouldHighlight ? 'border-desert-orange-light' : ''
       }`}
     >
       {shouldHighlight && (
@@ -146,8 +173,10 @@ function DashboardTile({
         </span>
       )}
 
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-desert-green-lighter text-desert-green shrink-0">
+      <div className="flex items-start justify-between mb-4">
+        <div
+          className={`flex items-center justify-center w-12 h-12 rounded-xl ${colors.bg} ${colors.text} shrink-0`}
+        >
           {item.icon}
         </div>
         {isExternal && (
@@ -191,6 +220,36 @@ function DashboardTile({
   )
 }
 
+function DashboardSection({
+  title,
+  items,
+  shouldHighlightEasySetup,
+}: {
+  title: string
+  items: DashboardItem[]
+  shouldHighlightEasySetup: boolean
+}) {
+  if (items.length === 0) return null
+
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center gap-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-desert-green">
+          {title}
+        </h2>
+        <span className="h-px flex-1 bg-border-subtle" aria-hidden="true" />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 items-stretch">
+        {items.map((item) => {
+          const isEasySetup = item.label === 'Easy Setup'
+          const shouldHighlight = isEasySetup && shouldHighlightEasySetup
+          return <DashboardTile key={item.label} item={item} shouldHighlight={shouldHighlight} />
+        })}
+      </div>
+    </section>
+  )
+}
+
 export default function Home(props: {
   system: {
     services: ServiceSlim[]
@@ -200,7 +259,6 @@ export default function Home(props: {
   // below so they only appear once the data exists.
   drugReferenceInstalled: boolean
 }) {
-  const items: DashboardItem[] = []
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
   const reverseProxyBaseDomain = useReverseProxyBaseDomain()
 
@@ -212,69 +270,80 @@ export default function Home(props: {
     ? String(easySetupVisited.value) !== 'true'
     : false
 
-  // Add installed services (non-dependency services only)
-  props.system.services
+  // Add installed services (non-dependency services only). Services whose only
+  // "interface" is a settings-page redirect (ui_location under /settings/) have
+  // no dedicated web UI, so they are hidden from the dashboard — e.g. TTS and
+  // Voice Gateway, which only surface through /settings/voice.
+  const appItems: DashboardItem[] = props.system.services
     .filter(
       (service) =>
-        service.installed && (service.ui_path || service.ui_location || service.custom_url)
+        service.installed &&
+        (service.ui_path || service.ui_location || service.custom_url) &&
+        !(service.ui_location ?? '').startsWith('/settings/')
     )
-    .forEach((service) => {
-      items.push({
-        // Inject custom AI Assistant name if this is the chat service
-        label:
-          service.service_name === SERVICE_NAMES.OLLAMA && aiAssistantName
-            ? aiAssistantName
-            : service.friendly_name || service.service_name,
-        to:
-          service.ui_path || service.ui_location || service.custom_url
-            ? getServiceLink(
-                service.ui_location || '',
-                service.custom_url,
-                service.ui_path,
-                reverseProxyBaseDomain
-              )
-            : '#',
-        target: '_blank',
-        description:
-          service.description ||
-          `Access the ${service.friendly_name || service.service_name} application`,
-        icon: service.icon ? (
-          <DynamicIcon icon={service.icon as DynamicIconName} className="!size-7" />
-        ) : (
-          <IconWifiOff size={26} />
-        ),
-        installed: service.installed,
-        displayOrder: service.display_order ?? 100,
-        poweredBy: service.powered_by ?? null,
-      })
-    })
+    .map((service) => ({
+      // Inject custom AI Assistant name if this is the chat service
+      label:
+        service.service_name === SERVICE_NAMES.OLLAMA && aiAssistantName
+          ? aiAssistantName
+          : service.friendly_name || service.service_name,
+      to:
+        service.ui_path || service.ui_location || service.custom_url
+          ? getServiceLink(
+              service.ui_location || '',
+              service.custom_url,
+              service.ui_path,
+              reverseProxyBaseDomain
+            )
+          : '#',
+      target: '_blank',
+      description:
+        service.description ||
+        `Access the ${service.friendly_name || service.service_name} application`,
+      icon: service.icon ? (
+        <DynamicIcon icon={service.icon as DynamicIconName} className="!size-7" />
+      ) : (
+        <IconWifiOff size={26} />
+      ),
+      installed: service.installed,
+      displayOrder: service.display_order ?? 100,
+      poweredBy: service.powered_by ?? null,
+      category: service.category ?? null,
+    }))
+    .sort((a, b) => a.displayOrder - b.displayOrder)
 
-  // Add Maps as a Core Capability
-  items.push(MAPS_ITEM)
-
-  // Add the offline medical-reference tiles only once the FDA drug dataset is
-  // installed (or installing) via the curated Medicine tier. Both tiles read the
-  // same drug_labels table, so they gate together off one server-computed flag.
+  // Core Capabilities: Maps (always) + Drug Reference (gated by the offline
+  // FDA drug dataset being installed/installing via the curated Medicine tier).
+  const coreItems: DashboardItem[] = [MAPS_ITEM]
   if (props.drugReferenceInstalled) {
-    items.push(DRUG_REFERENCE_ITEM)
+    coreItems.push(DRUG_REFERENCE_ITEM)
   }
+  coreItems.sort((a, b) => a.displayOrder - b.displayOrder)
 
-  // Add system items
-  items.push(...SYSTEM_ITEMS)
-
-  // Sort all items by display order
-  items.sort((a, b) => a.displayOrder - b.displayOrder)
+  const systemItems: DashboardItem[] = [...SYSTEM_ITEMS].sort(
+    (a, b) => a.displayOrder - b.displayOrder
+  )
 
   return (
     <AppLayout>
       <Head title="Command Center" />
       <WhatsNewBanner />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 p-4 max-w-[1600px] mx-auto items-stretch">
-        {items.map((item) => {
-          const isEasySetup = item.label === 'Easy Setup'
-          const shouldHighlight = isEasySetup && shouldHighlightEasySetup
-          return <DashboardTile key={item.label} item={item} shouldHighlight={shouldHighlight} />
-        })}
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-10">
+        <DashboardSection
+          title="Apps"
+          items={appItems}
+          shouldHighlightEasySetup={shouldHighlightEasySetup}
+        />
+        <DashboardSection
+          title="Core Capabilities"
+          items={coreItems}
+          shouldHighlightEasySetup={shouldHighlightEasySetup}
+        />
+        <DashboardSection
+          title="System"
+          items={systemItems}
+          shouldHighlightEasySetup={shouldHighlightEasySetup}
+        />
       </div>
     </AppLayout>
   )
