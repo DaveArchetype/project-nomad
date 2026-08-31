@@ -74,6 +74,13 @@ class API {
     })()
   }
 
+  async getImageGenStatus(): Promise<{ installed: boolean }> {
+    return catchInternal(async () => {
+      const response = await this.client.get<{ installed: boolean }>('/ollama/image-gen-status')
+      return response.data
+    })()
+  }
+
   async configureRemoteOllama(
     remoteUrl: string | null
   ): Promise<{ success: boolean; message: string }> {
@@ -378,7 +385,8 @@ class API {
       input?: Record<string, any>
       output?: string
       error?: string
-    }) => void
+    }) => void,
+    onImages?: (images: string[]) => void
   ): Promise<void> {
     // Axios doesn't support ReadableStream in browser, so need to use fetch
     const response = await fetch('/api/ollama/chat', {
@@ -427,6 +435,13 @@ class API {
           // Ollama chunk. Forward to the caller and skip the content callback.
           if (Array.isArray(data.sources)) {
             if (onSources) onSources(data.sources)
+            continue
+          }
+
+          // Generated-image event: { images: [relPath] } emitted by the agent's
+          // generate_image tool. Forward to the caller and skip the content callback.
+          if (Array.isArray(data.images)) {
+            if (onImages) onImages(data.images)
             continue
           }
 

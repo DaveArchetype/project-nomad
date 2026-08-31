@@ -22,7 +22,15 @@ export const chatSchema = vine.compile(
     // through AgentService (LangChain ReAct loop) instead of the direct Ollama chat path.
     // The "Internet" UI toggle expands to both 'web_search' and 'web_fetch' before sending.
     tools: vine
-      .array(vine.enum(['web_search', 'web_fetch', 'calculator', 'current_time'] as const))
+      .array(
+        vine.enum([
+          'web_search',
+          'web_fetch',
+          'calculator',
+          'current_time',
+          'generate_image',
+        ] as const)
+      )
       .optional(),
   })
 )

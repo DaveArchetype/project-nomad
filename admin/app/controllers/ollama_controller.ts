@@ -402,6 +402,11 @@ export default class OllamaController {
                   )
                 }
               },
+              onImage: (relPath) => {
+                if (reqData.stream) {
+                  response.response.write(`data: ${JSON.stringify({ images: [relPath] })}\n\n`)
+                }
+              },
             },
           })
 
@@ -444,7 +449,7 @@ export default class OllamaController {
               sessionId,
               'assistant',
               result.content,
-              null,
+              result.generatedImages.length > 0 ? result.generatedImages : null,
               webSourcesForDb,
               collectedToolSteps.length > 0 ? collectedToolSteps : null
             )
@@ -473,6 +478,7 @@ export default class OllamaController {
               done: true,
               model: reqData.model,
               sources: webRagSources.length > 0 ? webRagSources : undefined,
+              images: result.generatedImages.length > 0 ? result.generatedImages : undefined,
               toolSteps: collectedToolSteps,
             }
           }
@@ -639,6 +645,11 @@ export default class OllamaController {
     } catch {
       return { configured: true, connected: false }
     }
+  }
+
+  async imageGenStatus({ response }: HttpContext) {
+    const comfyui = await Service.query().where('service_name', SERVICE_NAMES.COMFYUI).first()
+    return response.status(200).json({ installed: !!(comfyui && comfyui.installed) })
   }
 
   async configureRemote({ request, response }: HttpContext) {

@@ -81,4 +81,12 @@ export type NomadChatResponse = {
     snippet: string
     kiwixPath?: string
   }>
+  images?: string[]
+  toolSteps?: Array<{
+    tool: string
+    step: 'start' | 'end' | 'error'
+    input?: Record<string, any>
+    output?: string
+    error?: string
+  }>
 }

@@ -6,8 +6,15 @@ import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
 import { OllamaService } from './ollama_service.js'
 import { SearxngService } from './searxng_service.js'
+import { ComfyuiService } from './comfyui_service.js'
+import { ChatImageService } from './chat_image_service.js'
 
-export type AgentToolName = 'web_search' | 'web_fetch' | 'calculator' | 'current_time'
+export type AgentToolName =
+  | 'web_search'
+  | 'web_fetch'
+  | 'calculator'
+  | 'current_time'
+  | 'generate_image'
 
 export type ToolStep = {
   tool: string
@@ -27,11 +34,13 @@ export type AgentRunResult = {
   content: string
   toolSteps: ToolStep[]
   webSources: WebSource[]
+  generatedImages: string[]
 }
 
 export type AgentRunCallbacks = {
   onToolStep?: (step: ToolStep) => void
   onContentChunk?: (chunk: string, thinking?: string) => void
+  onImage?: (relPath: string) => void
   signal?: AbortSignal
 }
 
@@ -44,7 +53,8 @@ type LCMessage = { role: 'system' | 'user' | 'assistant'; content: string }
 export class AgentService {
   constructor(
     private ollamaService: OllamaService,
-    private searxngService: SearxngService
+    private searxngService: SearxngService,
+    private comfyuiService: ComfyuiService
   ) {}
 
   async runAgent(params: {
@@ -69,6 +79,7 @@ export class AgentService {
 
     const collectedSources: WebSource[] = []
     const collectedPageContent: string[] = []
+    const collectedImages: string[] = []
     const toolSteps: ToolStep[] = []
     let toolCallCount = 0
     const toolCallGuard = (): boolean => {
@@ -80,6 +91,7 @@ export class AgentService {
       enabledTools,
       collectedSources,
       collectedPageContent,
+      collectedImages,
       toolSteps,
       callbacks,
       toolCallGuard
@@ -91,7 +103,7 @@ export class AgentService {
 
     const systemPrompt = params.systemPrompt
       ? params.systemPrompt
-      : 'You are a helpful AI assistant with access to tools. Use tools when the user asks about current information that requires live data, calculations, or the current time. For general knowledge questions, answer directly without tools. CRITICAL RULES: (1) Make exactly ONE web_search call — it automatically fetches the full content of the top results, so you do NOT need to call web_fetch separately. (2) After the search returns, you MUST immediately write your final answer using the provided data — do NOT call any more tools. (3) Never repeat a search. (4) The search results include full page content with real numbers — use that data directly in your answer. (5) Always cite sources with their URLs.'
+      : this._defaultSystemPrompt(enabledTools)
 
     const lcMessages = [{ role: 'system' as const, content: systemPrompt }, ...messages]
 
@@ -162,7 +174,12 @@ export class AgentService {
     } catch (error: any) {
       if (signal?.aborted || error?.name === 'AbortError') {
         logger.debug('[AgentService] Agent run aborted by client disconnect')
-        return { content: fullContent, toolSteps, webSources: collectedSources }
+        return {
+          content: fullContent,
+          toolSteps,
+          webSources: collectedSources,
+          generatedImages: collectedImages,
+        }
       }
       logger.error(
         `[AgentService] Agent run failed: ${error instanceof Error ? error.message : error}`
@@ -211,7 +228,12 @@ export class AgentService {
         }
       } catch (synthError: any) {
         if (signal?.aborted || synthError?.name === 'AbortError') {
-          return { content: fullContent, toolSteps, webSources: collectedSources }
+          return {
+            content: fullContent,
+            toolSteps,
+            webSources: collectedSources,
+            generatedImages: collectedImages,
+          }
         }
         logger.error(
           `[AgentService] Synthesis call failed: ${synthError instanceof Error ? synthError.message : synthError}`
@@ -221,7 +243,9 @@ export class AgentService {
 
     if (!fullContent) {
       fullContent =
-        'I searched for information but was unable to synthesize a complete answer. Here is what I found from the web search results above. Please try rephrasing your question.'
+        collectedImages.length > 0
+          ? 'Here is the image you asked for. Let me know if you would like any changes — a different style, size, or details.'
+          : 'I searched for information but was unable to synthesize a complete answer. Here is what I found from the web search results above. Please try rephrasing your question.'
       callbacks?.onContentChunk?.(fullContent)
     }
 
@@ -229,13 +253,32 @@ export class AgentService {
       content: fullContent,
       toolSteps,
       webSources: collectedSources,
+      generatedImages: collectedImages,
     }
+  }
+
+  private _defaultSystemPrompt(enabledTools: AgentToolName[]): string {
+    const parts: string[] = [
+      'You are a helpful AI assistant with access to tools. Use tools when the user asks about current information that requires live data, calculations, the current time, or asks you to create, generate, draw, or make an image or picture. For general knowledge questions, answer directly without tools.',
+    ]
+    if (enabledTools.includes('web_search') || enabledTools.includes('web_fetch')) {
+      parts.push(
+        'WEB SEARCH RULES: (1) Make exactly ONE web_search call — it automatically fetches the full content of the top results, so you do NOT need to call web_fetch separately. (2) After the search returns, you MUST immediately write your final answer using the provided data — do NOT call any more tools. (3) Never repeat a search. (4) The search results include full page content with real numbers — use that data directly in your answer. (5) Always cite sources with their URLs.'
+      )
+    }
+    if (enabledTools.includes('generate_image')) {
+      parts.push(
+        'IMAGE GENERATION RULES: (1) When the user asks you to create, generate, draw, paint, or make an image or picture, call generate_image exactly once. (2) Write a single detailed English prompt for the tool: describe the subject, setting, style, lighting, composition, and quality. Honor everything the user asked for; only ask a clarifying question if the request is truly ambiguous. (3) Optionally pass width and height when the user asks for a specific size, and negative_prompt for things to avoid. (4) After the tool returns, briefly describe the image to the user — do not call any more tools. (5) If the tool reports an error, explain what it said and how to fix it (for example, installing an image model in Image Studio).'
+      )
+    }
+    return parts.join(' ')
   }
 
   private _buildTools(
     enabledTools: AgentToolName[],
     collectedSources: WebSource[],
     collectedPageContent: string[],
+    collectedImages: string[],
     _toolSteps: ToolStep[],
     callbacks?: AgentRunCallbacks,
     guard?: () => boolean
@@ -436,6 +479,102 @@ export class AgentService {
             description:
               'Get the current date and time. Use this when the user asks about the current time, date, or day of the week.',
             schema: z.object({}),
+          }
+        )
+      )
+    }
+
+    if (enabledTools.includes('generate_image')) {
+      tools.push(
+        tool(
+          async ({
+            prompt,
+            negative_prompt,
+            width,
+            height,
+            steps,
+            seed,
+          }: {
+            prompt: string
+            negative_prompt?: string
+            width?: number
+            height?: number
+            steps?: number
+            seed?: number
+          }) => {
+            if (guard && !guard()) {
+              return 'Tool call limit reached. Answer the user directly.'
+            }
+            const input: Record<string, any> = { prompt }
+            if (negative_prompt) input.negative_prompt = negative_prompt
+            if (width) input.width = width
+            if (height) input.height = height
+            if (steps) input.steps = steps
+            if (seed !== undefined) input.seed = seed
+            callbacks?.onToolStep?.({ tool: 'generate_image', step: 'start', input })
+            try {
+              const result = await this.comfyuiService.generate({
+                prompt,
+                negativePrompt: negative_prompt,
+                width,
+                height,
+                steps,
+                seed,
+                signal: callbacks?.signal,
+              })
+              const chatImageService = new ChatImageService()
+              const dataUrl = `data:${result.mimeType};base64,${result.buffer.toString('base64')}`
+              const relPath = await chatImageService.saveImage(dataUrl)
+              if (!relPath) {
+                throw new Error('Failed to persist the generated image.')
+              }
+              collectedImages.push(relPath)
+              callbacks?.onImage?.(relPath)
+              callbacks?.onToolStep?.({
+                tool: 'generate_image',
+                step: 'end',
+                input,
+                output: `${result.filename} (${result.checkpoint})`,
+              })
+              return `Image generated successfully and displayed to the user (file: ${result.filename}, model: ${result.checkpoint}). Briefly describe the image to the user now — do not call any more tools.`
+            } catch (err: any) {
+              if (callbacks?.signal?.aborted || err?.name === 'AbortError') {
+                throw err
+              }
+              const message = err instanceof Error ? err.message : String(err)
+              callbacks?.onToolStep?.({
+                tool: 'generate_image',
+                step: 'error',
+                input,
+                error: message,
+              })
+              return `Image generation failed: ${message}`
+            }
+          },
+          {
+            name: 'generate_image',
+            description:
+              'Generate an image from a text description using the local Image Studio (ComfyUI) service. Use this whenever the user asks to create, generate, draw, paint, or make an image or picture. Write ONE detailed English prompt describing the desired image: subject, setting, style, lighting, composition, and quality. Optionally set width/height (default 1024x1024), steps (default 25), a negative_prompt listing things to avoid, and a specific seed to reproduce a previous result.',
+            schema: z.object({
+              prompt: z.string().describe('Detailed description of the image to generate'),
+              negative_prompt: z.string().optional().describe('Things to avoid in the image'),
+              width: z
+                .number()
+                .int()
+                .min(64)
+                .max(2048)
+                .optional()
+                .describe('Image width in pixels'),
+              height: z
+                .number()
+                .int()
+                .min(64)
+                .max(2048)
+                .optional()
+                .describe('Image height in pixels'),
+              steps: z.number().int().min(1).max(100).optional().describe('Sampling steps'),
+              seed: z.number().int().optional().describe('Fixed seed for reproducible results'),
+            }),
           }
         )
       )

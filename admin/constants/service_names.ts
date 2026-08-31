@@ -23,4 +23,5 @@ export const SERVICE_NAMES = {
   VOICE_GATEWAY: 'nomad_voice_gateway',
   TTS: 'nomad_tts',
   SEARXNG: 'nomad_searxng',
+  COMFYUI: 'nomad_comfyui',
 }

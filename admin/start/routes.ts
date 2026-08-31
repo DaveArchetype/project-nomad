@@ -345,6 +345,10 @@ router
       summary: 'Get remote Ollama status',
       tags: ['ollama'],
     })
+    documented(router.get('/image-gen-status', [OllamaController, 'imageGenStatus']), {
+      summary: 'Get image generation (Image Studio) availability',
+      tags: ['ollama'],
+    })
   })
   .prefix('/api/ollama')
 

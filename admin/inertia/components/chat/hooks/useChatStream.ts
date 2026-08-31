@@ -67,6 +67,8 @@ export function useChatStream({
         content: data.message?.content || 'Sorry, I could not generate a response.',
         timestamp: new Date(),
         sources: data.sources,
+        images: data.images && data.images.length > 0 ? data.images : undefined,
+        toolSteps: data.toolSteps,
       }
 
       setMessages((prev) => [...prev, assistantMessage])
@@ -145,6 +147,7 @@ export function useChatStream({
         // if it arrives after the message exists (rare reordering), apply directly.
         let pendingSources: ChatMessage['sources'] | null = null
         const pendingToolSteps: ChatToolStep[] = []
+        const pendingImages: string[] = []
 
         try {
           await api.streamChatMessage(
@@ -177,6 +180,7 @@ export function useChatStream({
                     isThinking: chunkThinking.length > 0 && chunkContent.length === 0,
                     thinkingDuration: undefined,
                     sources: pendingSources ?? undefined,
+                    images: pendingImages.length > 0 ? [...pendingImages] : undefined,
                     toolSteps: pendingToolSteps.length > 0 ? [...pendingToolSteps] : undefined,
                   },
                 ])
@@ -225,6 +229,15 @@ export function useChatStream({
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantMsgId ? { ...m, toolSteps: [...pendingToolSteps] } : m
+                )
+              )
+            },
+            (images: string[]) => {
+              if (streamingSessionIdRef.current !== sessionId) return
+              pendingImages.push(...images)
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantMsgId ? { ...m, images: [...pendingImages] } : m
                 )
               )
             }

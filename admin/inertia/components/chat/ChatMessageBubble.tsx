@@ -8,6 +8,7 @@ import {
   IconLoader2,
   IconCircleCheck,
   IconAlertTriangle,
+  IconPhoto,
 } from '@tabler/icons-react'
 import classNames from '~/lib/classNames'
 import ReactMarkdown from 'react-markdown'
@@ -43,6 +44,7 @@ const TOOL_ICON_MAP: Record<string, typeof IconWorldSearch> = {
   web_fetch: IconLink,
   calculator: IconCalculator,
   current_time: IconClock,
+  generate_image: IconPhoto,
 }
 
 const TOOL_LABEL_MAP: Record<string, string> = {
@@ -50,6 +52,7 @@ const TOOL_LABEL_MAP: Record<string, string> = {
   web_fetch: 'Web fetch',
   calculator: 'Calculator',
   current_time: 'Current time',
+  generate_image: 'Image generation',
 }
 
 function ToolStepRow({ step }: { step: ChatToolStep }) {
@@ -256,7 +259,7 @@ export default function ChatMessageBubble({
           </div>
         </details>
       )}
-      {message.role === 'user' && message.images && message.images.length > 0 && (
+      {message.images && message.images.length > 0 && (
         <div className="flex gap-2 mb-2 overflow-x-auto sm:flex-wrap sm:overflow-visible">
           {message.images.map((img, idx) => (
             <button
@@ -267,8 +270,15 @@ export default function ChatMessageBubble({
             >
               <img
                 src={imageUrlFor(img)}
-                alt={`Attachment ${idx + 1}`}
-                className="max-w-lg max-h-64 rounded-md object-contain border border-white/30 hover:opacity-90 cursor-pointer"
+                alt={
+                  message.role === 'assistant'
+                    ? `Generated image ${idx + 1}`
+                    : `Attachment ${idx + 1}`
+                }
+                className={classNames(
+                  'max-w-lg max-h-64 rounded-md object-contain border hover:opacity-90 cursor-pointer',
+                  message.role === 'user' ? 'border-white/30' : 'border-border-subtle'
+                )}
               />
             </button>
           ))}

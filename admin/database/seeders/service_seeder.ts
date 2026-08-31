@@ -673,6 +673,41 @@ export default class ServiceSeeder extends BaseSeeder {
       category: 'utility',
       depends_on: null,
     },
+    {
+      service_name: SERVICE_NAMES.COMFYUI,
+      friendly_name: 'Image Studio',
+      powered_by: 'ComfyUI',
+      display_order: 33,
+      description:
+        'Generate images from text prompts with node-based workflows — fully customizable and GPU-accelerated',
+      icon: 'IconPhoto',
+      container_image: 'yanwk/comfyui-boot:cu126-slim',
+      source_repo: 'https://github.com/comfyanonymous/ComfyUI',
+      container_command: null,
+      container_config: JSON.stringify({
+        HostConfig: {
+          RestartPolicy: { Name: 'unless-stopped' },
+          PortBindings: { '8188/tcp': [{ HostPort: '8520' }] },
+          Binds: [
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/comfyui/models:/root/ComfyUI/models`,
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/comfyui/input:/root/ComfyUI/input`,
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/comfyui/output:/root/ComfyUI/output`,
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/comfyui/custom_nodes:/root/ComfyUI/custom_nodes`,
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/comfyui/user:/root/ComfyUI/user`,
+          ],
+        },
+        ExposedPorts: { '8188/tcp': {} },
+      }),
+      ui_location: '8520',
+      ui_path: '/image-studio',
+      installed: false,
+      installation_status: 'idle',
+      is_dependency_service: false,
+      is_custom: false,
+      category: 'ai',
+      depends_on: null,
+      metadata: JSON.stringify({ minMemoryMB: 4096, minDiskMB: 20480 }),
+    },
   ]
 
   async run() {

@@ -328,3 +328,34 @@ The other half of the Voice Assistant feature: turns chat replies and daily reca
 **Your data:** Downloaded voices live in `storage/tts` on your NOMAD.
 
 **Works offline:** Fully offline once installed and a voice is downloaded — speech synthesis runs locally on your NOMAD's CPU. Downloading a new voice is the only part that needs the internet.
+
+## Image Studio {% #image-studio %}
+
+Local AI image generation, powered by [ComfyUI](https://www.comfy.org) — the most widely used open-source image generation platform. You describe what you want in text and it renders the image on your NOMAD's own hardware. Nothing is sent to any cloud service, and because it's ComfyUI under the hood you get the whole platform: node-based workflows, custom nodes, and every model family the community releases (SD 1.5, SDXL, SD3, Flux, and more).
+
+**Official site:** [comfy.org](https://www.comfy.org) · **Source:** [github.com/comfyanonymous/ComfyUI](https://github.com/comfyanonymous/ComfyUI)
+
+**First time you open it:** It opens straight to the ComfyUI workflow editor — no login, no setup wizard. If you've never used a node-based editor before, start from ComfyUI's own beginner guides (the "Learn" section on their site) and install the workflow templates it suggests; the default canvas is intentionally blank.
+
+**It needs an image model before it can generate anything.** ComfyUI ships without any models (they're multi-gigabyte files, so you choose what to download). Two ways to add one:
+
+1. **From inside Image Studio (easiest):** open the ComfyUI Manager panel (the Manager button in the toolbar) and use its model manager to download a checkpoint — for example an SDXL model. This needs an internet connection.
+2. **By hand:** place a `.safetensors` checkpoint file into `storage/comfyui/models/checkpoints` on your NOMAD (Code Server or direct disk access both work). The file shows up in Image Studio's model list immediately.
+
+Until a model exists, any attempt to generate — from the app or from chat — will tell you so rather than failing silently.
+
+**It wants a GPU.** On install, NOMAD detects your hardware: with an NVIDIA GPU (and the NVIDIA Container Toolkit) it passes the GPU through to the container; with an AMD GPU it uses a ROCm build; with no GPU it falls back to a CPU-only build that works but is *very* slow — expect minutes per image instead of seconds. Image generation and your AI Assistant share the same GPU, so generating while chatting with a large model loaded can feel slower on both.
+
+**Generate images from the AI Helper chat.** Image Studio isn't just a standalone app — it's wired into your assistant:
+
+1. Make sure a **tool-capable model** is selected in the chat header (most models listed as supporting tools in AI Settings will do).
+2. Click the **tools** button next to the message box and toggle on **Image generation**.
+3. Just ask: *"draw a watercolor lighthouse at dawn"* — the assistant writes a detailed prompt, Image Studio renders it, and the picture appears right in the conversation, where you can tap it to view it full-size. It stays in the session history like any other reply.
+
+The toggle only appears once Image Studio is installed. If the assistant reports that no image model is installed, add one using the steps above and try again.
+
+**Your data:** Everything lives under `storage/comfyui` on your NOMAD — `models` (your checkpoints, LoRAs, and VAEs), `output` (every image it generates, including the ones made from chat), `input`, `custom_nodes`, and `user` (your saved workflows and settings). Nothing is stored anywhere else.
+
+**Advanced — customize how chat generates images:** by default, chat generation uses a simple built-in text-to-image workflow. If you want the assistant to use your own pipeline (a different sampler, LoRAs, a Flux workflow, anything), build it in Image Studio, export it via **Workflow → Export (API)**, and save the file as `chat_workflow_api.json` in `storage/comfyui`. The file must keep the standard node numbering so the right values can be injected: node `4` loads the checkpoint (`ckpt_name`), node `6` receives the positive prompt, node `7` the negative prompt, node `5` sets width/height, node `3` sets seed/steps, and node `9` saves the image. Delete the file to return to the default workflow.
+
+**Works offline:** Generating images is fully offline — models run locally on your NOMAD. The only parts that need the internet are downloading new models/custom nodes and anything ComfyUI Manager fetches for you.

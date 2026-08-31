@@ -859,6 +859,65 @@ export class DockerService {
         }
       }
 
+      if (service.service_name === SERVICE_NAMES.COMFYUI) {
+        const gpuResult = await this._detectGPUType()
+
+        if (gpuResult.type === 'nvidia') {
+          this._broadcast(
+            service.service_name,
+            'gpu-config',
+            `NVIDIA container runtime detected. Configuring Image Studio with GPU support...`
+          )
+          gpuHostConfig = {
+            ...gpuHostConfig,
+            DeviceRequests: [
+              {
+                Driver: 'nvidia',
+                Count: -1,
+                Capabilities: [['gpu']],
+              },
+            ],
+          }
+        } else if (gpuResult.type === 'amd') {
+          this._broadcast(
+            service.service_name,
+            'gpu-config',
+            `AMD GPU detected. Using ROCm image with /dev/kfd and /dev/dri passthrough...`
+          )
+          finalImage = 'yanwk/comfyui-boot:rocm'
+          const rocmImageExists = await this._checkImageExists(finalImage)
+          if (!rocmImageExists) {
+            this._broadcast(
+              service.service_name,
+              'pulling',
+              `Pulling Docker image ${finalImage}...`
+            )
+            await this.pullImage(finalImage)
+          }
+          const amdDevices = await this._discoverAMDDevices()
+          gpuHostConfig = {
+            ...gpuHostConfig,
+            Devices: amdDevices,
+          }
+        } else {
+          this._broadcast(
+            service.service_name,
+            'gpu-config',
+            `No usable GPU detected. Using CPU-only image — image generation will be very slow...`
+          )
+          finalImage = 'yanwk/comfyui-boot:cpu'
+          const cpuImageExists = await this._checkImageExists(finalImage)
+          if (!cpuImageExists) {
+            this._broadcast(
+              service.service_name,
+              'pulling',
+              `Pulling Docker image ${finalImage}...`
+            )
+            await this.pullImage(finalImage)
+          }
+        }
+      }
+
       const ollamaEnv: string[] = []
       if (service.service_name === SERVICE_NAMES.OLLAMA) {
         ollamaEnv.push('OLLAMA_NO_CLOUD=1')

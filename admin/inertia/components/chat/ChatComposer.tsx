@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   IconSend,
   IconPhotoPlus,
@@ -8,6 +9,7 @@ import {
   IconWorld,
   IconCalculator,
   IconClock,
+  IconPhoto,
 } from '@tabler/icons-react'
 import classNames from '~/lib/classNames'
 import { usePage } from '@inertiajs/react'
@@ -45,16 +47,22 @@ const TOOL_DEFS = [
     tools: ['web_search', 'web_fetch'],
   },
   {
-    key: 'calculator',
-    label: 'Calculator',
-    icon: IconCalculator,
-    tools: ['calculator'],
+    key: 'image_gen',
+    label: 'Image generation',
+    icon: IconPhoto,
+    tools: ['generate_image'],
   },
   {
     key: 'current_time',
     label: 'Current time',
     icon: IconClock,
     tools: ['current_time'],
+  },
+  {
+    key: 'calculator',
+    label: 'Calculator',
+    icon: IconCalculator,
+    tools: ['calculator'],
   },
 ] as const
 
@@ -84,6 +92,15 @@ export default function ChatComposer({
   })
   const [plusMenuOpen, setPlusMenuOpen] = useState(false)
   const [toolsPopoverOpen, setToolsPopoverOpen] = useState(false)
+
+  const { data: imageGenStatus } = useQuery({
+    queryKey: ['imageGenStatus'],
+    queryFn: () => api.getImageGenStatus(),
+    staleTime: 60_000,
+    retry: false,
+  })
+  const imageGenInstalled = imageGenStatus?.installed ?? false
+  const visibleToolDefs = TOOL_DEFS.filter((def) => def.key !== 'image_gen' || imageGenInstalled)
   const isMobile = useIsMobileViewport()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -141,10 +158,11 @@ export default function ChatComposer({
   const activeTools = useCallback((): string[] => {
     const tools: string[] = []
     for (const def of TOOL_DEFS) {
+      if (def.key === 'image_gen' && !imageGenInstalled) continue
       if (enabledToolKeys.has(def.key)) tools.push(...def.tools)
     }
     return tools
-  }, [enabledToolKeys])
+  }, [enabledToolKeys, imageGenInstalled])
 
   const handleDownloadModel = async () => {
     setIsDownloading(true)
@@ -284,7 +302,9 @@ export default function ChatComposer({
 
   const hasText = input.trim().length > 0
   const hasImages = attachments.length > 0
-  const hasTools = enabledToolKeys.size > 0
+  const hasTools = [...enabledToolKeys].some((key) =>
+    visibleToolDefs.some((def) => def.key === key)
+  )
   const canSend = (hasText || hasImages || hasTools) && !isLoading
 
   return (
@@ -389,7 +409,11 @@ export default function ChatComposer({
               <IconTools className="h-6 w-6" />
               {hasTools && (
                 <span className="absolute -top-1 -right-1 flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-desert-green text-white text-[10px] font-bold leading-none">
-                  {enabledToolKeys.size}
+                  {
+                    [...enabledToolKeys].filter((key) =>
+                      visibleToolDefs.some((def) => def.key === key)
+                    ).length
+                  }
                 </span>
               )}
             </button>
@@ -398,7 +422,7 @@ export default function ChatComposer({
                 <div className="px-3 py-2 text-xs font-medium text-text-muted border-b border-border-subtle">
                   Agent tools
                 </div>
-                {TOOL_DEFS.map((def) => {
+                {visibleToolDefs.map((def) => {
                   const Icon = def.icon
                   const isActive = enabledToolKeys.has(def.key)
                   return (
