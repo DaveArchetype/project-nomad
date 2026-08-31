@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import {
   IconSend,
   IconPhotoPlus,
@@ -12,7 +12,6 @@ import {
   IconPhoto,
 } from '@tabler/icons-react'
 import classNames from '~/lib/classNames'
-import { usePage } from '@inertiajs/react'
 import { useNotifications } from '~/context/NotificationContext'
 import { useIsMobileViewport } from '~/hooks/useIsMobileViewport'
 import StyledModal from '../StyledModal'
@@ -75,7 +74,6 @@ export default function ChatComposer({
   selectedModelSupportsTools,
   voiceCommand,
 }: ChatComposerProps) {
-  const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
   const { addNotification } = useNotifications()
   const [input, setInput] = useState('')
   const lastVoiceCommandAtRef = useRef<number | null>(null)
