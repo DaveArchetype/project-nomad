@@ -74,7 +74,7 @@ class API {
     })()
   }
 
-  async getImageGenStatus(): Promise<{ installed: boolean }> {
+  async getImageGenStatus() {
     return catchInternal(async () => {
       const response = await this.client.get<{ installed: boolean }>('/ollama/image-gen-status')
       return response.data
