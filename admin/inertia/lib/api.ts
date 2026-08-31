@@ -65,7 +65,7 @@ class API {
     })()
   }
 
-  async getRemoteOllamaStatus(): Promise<{ configured: boolean; connected: boolean }> {
+  async getRemoteOllamaStatus(): Promise<{ configured: boolean; connected: boolean } | undefined> {
     return catchInternal(async () => {
       const response = await this.client.get<{ configured: boolean; connected: boolean }>(
         '/ollama/remote-status'
@@ -83,7 +83,7 @@ class API {
 
   async configureRemoteOllama(
     remoteUrl: string | null
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<{ success: boolean; message: string } | undefined> {
     return catchInternal(async () => {
       const response = await this.client.post<{ success: boolean; message: string }>(
         '/ollama/configure-remote',
@@ -169,7 +169,7 @@ class API {
     })()
   }
 
-  async deleteMapRegionFile(filename: string): Promise<{ message: string }> {
+  async deleteMapRegionFile(filename: string): Promise<{ message: string } | undefined> {
     return catchInternal(async () => {
       const response = await this.client.delete<{ message: string }>(
         `/maps/${encodeURIComponent(filename)}`

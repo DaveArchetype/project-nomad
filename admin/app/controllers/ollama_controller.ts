@@ -98,7 +98,7 @@ export default class OllamaController {
     // (AI Settings page); 0 disables the pause entirely.
     const pauseMinutesRaw = await KVStore.getValue('rag.embedPauseAfterChatMinutes')
     const pauseMinutes =
-      pauseMinutesRaw != null && pauseMinutesRaw !== ''
+      pauseMinutesRaw !== null && pauseMinutesRaw !== ''
         ? Number.parseInt(pauseMinutesRaw, 10)
         : DEFAULT_EMBED_PAUSE_AFTER_CHAT_MINUTES
     if (Number.isFinite(pauseMinutes) && pauseMinutes > 0) {
@@ -817,7 +817,7 @@ export default class OllamaController {
   private getContextLimitsForModel(modelName: string): { maxResults: number; maxTokens: number } {
     // Extract parameter count from model name (e.g., "llama3.2:3b", "qwen2.5:1.5b", "gemma:7b")
     const sizeMatch = modelName.match(/(\d+\.?\d*)[bB]/)
-    const paramBillions = sizeMatch ? parseFloat(sizeMatch[1]) : 8 // default to 8B if unknown
+    const paramBillions = sizeMatch ? Number.parseFloat(sizeMatch[1]) : 8 // default to 8B if unknown
 
     for (const tier of RAG_CONTEXT_LIMITS) {
       if (paramBillions <= tier.maxParams) {
@@ -861,7 +861,12 @@ export default class OllamaController {
       const kiwixPath = this._buildKiwixPath(source, contentType, doc.metadata?.article_path)
 
       const existing = bySource.get(source)
-      if (!existing || (score != null && (existing.score == null || score > existing.score))) {
+      if (
+        !existing ||
+        (score !== null &&
+          score !== undefined &&
+          (existing.score === null || existing.score === undefined || score > existing.score))
+      ) {
         bySource.set(source, { source, title, contentType, score, snippet, kiwixPath })
       }
     }
