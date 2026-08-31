@@ -232,9 +232,9 @@ export function useChatStream({
                 )
               )
             },
-            (images: string[]) => {
+            (generatedImages: string[]) => {
               if (streamingSessionIdRef.current !== sessionId) return
-              pendingImages.push(...images)
+              pendingImages.push(...generatedImages)
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantMsgId ? { ...m, images: [...pendingImages] } : m
