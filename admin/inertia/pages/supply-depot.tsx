@@ -195,6 +195,10 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
   // Optimistic per-app auto-update toggle state, keyed by service_name. Lets the
   // toggle reflect instantly without a full page reload (props come from Inertia).
   const [autoUpdateOverrides, setAutoUpdateOverrides] = useState<Record<string, boolean>>({})
+  // Service names whose install we just dispatched from this client. Lets the card
+  // jump into the "Download in progress" section immediately, before the durable
+  // installation_status==='installing' flag (set server-side) shows up via a reload.
+  const [dispatchedInstalls, setDispatchedInstalls] = useState<Set<string>>(new Set())
 
   // Preflight state — scoped to the current install modal
   const [preflight, setPreflight] = useState<{
@@ -211,6 +215,19 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
     if (!installActivity.length) return
     if (installActivity.some((a) => a.type === 'completed' || a.type === 'update-complete')) {
       setTimeout(() => window.location.reload(), 3000)
+      return
+    }
+    // If an install/update failed, drop the optimistic dispatched flag so the card
+    // returns to "Available" and the Install button can be tried again.
+    const failed = installActivity.filter(
+      (a) => a.type === 'error' || a.type === 'preinstall-error' || a.type === 'update-rollback'
+    )
+    if (failed.length) {
+      setDispatchedInstalls((prev) => {
+        const next = new Set(prev)
+        for (const a of failed) next.delete(a.service_name)
+        return next
+      })
     }
   }, [installActivity])
 
@@ -273,7 +290,22 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
   })
 
   const installedServices = filteredServices.filter((s) => s.installed)
-  const availableServices = filteredServices.filter((s) => !s.installed)
+  // Services currently downloading/installing. Combines the durable DB flag
+  // (installation_status==='installing', surfaced via props after a reload) with
+  // the optimistic client-side dispatchedInstalls set (covers the window before a
+  // reload reflects the server-side flag).
+  const installingServiceNames = new Set<string>(dispatchedInstalls)
+  for (const s of props.system.services) {
+    if (!s.installed && s.installation_status === 'installing') {
+      installingServiceNames.add(s.service_name)
+    }
+  }
+  const installingServices = filteredServices.filter(
+    (s) => !s.installed && installingServiceNames.has(s.service_name)
+  )
+  const availableServices = filteredServices.filter(
+    (s) => !s.installed && !installingServiceNames.has(s.service_name)
+  )
 
   // Whether the new Kolibri (Gen 2) install exists — gates the "Migrate content to Gen 2" action on
   // the legacy Kolibri card. Computed from the full (unfiltered) list so a search filter can't hide it.
@@ -295,7 +327,17 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
     const result = await api.installService(service.service_name)
     setModal(null)
     setLoading(false)
-    if (!result?.success) showError(result?.message || 'Failed to start installation.')
+    if (!result?.success) {
+      showError(result?.message || 'Failed to start installation.')
+      return
+    }
+    // Mark as dispatched so the card moves into "Download in progress" immediately;
+    // the durable installation_status flag takes over once a reload refreshes props.
+    setDispatchedInstalls((prev) => {
+      const next = new Set(prev)
+      next.add(service.service_name)
+      return next
+    })
   }
 
   async function handleAffect(service: ServiceSlim, action: 'start' | 'stop' | 'restart') {
@@ -684,6 +726,41 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                               : 'How to migrate content from Gen 1'
                           }
                           reverseProxyBaseDomain={reverseProxyBaseDomain}
+                          installing={installingServiceNames.has(service.service_name)}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {installingServices.length > 0 && (
+                  <section>
+                    <StyledSectionHeader
+                      title={`Download in progress (${installingServices.length})`}
+                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {installingServices.map((service) => (
+                        <AppCard
+                          key={service.service_name}
+                          service={service}
+                          openDropdown={openDropdown}
+                          dropdownRef={dropdownRef}
+                          onOpenDropdown={setOpenDropdown}
+                          onInstall={() => setModal({ type: 'install', service })}
+                          onStart={() => setModal({ type: 'start', service })}
+                          onStop={() => setModal({ type: 'stop', service })}
+                          onRestart={() => setModal({ type: 'restart', service })}
+                          onReinstall={() => setModal({ type: 'reinstall', service })}
+                          onDelete={() => setModal({ type: 'delete', service })}
+                          onUninstall={() => setModal({ type: 'uninstall', service })}
+                          onLogs={() => setModal({ type: 'logs', service })}
+                          onStats={() => setModal({ type: 'stats', service })}
+                          onEdit={() => handleEdit(service)}
+                          onSetUrl={() => handleSetUrl(service)}
+                          onUpdate={() => handleUpdate(service)}
+                          onUpdateVersion={() => setModal({ type: 'update', service })}
+                          reverseProxyBaseDomain={reverseProxyBaseDomain}
+                          installing
                         />
                       ))}
                     </div>
@@ -715,6 +792,7 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                           onUpdate={() => handleUpdate(service)}
                           onUpdateVersion={() => setModal({ type: 'update', service })}
                           reverseProxyBaseDomain={reverseProxyBaseDomain}
+                          installing={installingServiceNames.has(service.service_name)}
                         />
                       ))}
                     </div>
@@ -1058,6 +1136,10 @@ interface AppCardProps {
   migrationInstructionsHref?: string
   migrationInstructionsText?: string
   reverseProxyBaseDomain?: string | null
+  // True while this app's image is being pulled/started. Hides the Install button
+  // and shows the "Installing" badge + "In progress…" indicator. Set optimistically
+  // on the client (dispatchedInstalls) and durably via installation_status==='installing'.
+  installing?: boolean
 }
 
 function AppCard({
@@ -1084,9 +1166,11 @@ function AppCard({
   migrationInstructionsHref,
   migrationInstructionsText,
   reverseProxyBaseDomain,
+  installing = false,
 }: AppCardProps) {
   const isRunning = service.status === 'running'
   const isStopped = service.installed && !isRunning
+  const isInstalling = service.installation_status === 'installing' || installing
   const catColor = service.category
     ? (CATEGORY_COLORS[service.category] ?? CATEGORY_COLORS.custom)
     : CATEGORY_COLORS.custom
@@ -1156,7 +1240,7 @@ function AppCard({
 
         {/* Status indicator */}
         <div className="flex-shrink-0 ml-2">
-          {service.installation_status === 'installing' ? (
+          {isInstalling ? (
             <span className="flex items-center gap-1 text-xs text-desert-orange">
               <span className="animate-spin inline-block w-3 h-3 border border-desert-orange border-t-transparent rounded-full" />
               Installing
@@ -1230,7 +1314,7 @@ function AppCard({
 
       {/* Action buttons */}
       <div className="flex items-center gap-2">
-        {!service.installed && service.installation_status !== 'installing' && (
+        {!service.installed && !isInstalling && (
           <StyledButton
             size="sm"
             variant="primary"
@@ -1399,7 +1483,7 @@ function AppCard({
           </>
         ) : null}
 
-        {service.installation_status === 'installing' && (
+        {isInstalling && !service.installed && (
           <div className="flex-1 flex items-center justify-center text-xs text-text-muted gap-1 py-1">
             <span className="animate-spin inline-block w-3 h-3 border border-desert-green border-t-transparent rounded-full" />
             In progress…
