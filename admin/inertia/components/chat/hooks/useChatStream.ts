@@ -55,6 +55,7 @@ export function useChatStream({
       sessionId?: number
       think?: boolean
       collection?: string
+      tools?: string[]
     }) => api.sendChatMessage({ ...request, stream: false }),
     onSuccess: async (data) => {
       if (!data || !activeSessionId) {
