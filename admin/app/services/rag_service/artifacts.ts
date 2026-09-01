@@ -1,7 +1,7 @@
 import { join, resolve, sep } from 'node:path'
 import logger from '@adonisjs/core/services/logger'
 import KbIngestState from '#models/kb_ingest_state'
-import { deleteFileIfExists } from '../../../utils/fs.js'
+import { deleteFileIfExists } from '../../utils/fs.js'
 import { CONTENT_COLLECTION_NAME, EMBEDDING_DIMENSION, UPLOADS_STORAGE_PATH } from './constants.js'
 import type { RagCtx } from './types.js'
 

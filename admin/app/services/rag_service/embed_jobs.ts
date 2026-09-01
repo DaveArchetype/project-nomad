@@ -1,12 +1,12 @@
 import logger from '@adonisjs/core/services/logger'
 import KbIngestState from '#models/kb_ingest_state'
-import { determineFileType, getFileStatsIfExists } from '../../../utils/fs.js'
-import { estimateChunkCount } from '../../../utils/kb_ratio_lookup.js'
+import { determineFileType, getFileStatsIfExists } from '../../utils/fs.js'
+import { estimateChunkCount } from '../../utils/kb_ratio_lookup.js'
 import KbRatioRegistry from '#models/kb_ratio_registry'
 import { CONTENT_COLLECTION_NAME, EMBEDDING_DIMENSION, FACET_SOURCE_LIMIT } from './constants.js'
 import type { EmbedSingleFileResult, RagCtx } from './types.js'
 import { deletePointsBySource } from './artifacts.js'
-import { discoverKbFiles, dispatchEmbedJobsFor, hasInflightEmbedJobs } from './discovery.js'
+import { discoverKbFiles, dispatchEmbedJobsFor } from './discovery.js'
 
 export async function embedSingleFile(
   ctx: RagCtx,
@@ -174,7 +174,7 @@ export async function verifyFileEmbeddings(
 }
 
 export async function resumeFileIngestion(
-  ctx: RagCtx,
+  _ctx: RagCtx,
   source: string
 ): Promise<EmbedSingleFileResult> {
   const isZim = determineFileType(source) === 'zim'

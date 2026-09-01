@@ -1,7 +1,7 @@
 import { QdrantClient } from '@qdrant/js-client-rest'
 import logger from '@adonisjs/core/services/logger'
 import KVStore from '#models/kv_store'
-import { loadIngestSettings } from '../../../utils/ingest_settings.js'
+import { loadIngestSettings } from '../../utils/ingest_settings.js'
 import { CONTENT_COLLECTION_NAME, EMBEDDING_DIMENSION } from './constants.js'
 import type { QdrantHealth, RagCtx } from './types.js'
 

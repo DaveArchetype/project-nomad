@@ -1,7 +1,7 @@
 import { join, resolve, sep } from 'node:path'
 import logger from '@adonisjs/core/services/logger'
 import KbIngestState from '#models/kb_ingest_state'
-import { getFileStatsIfExists } from '../../../utils/fs.js'
+import { getFileStatsIfExists } from '../../utils/fs.js'
 import type { KbIngestStateValue } from '../../../types/kb_ingest_state.js'
 import type { StoredFileInfo } from '../../../types/rag.js'
 import {

@@ -7,8 +7,8 @@ import {
   getFileStatsIfExists,
   listDirectoryContentsRecursive,
   ZIM_STORAGE_PATH,
-} from '../../../utils/fs.js'
-import { decideWarnings } from '../../../utils/kb_warning_decision.js'
+} from '../../utils/fs.js'
+import { decideWarnings } from '../../utils/kb_warning_decision.js'
 import type { FileWarning, FileWarningsResult } from '../../../types/rag.js'
 import {
   CONTENT_COLLECTION_NAME,

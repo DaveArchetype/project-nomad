@@ -4,7 +4,7 @@ import JSZip from 'jszip'
 import * as cheerio from 'cheerio'
 import { fromBuffer } from 'pdf2pic'
 import logger from '@adonisjs/core/services/logger'
-import { getFile, getFileStatsIfExists, isValidZimFile } from '../../../utils/fs.js'
+import { getFile, getFileStatsIfExists, isValidZimFile } from '../../utils/fs.js'
 import { UPLOADS_STORAGE_PATH } from './constants.js'
 import { resolveUploadPath } from './utils.js'
 

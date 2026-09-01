@@ -1,6 +1,6 @@
 import logger from '@adonisjs/core/services/logger'
 import { ZIMExtractionService } from '../zim_extraction_service.js'
-import { loadIngestSettings } from '../../../utils/ingest_settings.js'
+import { loadIngestSettings } from '../../utils/ingest_settings.js'
 import {
   ZIM_FLUSH_CHUNK_COUNT,
   ZIM_FLUSH_ARTICLE_INTERVAL,

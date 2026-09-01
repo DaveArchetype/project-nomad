@@ -1,5 +1,5 @@
 import logger from '@adonisjs/core/services/logger'
-import { deleteFileIfExists, determineFileType, getFile } from '../../../utils/fs.js'
+import { deleteFileIfExists, determineFileType, getFile } from '../../utils/fs.js'
 import type { ProcessAndEmbedFileResponse } from '../../../types/rag.js'
 import type { RagCtx } from './types.js'
 import { embedAndStoreText } from './embedding.js'

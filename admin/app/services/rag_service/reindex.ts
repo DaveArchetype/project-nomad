@@ -1,6 +1,6 @@
 import KbIngestState from '#models/kb_ingest_state'
 import { SERVICE_NAMES } from '../../../constants/service_names.js'
-import { decideContentReindex, type ReindexOutcome } from '../../../utils/content_reindex_decision.js'
+import { decideContentReindex, type ReindexOutcome } from '../../utils/content_reindex_decision.js'
 import type { RagCtx } from './types.js'
 import { deletePointsBySource } from './artifacts.js'
 

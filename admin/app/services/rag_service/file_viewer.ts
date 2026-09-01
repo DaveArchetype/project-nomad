@@ -1,5 +1,5 @@
 import logger from '@adonisjs/core/services/logger'
-import { getFileStatsIfExists } from '../../../utils/fs.js'
+import { getFileStatsIfExists } from '../../utils/fs.js'
 import { resolveUploadPath } from './utils.js'
 
 const VIEWABLE_TEXT_EXTENSIONS: ReadonlySet<string> = new Set([

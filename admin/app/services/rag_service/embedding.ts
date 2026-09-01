@@ -1,7 +1,7 @@
 import logger from '@adonisjs/core/services/logger'
 import { randomUUID } from 'node:crypto'
 import KVStore from '#models/kv_store'
-import { loadIngestSettings } from '../../../utils/ingest_settings.js'
+import { loadIngestSettings } from '../../utils/ingest_settings.js'
 import { EMBEDDING_MODEL_NAME } from '../../../constants/ollama.js'
 import { ZIM_QDRANT_UPSERT_BATCH } from '../../../constants/zim_extraction.js'
 import {

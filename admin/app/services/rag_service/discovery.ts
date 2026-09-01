@@ -6,7 +6,8 @@ import {
   getFileStatsIfExists,
   listDirectoryContentsRecursive,
   ZIM_STORAGE_PATH,
-} from '../../../utils/fs.js'
+} from '../../utils/fs.js'
+import type { FileEntry } from '../../../types/files.js'
 import { UPLOADS_STORAGE_PATH } from './constants.js'
 
 export async function discoverNomadDocs(
@@ -79,7 +80,7 @@ export async function discoverKbFiles(): Promise<string[]> {
   ]) {
     try {
       const contents = await listDirectoryContentsRecursive(dirPath)
-      contents.forEach((entry) => {
+      contents.forEach((entry: FileEntry) => {
         if (entry.type === 'file') filesInStorage.push(entry.key)
       })
       logger.debug(`[RAG] Found ${contents.length} files in ${label}`)
