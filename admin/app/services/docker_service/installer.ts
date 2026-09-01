@@ -398,6 +398,40 @@ async function createContainer(
       }
     }
 
+    if (service.service_name === SERVICE_NAMES.STREMIO) {
+      const gpuResult = await ctx.detectGPUType()
+
+      if (gpuResult.type === 'nvidia') {
+        ctx.broadcast(
+          service.service_name,
+          'gpu-config',
+          `NVIDIA container runtime detected. Configuring Stremio with NVENC hardware transcoding...`
+        )
+        gpuHostConfig = {
+          ...gpuHostConfig,
+          DeviceRequests: [
+            {
+              Driver: 'nvidia',
+              Count: -1,
+              Capabilities: [['gpu']],
+            },
+          ],
+        }
+      } else if (gpuResult.toolkitMissing) {
+        ctx.broadcast(
+          service.service_name,
+          'gpu-config',
+          `NVIDIA GPU detected but NVIDIA Container Toolkit is not installed. Stremio will use software transcoding. Install the toolkit and reinstall Stremio for NVENC support: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html`
+        )
+      } else {
+        ctx.broadcast(
+          service.service_name,
+          'gpu-config',
+          `No NVIDIA GPU detected. Stremio will use software transcoding...`
+        )
+      }
+    }
+
     const memoryLimitBytes = await resolveMemoryLimitBytes(service.service_name, async (k) => {
       const v = await KVStore.getValue(k as any)
       return v == null ? null : String(v)
