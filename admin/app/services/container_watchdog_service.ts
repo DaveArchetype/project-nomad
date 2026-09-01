@@ -64,7 +64,10 @@ export class ContainerWatchdogService {
         const inspected = await container.inspect()
         const currentMemory = inspected.HostConfig?.Memory ?? 0
         const currentSwap = inspected.HostConfig?.MemorySwap ?? 0
-        const desired = await resolveMemoryLimitBytes(name, (k) => KVStore.getValue(k as any))
+        const desired = await resolveMemoryLimitBytes(name, async (k) => {
+          const v = await KVStore.getValue(k as any)
+          return v == null ? null : String(v)
+        })
         const desiredSwap = desired > 0 ? desired : -1
         if (desired === currentMemory && (desired === 0 || desiredSwap === currentSwap)) {
           continue
@@ -136,9 +139,10 @@ export class ContainerWatchdogService {
         const cache = s.memory_stats?.stats?.cache ?? s.memory_stats?.stats?.inactive_file ?? 0
         const memUsage = Math.max(0, (s.memory_stats?.usage ?? 0) - cache)
         const memLimit = s.memory_stats?.limit ?? 0
-        const configuredLimit = await resolveMemoryLimitBytes(name, (k) =>
-          KVStore.getValue(k as any)
-        )
+        const configuredLimit = await resolveMemoryLimitBytes(name, async (k) => {
+          const v = await KVStore.getValue(k as any)
+          return v == null ? null : String(v)
+        })
         if (configuredLimit > 0) {
           if (memUsage / configuredLimit >= memPressureThreshold) pressured = true
         } else if (memLimit > 0 && memUsage > 0) {

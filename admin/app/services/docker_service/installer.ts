@@ -398,9 +398,10 @@ async function createContainer(
       }
     }
 
-    const memoryLimitBytes = await resolveMemoryLimitBytes(service.service_name, (k) =>
-      KVStore.getValue(k as any)
-    )
+    const memoryLimitBytes = await resolveMemoryLimitBytes(service.service_name, async (k) => {
+      const v = await KVStore.getValue(k as any)
+      return v == null ? null : String(v)
+    })
     if (memoryLimitBytes > 0) {
       gpuHostConfig = {
         ...gpuHostConfig,
