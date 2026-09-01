@@ -2,6 +2,7 @@ import Service from '#models/service'
 import logger from '@adonisjs/core/services/logger'
 import KVStore from '#models/kv_store'
 import { SERVICE_NAMES } from '../../../constants/service_names.js'
+import { resolveMemoryLimitBytes } from '../../../constants/container_watchdog.js'
 import type { DockerCtx, OperationResult } from './types.js'
 import {
   runPreinstallActions__KiwixServe,
@@ -395,6 +396,22 @@ async function createContainer(
           await ctx.pullImage(finalImage)
         }
       }
+    }
+
+    const memoryLimitBytes = await resolveMemoryLimitBytes(service.service_name, (k) =>
+      KVStore.getValue(k as any)
+    )
+    if (memoryLimitBytes > 0) {
+      gpuHostConfig = {
+        ...gpuHostConfig,
+        Memory: memoryLimitBytes,
+        MemorySwap: memoryLimitBytes,
+      }
+      ctx.broadcast(
+        service.service_name,
+        'oom-config',
+        `Applied memory limit of ${Math.round(memoryLimitBytes / (1024 * 1024))} MB to prevent host OOM.`
+      )
     }
 
     const ollamaEnv: string[] = []

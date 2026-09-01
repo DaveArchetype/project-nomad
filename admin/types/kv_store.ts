@@ -152,6 +152,31 @@ export const KV_STORE_SCHEMA = {
   // Ollama model name used to summarize the day's transcripts. Empty = reuse
   // the chat default (chat.lastModel) at run time.
   'recap.model': 'string',
+  // ── Container OOM watchdog ───────────────────────────────────────────────
+  // Master switch for the in-admin watchdog provider that stops managed child
+  // containers under sustained memory pressure. The hard cgroup memory limit
+  // (oom.<service>.memoryLimitMB / oom.defaultMemoryLimitMB) protects the host
+  // even when this is off. Default on.
+  'watchdog.enabled': 'boolean',
+  // Watchdog tick interval in ms. Default 30000.
+  'watchdog.tickIntervalMs': 'string',
+  // Fraction of a container's memory limit at which it counts as "pressured"
+  // (0-1). Default 0.95.
+  'watchdog.memPressureThreshold': 'string',
+  // Consecutive pressured ticks required before the watchdog stops a container.
+  // At the default 30s tick this is ~2 min. Default 4.
+  'watchdog.sustainedTicks': 'string',
+  // Fallback: when a managed container has NO per-container memory limit set,
+  // stop it if its RAM usage as a % of host RAM exceeds this. Default 90.
+  'watchdog.hostMemKillPercent': 'string',
+  // Per-service memory limit in MB (0 = disabled for that service). Overrides
+  // the hardcoded default in DEFAULT_MEMORY_LIMITS_MB. e.g.
+  // oom.nomad_comfyui.memoryLimitMB = "16384".
+  'oom.nomad_comfyui.memoryLimitMB': 'string',
+  // Global default memory limit in MB applied to any managed container that
+  // doesn't have a per-service default or override. 0 = no global cap (only
+  // the host-mem fallback watchdog applies). Default 0.
+  'oom.defaultMemoryLimitMB': 'string',
 } as const
 
 type KVTagToType<T extends string> = T extends 'boolean' ? boolean : string

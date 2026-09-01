@@ -59,6 +59,7 @@ export default defineConfig({
     () => import('#providers/version_check_provider'),
     () => import('#providers/gpu_passthrough_remediation_provider'),
     () => import('#providers/tei_idle_stop_provider'),
+    () => import('#providers/container_watchdog_provider'),
   ],
 
   /*
