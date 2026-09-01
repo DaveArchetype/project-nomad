@@ -1,0 +1,11 @@
+export const UPLOADS_STORAGE_PATH = 'storage/kb_uploads'
+export const CONTENT_COLLECTION_NAME = 'nomad_knowledge_base'
+export const EMBEDDING_DIMENSION = 768
+export const FACET_SOURCE_LIMIT = 10_000
+export const MODEL_CONTEXT_LENGTH = 8192
+export const MAX_SAFE_TOKENS = 7000
+export const TARGET_TOKENS_PER_CHUNK = 6000
+export const PREFIX_TOKEN_BUDGET = 10
+export const CHAR_TO_TOKEN_RATIO = 2
+export const SEARCH_DOCUMENT_PREFIX = 'search_document: '
+export const SEARCH_QUERY_PREFIX = 'search_query: '
