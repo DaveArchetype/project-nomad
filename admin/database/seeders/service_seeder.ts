@@ -769,6 +769,7 @@ export default class ServiceSeeder extends BaseSeeder {
           'N8N_RUNNERS_ENABLED=true',
           'N8N_ENFORCE_SETTINGS_PERMISSIONS=false',
           'N8N_SECURE_COOKIE=false',
+          'N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true',
         ],
       }),
       ui_location: '8540',

@@ -21,7 +21,6 @@ export class NomadChatModel implements INodeType {
     inputs: [],
     outputs: [NodeConnectionTypes.AiLanguageModel],
     outputNames: ['Model'],
-    usableAsTool: true,
     properties: [
       {
         displayName: 'Model',
