@@ -111,7 +111,9 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
       setCheckingUpdates(false)
       window.location.reload()
     })
-    return () => { unsubscribe() }
+    return () => {
+      unsubscribe()
+    }
   }, [])
 
   async function handleCheckUpdates() {
@@ -149,8 +151,8 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
       >
         <p className="text-text-primary">
           Are you sure you want to install {service.friendly_name || service.service_name}? This
-          will start the service and make it available in your Project NOMAD instance. It may
-          take some time to complete.
+          will start the service and make it available in your Project NOMAD instance. It may take
+          some time to complete.
         </p>
       </StyledModal>,
       'install-service-modal'
@@ -319,26 +321,36 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
         <StyledButton
           icon={'IconExternalLink'}
           onClick={() => {
-            window.open(getServiceLink(record.ui_location || 'unknown', record.custom_url, record.ui_path, reverseProxyBaseDomain), '_blank')
+            window.open(
+              getServiceLink(
+                record.ui_location || 'unknown',
+                record.custom_url,
+                record.ui_path,
+                reverseProxyBaseDomain
+              ),
+              '_blank'
+            )
           }}
         >
           Open
         </StyledButton>
-        {record.available_update_version && (() => {
-          const isUpdating =
-            updatingServices.has(record.service_name) || record.installation_status === 'installing'
-          return (
-            <StyledButton
-              icon="IconArrowUp"
-              variant="primary"
-              onClick={() => handleUpdateService(record)}
-              disabled={isInstalling || !isOnline || isUpdating}
-              loading={isUpdating}
-            >
-              {isUpdating ? 'Updating...' : 'Update'}
-            </StyledButton>
-          )
-        })()}
+        {record.available_update_version &&
+          (() => {
+            const isUpdating =
+              updatingServices.has(record.service_name) ||
+              record.installation_status === 'installing'
+            return (
+              <StyledButton
+                icon="IconArrowUp"
+                variant="primary"
+                onClick={() => handleUpdateService(record)}
+                disabled={isInstalling || !isOnline || isUpdating}
+                loading={isUpdating}
+              >
+                {isUpdating ? 'Updating...' : 'Update'}
+              </StyledButton>
+            )
+          })()}
         {record.status && record.status !== 'unknown' && (
           <>
             <StyledButton
@@ -410,7 +422,9 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
             <div>
               <h1 className="text-4xl font-semibold">Apps</h1>
               <p className="text-text-muted mt-1">
-                Manage the applications that are available in your Project NOMAD instance. Nightly update checks will automatically detect when new versions of these apps are available.
+                Manage the applications that are available in your Project NOMAD instance. Nightly
+                update checks will automatically detect when new versions of these apps are
+                available.
               </p>
             </div>
             <StyledButton
@@ -426,9 +440,9 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
           <StyledSectionHeader title="Reverse Proxy" className="mt-8 mb-4" />
           <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6 mb-8">
             <p className="text-sm text-text-secondary mb-4">
-              When NOMAD sits behind a reverse proxy that routes one subdomain per service
-              (e.g. <span className="font-mono">kiwix.nomad.lan</span> → port 8090), set the base
-              domain here. Each app's "Open" link will then resolve to
+              When NOMAD sits behind a reverse proxy that routes one subdomain per service (e.g.{' '}
+              <span className="font-mono">kiwix.nomad.lan</span> → port 8090), set the base domain
+              here. Each app's "Open" link will then resolve to
               <span className="font-mono"> https://&lt;app&gt;.&lt;base-domain&gt;</span> instead of
               the raw host:port. Leave blank to use the default host + port links. A per-app custom
               URL still overrides this.
@@ -438,8 +452,8 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
                 <Input
                   name="reverseProxyBaseDomain"
                   label="Reverse Proxy Base Domain"
-                  helpText="e.g. nomad.lan or grup.dasaroff.com. Wildcard DNS (*.base-domain) must point at the proxy host."
-                  placeholder="grup.dasaroff.com"
+                  helpText="e.g. nomad.lan or dasaroff.com. Wildcard DNS (*.base-domain) must point at the proxy host."
+                  placeholder="dasaroff.com"
                   value={baseDomainDraft}
                   error={Boolean(baseDomainError)}
                   onChange={(e) => {
@@ -447,9 +461,7 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
                     setBaseDomainError(null)
                   }}
                 />
-                {baseDomainError && (
-                  <p className="text-sm text-red-600 mt-1">{baseDomainError}</p>
-                )}
+                {baseDomainError && <p className="text-sm text-red-600 mt-1">{baseDomainError}</p>}
               </div>
               <StyledButton
                 variant="primary"
@@ -486,7 +498,12 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
                   title: 'Location',
                   render: (record) => (
                     <a
-                      href={getServiceLink(record.ui_location || 'unknown', record.custom_url, record.ui_path, reverseProxyBaseDomain)}
+                      href={getServiceLink(
+                        record.ui_location || 'unknown',
+                        record.custom_url,
+                        record.ui_path,
+                        reverseProxyBaseDomain
+                      )}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-desert-green hover:underline font-semibold"
@@ -539,4 +556,3 @@ export default function SettingsPage(props: { system: { services: ServiceSlim[] 
     </SettingsLayout>
   )
 }
-

@@ -621,8 +621,8 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                         <Input
                           name="reverseProxyBaseDomain"
                           label="Reverse Proxy Base Domain"
-                          helpText="e.g. nomad.lan or grup.dasaroff.com. Wildcard DNS (*.base-domain) must point at the proxy host."
-                          placeholder="grup.dasaroff.com"
+                          helpText="e.g. nomad.lan or dasaroff.com. Wildcard DNS (*.base-domain) must point at the proxy host."
+                          placeholder="dasaroff.com"
                           value={baseDomainDraft}
                           error={Boolean(baseDomainError)}
                           onChange={(e) => {
