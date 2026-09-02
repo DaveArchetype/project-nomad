@@ -13,6 +13,8 @@ import {
 import AppLayout from '~/layouts/AppLayout'
 import StyledButton from '~/components/StyledButton'
 import { useNotifications } from '~/context/NotificationContext'
+import { useReverseProxyBaseDomain } from '~/hooks/useReverseProxyBaseDomain'
+import { getServiceLink } from '~/lib/navigation'
 import api from '~/lib/api'
 import type { Automation, AutomationTool, CreateAutomationInput } from '~/lib/api/automations'
 
@@ -27,6 +29,8 @@ type AutomationsPageProps = {
 export default function AutomationsPage(props: AutomationsPageProps) {
   const queryClient = useQueryClient()
   const { addNotification } = useNotifications()
+  const reverseProxyBaseDomain = useReverseProxyBaseDomain()
+  const n8nUrl = getServiceLink('8540', undefined, '/n8n', reverseProxyBaseDomain)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [showApiKeyInput, setShowApiKeyInput] = useState(false)
@@ -212,7 +216,7 @@ export default function AutomationsPage(props: AutomationsPageProps) {
                 variant="ghost"
                 size="sm"
                 icon="IconExternalLink"
-                onClick={() => window.open('/n8n', '_blank')}
+                onClick={() => window.open(n8nUrl, '_blank')}
               >
                 Open n8n
               </StyledButton>
@@ -261,7 +265,7 @@ export default function AutomationsPage(props: AutomationsPageProps) {
               <StyledButton
                 variant="primary"
                 icon="IconExternalLink"
-                onClick={() => window.open('/n8n', '_blank')}
+                onClick={() => window.open(n8nUrl, '_blank')}
               >
                 Open n8n
               </StyledButton>

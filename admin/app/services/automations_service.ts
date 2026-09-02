@@ -101,7 +101,7 @@ export class AutomationsService {
         ? service.ui_location
         : internalPort
     const port = hostname === 'localhost' ? hostPort : internalPort
-    return `http://${hostname}:${port}/n8n`
+    return `http://${hostname}:${port}`
   }
 
   private async getN8nClient(): Promise<{ client: AxiosInstance; baseUrl: string }> {

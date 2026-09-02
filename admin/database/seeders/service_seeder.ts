@@ -751,7 +751,7 @@ export default class ServiceSeeder extends BaseSeeder {
       container_config: JSON.stringify({
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
-          PortBindings: { '5678/tcp': [{ HostPort: '8530' }] },
+          PortBindings: { '5678/tcp': [{ HostPort: '8540' }] },
           Binds: [
             `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/n8n/data:/home/node/.n8n`,
             `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/n8n/custom-nodes:/custom-nodes`,
@@ -762,8 +762,7 @@ export default class ServiceSeeder extends BaseSeeder {
           'N8N_HOST=0.0.0.0',
           'N8N_PORT=5678',
           'N8N_PROTOCOL=http',
-          'N8N_PATH=n8n',
-          'WEBHOOK_URL=http://localhost:8530/n8n/',
+          'WEBHOOK_URL=https://n8n.dasaorff.com/',
           'GENERIC_TIMEZONE=UTC',
           'N8N_CUSTOM_EXTENSIONS=/custom-nodes',
           'N8N_DIAGNOSTICS_ENABLED=false',
@@ -772,7 +771,7 @@ export default class ServiceSeeder extends BaseSeeder {
           'N8N_SECURE_COOKIE=false',
         ],
       }),
-      ui_location: '8530',
+      ui_location: '8540',
       ui_path: '/n8n',
       installed: false,
       installation_status: 'idle',
