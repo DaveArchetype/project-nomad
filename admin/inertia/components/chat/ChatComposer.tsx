@@ -97,7 +97,8 @@ export default function ChatComposer({
     staleTime: 60_000,
     retry: false,
   })
-  const imageGenInstalled = imageGenStatus?.installed ?? false
+  const imageGenInstalled =
+    (imageGenStatus as { installed?: boolean } | undefined)?.installed ?? false
   const visibleToolDefs = TOOL_DEFS.filter((def) => def.key !== 'image_gen' || imageGenInstalled)
   const isMobile = useIsMobileViewport()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -355,37 +356,44 @@ export default function ChatComposer({
             <IconPlus className="h-6 w-6" />
           </button>
           {plusMenuOpen && (
-            <div className="absolute bottom-full left-0 mb-2 z-50 rounded-lg border border-border-default bg-surface-primary shadow-lg min-w-45 overflow-hidden">
-              {selectedModelSupportsVision && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPlusMenuOpen(false)
-                    fileInputRef.current?.click()
-                  }}
-                  disabled={attachments.length >= MAX_ATTACHMENTS}
-                  className="flex items-center gap-3 w-full px-4 py-3 text-sm text-text-primary hover:bg-surface-secondary transition-colors disabled:text-text-muted disabled:cursor-not-allowed text-left"
-                >
-                  <IconPhotoPlus className="h-5 w-5 shrink-0" />
-                  <span>Add image</span>
-                </button>
-              )}
+            <div className="absolute bottom-full left-0 mb-2 z-50 rounded-lg border border-border-default bg-surface-primary shadow-lg min-w-50 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!selectedModelSupportsVision) return
+                  setPlusMenuOpen(false)
+                  fileInputRef.current?.click()
+                }}
+                disabled={!selectedModelSupportsVision || attachments.length >= MAX_ATTACHMENTS}
+                title={
+                  !selectedModelSupportsVision
+                    ? 'The current model does not support image input. Switch to a vision-capable model to attach images.'
+                    : attachments.length >= MAX_ATTACHMENTS
+                      ? `You can attach up to ${MAX_ATTACHMENTS} images per message.`
+                      : undefined
+                }
+                className="flex items-center gap-3 w-full px-4 py-3 text-sm text-text-primary hover:bg-surface-secondary transition-colors disabled:text-text-muted disabled:cursor-not-allowed text-left"
+              >
+                <IconPhotoPlus className="h-5 w-5 shrink-0" />
+                <span>Add image</span>
+                {!selectedModelSupportsVision && (
+                  <span className="ml-auto text-xs text-text-muted">No vision model</span>
+                )}
+              </button>
             </div>
           )}
         </div>
-        {selectedModelSupportsVision && (
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              if (e.target.files) handleFiles(e.target.files)
-              e.target.value = ''
-            }}
-          />
-        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files) handleFiles(e.target.files)
+            e.target.value = ''
+          }}
+        />
         {selectedModelSupportsTools && (
           <div className="relative shrink-0" ref={toolsPopoverRef}>
             <button

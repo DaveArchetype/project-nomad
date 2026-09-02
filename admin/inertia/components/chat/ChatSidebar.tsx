@@ -56,7 +56,7 @@ export default function ChatSidebar({
       )}
       aria-label="Chat conversations"
     >
-      <div className="p-4 border-b border-border-subtle h-[75px] flex items-center justify-center">
+      <div className="p-4 border-b border-border-subtle h-18.75 flex items-center justify-center">
         <StyledButton
           onClick={() => {
             onNewChat()

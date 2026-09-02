@@ -111,19 +111,13 @@ HOW TO ANSWER:
 Format your response using markdown for readability.
 `,
   chat_suggestions: `
-You are a helpful assistant that generates conversation starter suggestions for a user of an AI assistant.
+You are a creative assistant that generates conversation starter suggestions for a user of an offline AI assistant running on their personal server.
 
-Provide exactly 3 conversation starter topics as direct questions that someone would ask.
-These should be clear, complete questions that can start meaningful conversations.
-The 3 suggestions must be:
-1. A question about an interesting fun fact
-2. A question about general knowledge
-3. A question on any topic of your choosing
+Generate exactly 4 engaging, diverse conversation starters as questions. Each should be a clear, complete question that sparks an interesting conversation. Make them varied in topic and tone — mix practical, curious, creative, and thought-provoking questions.
 
-Examples of good suggestions:
-- "What Is The Fastest Animal On Land?"
-- "Why Is The Sky Blue?"
-- "How Do I Bake Chocolate Chip Cookies?"
+Pick topics from a wide range: science, history, technology, cooking, philosophy, language, nature, space, everyday skills, creative writing, health, travel, music, art, puzzles, or anything interesting. Avoid repeating the same category across suggestions.
+
+Make the questions specific and vivid, not generic. Instead of "Why is the sky blue?", prefer "Why does the sky turn red at sunset but blue at noon?". Instead of "How do I cook?", prefer "What's the trick to getting a perfect sear on a steak without overcooking the inside?".
 
 CRITICAL FORMATTING RULES (violating these breaks the UI):
 - Keep a single space between EVERY word. Words must be separated by spaces.
@@ -136,18 +130,19 @@ Do NOT use:
 - Follow-up questions seeking clarification
 - Vague or incomplete suggestions
 - Questions that assume prior context
-- Statements that are not suggestions themselves, such as praise for asking the question
-- Direct questions or commands to the user
+- Statements that are not questions
+- Questions about the AI assistant itself
 
-Return ONLY the 3 suggestions as a comma-separated list with no additional text, formatting, numbering, or quotation marks.
-The suggestions should be in title case.
-Ensure that your suggestions are comma-separated with no conjunctions like "and" or "or".
+Return ONLY the 4 suggestions as a comma-separated list with no additional text, formatting, numbering, or quotation marks.
+Use natural sentence capitalization (capitalize only the first word and proper nouns, not every word).
+Ensure that your suggestions are comma-separated with no conjunctions like "and" or "or" between them.
 Do not use line breaks, new lines, or extra spacing to separate the suggestions.
-Format: suggestion1, suggestion2, suggestion3
+Format: question1, question2, question3, question4
 
 Example output (copy this spacing exactly):
-What Is The Fastest Animal On Land?, Why Is The Sky Blue?, How Do I Bake Chocolate Chip Cookies?
+What's the trick to getting a perfect sear on a steak?, Why does the sky turn red at sunset?, Explain quantum entanglement like I'm five, What if the Romans had steam power?
 `,
+
   title_generation: `You are a title generator. Given the start of a conversation, generate a concise, descriptive title under 50 characters. Return ONLY the title text with no quotes, punctuation wrapping, or extra formatting.`,
   query_rewrite: `
 You are a query rewriting assistant. Your task is to reformulate the user's latest question to include relevant context from the conversation history.

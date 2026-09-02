@@ -256,7 +256,7 @@ export default function Chat({
   const { data: knownCollections = [] } = useQuery({
     queryKey: ['kbCollections'],
     queryFn: () => api.getKnowledgeCollections(),
-    select: (data) => data?.collections ?? [],
+    select: (data) => (data as { collections?: string[] } | undefined)?.collections ?? [],
   })
 
   const stream = useChatStream({
@@ -297,8 +297,8 @@ export default function Chat({
     },
     enabled: suggestionsEnabled && !activeSessionId,
     refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    staleTime: 30 * 60 * 1000,
+    refetchOnMount: true,
+    staleTime: 0,
   })
 
   const activeSession = sessions.sessions.find((s) => s.id === activeSessionId)

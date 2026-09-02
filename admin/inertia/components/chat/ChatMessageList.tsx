@@ -48,15 +48,18 @@ export default function ChatMessageList({
               chatSuggestions.length > 0 &&
               !chatSuggestionsLoading && (
                 <div className="mt-8">
-                  <h4 className="text-sm font-medium text-text-secondary mb-2">Suggestions:</h4>
-                  <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-medium text-text-secondary">Try one of these:</h4>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {chatSuggestions.map((suggestion, index) => (
                       <button
                         key={index}
                         onClick={() => onSuggestionClick(suggestion)}
-                        className="px-4 py-2 bg-surface-secondary hover:bg-desert-green/10 cursor-pointer rounded-lg text-sm text-text-primary transition-colors"
+                        className="group flex items-start gap-2.5 px-4 py-3 bg-surface-secondary hover:bg-desert-orange/10 hover:border-desert-orange/40 border border-border-subtle cursor-pointer rounded-lg text-sm text-text-primary transition-all text-left"
                       >
-                        {suggestion}
+                        <IconWand className="h-4 w-4 shrink-0 mt-0.5 text-text-muted group-hover:text-desert-orange transition-colors" />
+                        <span>{suggestion}</span>
                       </button>
                     ))}
                   </div>
