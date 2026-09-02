@@ -39,7 +39,9 @@ COPY collections/ /collections/
 RUN npm run gen:curated-data
 RUN node ace build
 RUN cd /app/n8n-nodes && npm ci --omit=optional && npm run build && \
-  cp -r /app/n8n-nodes/dist /app/n8n-nodes-dist
+  mkdir -p /app/n8n-nodes-dist && \
+  cp /app/n8n-nodes/package.json /app/n8n-nodes-dist/package.json && \
+  cp -r /app/n8n-nodes/dist /app/n8n-nodes-dist/dist
 
 # Production stage
 FROM base

@@ -315,6 +315,8 @@ const N8N_NODES_STAGING_DIR = '/app/n8n-nodes-dist'
 export async function runPreinstallActions__N8n(ctx: DockerCtx): Promise<void> {
   const dataDir = join(process.cwd(), N8N_STORAGE_PATH, 'data')
   const customNodesDir = join(process.cwd(), N8N_STORAGE_PATH, 'custom-nodes')
+  const N8N_UID = 1000
+  const N8N_GID = 1000
 
   ctx.broadcast(SERVICE_NAMES.N8N, 'preinstall', `Running pre-install actions for Automations...`)
 
@@ -338,6 +340,10 @@ export async function runPreinstallActions__N8n(ctx: DockerCtx): Promise<void> {
         `No staged custom n8n nodes found — n8n will start without NOMAD-bridge nodes.`
       )
     }
+
+    await execAsync(`chown -R ${N8N_UID}:${N8N_GID} "${dataDir}"`)
+    await execAsync(`chown -R ${N8N_UID}:${N8N_GID} "${customNodesDir}"`)
+    ctx.broadcast(SERVICE_NAMES.N8N, 'preinstall', `Set n8n storage ownership to UID ${N8N_UID}.`)
   } catch (error: any) {
     ctx.broadcast(
       SERVICE_NAMES.N8N,

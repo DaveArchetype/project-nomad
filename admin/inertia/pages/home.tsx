@@ -292,7 +292,8 @@ export default function Home(props: {
       (service) =>
         service.installed &&
         (service.ui_path || service.ui_location || service.custom_url) &&
-        !(service.ui_location ?? '').startsWith('/settings/')
+        !(service.ui_location ?? '').startsWith('/settings/') &&
+        service.service_name !== SERVICE_NAMES.N8N
     )
     .map((service) => ({
       // Inject custom AI Assistant name if this is the chat service
