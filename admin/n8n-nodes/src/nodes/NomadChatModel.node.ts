@@ -6,7 +6,7 @@ import {
   type SupplyData,
 } from 'n8n-workflow'
 
-const NOMAD_OLLAMA_BASE_URL = process.env.NOMAD_OLLAMA_BASE_URL || 'http://nomad_ollama:11434/v1'
+const NOMAD_OLLAMA_BASE_URL = process.env.NOMAD_OLLAMA_BASE_URL || 'http://nomad_ollama:11434'
 
 export class NomadChatModel implements INodeType {
   description: INodeTypeDescription = {
@@ -44,21 +44,20 @@ export class NomadChatModel implements INodeType {
     const model = this.getNodeParameter('model', itemIndex) as string
     const temperature = this.getNodeParameter('temperature', itemIndex) as number
 
-    let ChatOpenAICtor: any
+    let ChatOllamaCtor: any
     try {
-      const mod = require('@langchain/openai')
-      ChatOpenAICtor = mod.ChatOpenAI
+      const mod = require('@langchain/ollama')
+      ChatOllamaCtor = mod.ChatOllama
     } catch {
       throw new Error(
-        "NOMAD Chat Model requires '@langchain/openai' to be available in the n8n container. This is bundled with n8n by default."
+        "NOMAD Chat Model requires '@langchain/ollama' to be available in the n8n container. This is bundled with n8n by default."
       )
     }
 
-    const chatModel = new ChatOpenAICtor({
-      modelName: model,
+    const chatModel = new ChatOllamaCtor({
+      model,
       temperature,
-      openAIApiKey: 'ollama',
-      configuration: { baseURL: NOMAD_OLLAMA_BASE_URL },
+      baseUrl: NOMAD_OLLAMA_BASE_URL,
     })
 
     return {
