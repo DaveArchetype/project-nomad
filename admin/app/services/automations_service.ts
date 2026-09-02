@@ -423,13 +423,12 @@ export class AutomationsService {
 
     await ChatSuggestion.query().where('suggestion_date', date.toFormat('yyyy-MM-dd')).delete()
 
+    const now = DateTime.now()
     const rows = lines.map((text) => ({
-      suggestion_date: date.toFormat('yyyy-MM-dd'),
+      suggestion_date: date,
       text,
       model_used: params.model ?? null,
-      generated_at: DateTime.now().toISO()!,
-      created_at: DateTime.now().toISO()!,
-      updated_at: DateTime.now().toISO()!,
+      generated_at: now,
     }))
 
     await ChatSuggestion.createMany(rows)
