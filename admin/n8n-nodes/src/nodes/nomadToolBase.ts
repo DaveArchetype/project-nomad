@@ -42,7 +42,8 @@ export abstract class NomadToolBase implements INodeType {
   }
 
   async supplyData(this: ISupplyDataFunctions): Promise<SupplyData> {
-    const toolName = (this.constructor as any).spec.toolName as string
+    const node = this.getNode()
+    const toolName = node.type.replace('CUSTOM.nomadTool_', '')
     const secret = await getNomadSecret.call(this as any)
 
     let DynamicToolCtor: any
@@ -55,7 +56,7 @@ export abstract class NomadToolBase implements INodeType {
       )
     }
 
-    const description = (this.constructor as any).spec.description as string
+    const description = node.description.description ?? toolName
 
     const tool = new DynamicToolCtor({
       name: toolName,
