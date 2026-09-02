@@ -19,12 +19,6 @@ export class NomadSaveSuggestions implements INodeType {
     defaults: { name: 'NOMAD Save Suggestions' },
     inputs: [NodeConnectionTypes.Main],
     outputs: [NodeConnectionTypes.Main],
-    credentials: [
-      {
-        name: 'nomadAutomationSecret',
-        required: false,
-      },
-    ],
     properties: [
       {
         displayName: 'Content',

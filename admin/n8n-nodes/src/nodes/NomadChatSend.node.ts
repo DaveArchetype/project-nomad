@@ -19,12 +19,6 @@ export class NomadChatSend implements INodeType {
     defaults: { name: 'NOMAD Chat Send' },
     inputs: [NodeConnectionTypes.Main],
     outputs: [NodeConnectionTypes.Main],
-    credentials: [
-      {
-        name: 'nomadAutomationSecret',
-        required: false,
-      },
-    ],
     properties: [
       {
         displayName: 'Chat Session ID',

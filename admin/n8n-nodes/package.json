@@ -25,9 +25,6 @@
       "dist/nodes/NomadToolCalculator.node.js",
       "dist/nodes/NomadToolCurrentTime.node.js",
       "dist/nodes/NomadToolGenerateImage.node.js"
-    ],
-    "credentials": [
-      "dist/credentials/NomadAutomationSecret.credentials.js"
     ]
   },
   "devDependencies": {

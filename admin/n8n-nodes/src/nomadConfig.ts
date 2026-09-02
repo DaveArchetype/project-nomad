@@ -12,12 +12,6 @@ export const NOMAD_ADMIN_BASE_URL =
   process.env.NOMAD_ADMIN_BASE_URL || `http://${NOMAD_ADMIN_HOST}:${NOMAD_ADMIN_PORT}`
 
 export async function getNomadSecret(this: IExecuteFunctions): Promise<string> {
-  try {
-    const secret = await this.getCredentials('nomadAutomationSecret', 0)
-    if (secret && (secret as any)?.secret) {
-      return (secret as any).secret as string
-    }
-  } catch {}
   return process.env.NOMAD_AUTOMATION_SECRET ?? ''
 }
 

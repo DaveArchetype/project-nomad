@@ -31,12 +31,6 @@ export abstract class NomadToolBase implements INodeType {
       outputs: [NodeConnectionTypes.AiTool],
       outputNames: ['Tool'],
       usableAsTool: true,
-      credentials: [
-        {
-          name: 'nomadAutomationSecret',
-          required: false,
-        },
-      ],
       properties: [],
     }
   }
