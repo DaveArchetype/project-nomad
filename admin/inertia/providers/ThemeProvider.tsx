@@ -1,27 +1,42 @@
 import { createContext, useContext } from 'react'
-import { useTheme, Theme } from '~/hooks/useTheme'
+import { useAppearance } from '~/hooks/useAppearance'
+import type { AccentValue, DensityId, ThemeId } from '~/lib/themes'
 
-interface ThemeContextType {
-  theme: Theme
-  setTheme: (theme: Theme) => void
-  toggleTheme: () => void
+interface AppearanceContextType {
+  theme: ThemeId
+  setTheme: (theme: ThemeId) => void
+  accentColor: AccentValue
+  setAccentColor: (accent: AccentValue) => void
+  density: DensityId
+  setDensity: (density: DensityId) => void
+  previewTheme: ThemeId | null
+  setPreviewTheme: (id: ThemeId | null) => void
+  previewAccent: AccentValue | null
+  setPreviewAccent: (value: AccentValue | null) => void
+  previewDensity: DensityId | null
+  setPreviewDensity: (id: DensityId | null) => void
 }
 
-const ThemeContext = createContext<ThemeContextType>({
+const AppearanceContext = createContext<AppearanceContextType>({
   theme: 'light',
   setTheme: () => {},
-  toggleTheme: () => {},
+  accentColor: 'default',
+  setAccentColor: () => {},
+  density: 'comfortable',
+  setDensity: () => {},
+  previewTheme: null,
+  setPreviewTheme: () => {},
+  previewAccent: null,
+  setPreviewAccent: () => {},
+  previewDensity: null,
+  setPreviewDensity: () => {},
 })
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const themeState = useTheme()
-  return (
-    <ThemeContext.Provider value={themeState}>
-      {children}
-    </ThemeContext.Provider>
-  )
+export function AppearanceProvider({ children }: { children: React.ReactNode }) {
+  const appearanceState = useAppearance()
+  return <AppearanceContext.Provider value={appearanceState}>{children}</AppearanceContext.Provider>
 }
 
-export function useThemeContext() {
-  return useContext(ThemeContext)
+export function useAppearanceContext() {
+  return useContext(AppearanceContext)
 }

@@ -16,9 +16,25 @@
     <script>
       (function() {
         try {
+          var validThemes = ["light","paper","cream","mist","frost","rose","sage","sand","linen","porcelain","blossom","honey","seashell","meadow","dark","midnight","slate","obsidian","charcoal","forest","ocean","plum","ruby","copper","emerald","indigo","carbon"];
           var theme = localStorage.getItem("nomad:theme");
-          if (theme === "dark") {
-            document.documentElement.setAttribute("data-theme", "dark");
+          if (theme && validThemes.indexOf(theme) !== -1) {
+            document.documentElement.setAttribute("data-theme", theme);
+          }
+          var density = localStorage.getItem("nomad:density");
+          if (density === "compact" || density === "comfortable") {
+            document.documentElement.setAttribute("data-density", density);
+          }
+          var shadesJson = localStorage.getItem("nomad:accentShades");
+          if (shadesJson) {
+            var shades = JSON.parse(shadesJson);
+            if (shades && shades.main) {
+              var root = document.documentElement;
+              root.style.setProperty("--color-desert-orange-dark", shades.dark);
+              root.style.setProperty("--color-desert-orange", shades.main);
+              root.style.setProperty("--color-desert-orange-light", shades.light);
+              root.style.setProperty("--color-desert-orange-lighter", shades.lighter);
+            }
           }
         } catch (e) {}
       })();

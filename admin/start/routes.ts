@@ -141,6 +141,7 @@ router
     router.get('/creator-packs', [SettingsController, 'creatorPacks'])
     router.get('/support', [SettingsController, 'support'])
     router.get('/advanced', [SettingsController, 'advanced'])
+    router.get('/appearance', [SettingsController, 'appearance'])
     router.get('/voice', [SettingsController, 'voice'])
   })
   .prefix('/settings')

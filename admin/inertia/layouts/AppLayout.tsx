@@ -8,7 +8,6 @@ import { SERVICE_NAMES } from '../../constants/service_names'
 import { Link, router } from '@inertiajs/react'
 import { IconArrowLeft, IconBug } from '@tabler/icons-react'
 import classNames from 'classnames'
-import ThemeToggle from '~/components/ThemeToggle'
 import DebugInfoModal from '~/components/DebugInfoModal'
 import MicStatusIndicator from '~/components/layout/MicStatusIndicator'
 
@@ -82,7 +81,6 @@ export default function AppLayout({
             <span className="hidden sm:inline">Debug Info</span>
           </button>
           <MicStatusIndicator />
-          <ThemeToggle />
         </div>
       </header>
 

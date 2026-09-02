@@ -10,6 +10,7 @@ import {
   IconMapRoute,
   IconMicrophone,
   IconMovie,
+  IconPalette,
   IconSettings,
   IconWand,
   IconZoom,
@@ -42,6 +43,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           },
         ]
       : []),
+    { name: 'Appearance', href: '/settings/appearance', icon: IconPalette, current: false },
     { name: 'Supply Depot', href: '/supply-depot', icon: IconBox, current: false },
     {
       name: 'Content Explorer',

@@ -6,6 +6,8 @@ export const SETTINGS_KEYS: KVStoreKey[] = [
   'chat.suggestionsCache',
   'ui.hasVisitedEasySetup',
   'ui.theme',
+  'ui.accentColor',
+  'ui.density',
   'ui.reverseProxyBaseDomain',
   'system.earlyAccess',
   'system.internetStatusTestUrl',

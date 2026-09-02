@@ -4,7 +4,8 @@ import { EditorView } from '@codemirror/view'
 import { markdown } from '@codemirror/lang-markdown'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { basicSetup } from 'codemirror'
-import { useTheme } from '~/hooks/useTheme'
+import { useAppearanceContext } from '~/providers/ThemeProvider'
+import { getThemeDefinition } from '~/lib/themes'
 
 interface MarkdownEditorProps {
   /** Initial document contents. Read once on mount; later edits are reported via onChange. */
@@ -26,7 +27,8 @@ export default function MarkdownEditor({ initialValue, onChange, className }: Ma
   const themeCompartment = useRef(new Compartment())
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
-  const { theme } = useTheme()
+  const { theme } = useAppearanceContext()
+  const isDark = getThemeDefinition(theme).mode === 'dark'
 
   useEffect(() => {
     if (!hostRef.current) return
@@ -42,7 +44,7 @@ export default function MarkdownEditor({ initialValue, onChange, className }: Ma
           '&': { height: '100%' },
           '.cm-scroller': { overflow: 'auto' },
         }),
-        themeCompartment.current.of(theme === 'dark' ? oneDark : []),
+        themeCompartment.current.of(isDark ? oneDark : []),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             onChangeRef.current(update.state.doc.toString())
@@ -64,9 +66,9 @@ export default function MarkdownEditor({ initialValue, onChange, className }: Ma
 
   useEffect(() => {
     viewRef.current?.dispatch({
-      effects: themeCompartment.current.reconfigure(theme === 'dark' ? oneDark : []),
+      effects: themeCompartment.current.reconfigure(isDark ? oneDark : []),
     })
-  }, [theme])
+  }, [theme, isDark])
 
   return <div ref={hostRef} className={className} />
 }

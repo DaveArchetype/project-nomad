@@ -5,7 +5,6 @@ import { IconArrowLeft, IconBug } from '@tabler/icons-react'
 import { Link, usePage } from '@inertiajs/react'
 import { UsePageProps } from '../../types/system'
 import { IconMenu2, IconX } from '@tabler/icons-react'
-import ThemeToggle from '~/components/ThemeToggle'
 import DebugInfoModal from './DebugInfoModal'
 import MicStatusIndicator from '~/components/layout/MicStatusIndicator'
 
@@ -98,7 +97,6 @@ const StyledSidebar: React.FC<StyledSidebarProps> = ({ title, items }) => {
           </button>
           <div className="flex items-center gap-2">
             <MicStatusIndicator />
-            <ThemeToggle />
           </div>
         </div>
       </div>

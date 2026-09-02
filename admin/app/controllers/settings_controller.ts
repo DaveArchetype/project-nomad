@@ -204,6 +204,10 @@ export default class SettingsController {
     })
   }
 
+  async appearance({ inertia }: HttpContext) {
+    return inertia.render('settings/appearance')
+  }
+
   async getSetting({ request, response }: HttpContext) {
     const { key } = await getSettingSchema.validate({ key: request.qs().key })
     const value = await KVStore.getValue(key)

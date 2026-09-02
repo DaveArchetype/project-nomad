@@ -11,7 +11,7 @@ import { generateUUID } from '~/lib/util'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import NotificationsProvider from '~/providers/NotificationProvider'
-import { ThemeProvider } from '~/providers/ThemeProvider'
+import { AppearanceProvider } from '~/providers/ThemeProvider'
 import VoiceProvider from '~/providers/VoiceProvider'
 import { UsePageProps } from '../../types/system'
 
@@ -41,7 +41,7 @@ createInertiaApp({
     const showDevtools = ['development', 'staging'].includes(environment)
     createRoot(el).render(
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
+        <AppearanceProvider>
           <TransmitProvider
             baseUrl={window.location.origin}
             enableLogging={environment === 'development'}
@@ -57,7 +57,7 @@ createInertiaApp({
               </ModalsProvider>
             </NotificationsProvider>
           </TransmitProvider>
-        </ThemeProvider>
+        </AppearanceProvider>
       </QueryClientProvider>
     )
   },

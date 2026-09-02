@@ -1,6 +1,7 @@
 import vine from '@vinejs/vine'
 import { SETTINGS_KEYS } from '../../constants/kv_store.js'
 import type { KVStoreKey } from '../../types/kv_store.js'
+import { isValidAccentValue, isValidDensityId, isValidThemeId } from '../../constants/themes.js'
 
 export const getSettingSchema = vine.compile(
   vine.object({
@@ -208,6 +209,26 @@ export function validateSettingValue(key: KVStoreKey, value: unknown): string | 
     case 'recap.scheduleTime': {
       if (typeof value !== 'string' || !HHMM_PATTERN.test(value)) {
         return 'Recap schedule time must be in 24-hour HH:MM format (e.g. "23:55").'
+      }
+      return null
+    }
+    case 'ui.theme': {
+      if (value === '' || value === undefined || value === null) return null
+      if (!isValidThemeId(value)) {
+        return 'Theme must be one of the available theme ids.'
+      }
+      return null
+    }
+    case 'ui.density': {
+      if (value === '' || value === undefined || value === null) return null
+      if (!isValidDensityId(value)) {
+        return 'Density must be "comfortable" or "compact".'
+      }
+      return null
+    }
+    case 'ui.accentColor': {
+      if (!isValidAccentValue(value)) {
+        return 'Accent color must be a preset id or a #rrggbb hex string.'
       }
       return null
     }

@@ -67,6 +67,8 @@ export const KV_STORE_SCHEMA = {
   'contentAutoUpdate.windowResetAt': 'string',
   'ui.hasVisitedEasySetup': 'boolean',
   'ui.theme': 'string',
+  'ui.accentColor': 'string',
+  'ui.density': 'string',
   'ui.reverseProxyBaseDomain': 'string',
   'ai.assistantCustomName': 'string',
   'gpu.type': 'string',
