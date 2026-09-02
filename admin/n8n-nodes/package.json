@@ -26,7 +26,7 @@
       "dist/nodes/NomadToolGenerateImage.node.js"
     ],
     "credentials": [
-      "dist/credentials/NomadAutomationSecret.credential.js"
+      "dist/credentials/NomadAutomationSecret.credentials.js"
     ]
   },
   "devDependencies": {
