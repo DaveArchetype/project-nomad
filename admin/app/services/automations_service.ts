@@ -496,19 +496,58 @@ export class AutomationsService {
     const OLLAMA_CRED_NAME = 'NOMAD Ollama'
     const OLLAMA_BASE_URL = process.env.NOMAD_OLLAMA_BASE_URL || 'http://nomad_ollama:11434'
     try {
-      const res = await client.get('/credentials', { params: { limit: 100 } })
-      const creds: any[] = res.data?.data ?? res.data ?? []
-      const existing = creds.find((c: any) => c.name === OLLAMA_CRED_NAME && c.type === 'ollamaApi')
-      if (existing) return existing.id
-
-      const created = await client.post('/credentials', {
-        name: OLLAMA_CRED_NAME,
-        type: 'ollamaApi',
-        data: { baseUrl: OLLAMA_BASE_URL, apiKey: '' },
+      const baseUrl = (client.defaults.baseURL ?? '').replace('/api/v1', '')
+      const apiKey = (client.defaults.headers?.['X-N8N-API-KEY'] as string) ?? ''
+      const internalClient = axios.create({
+        baseURL: baseUrl,
+        headers: {
+          'X-N8N-API-KEY': apiKey,
+          'Content-Type': 'application/json',
+        },
+        timeout: 30000,
       })
-      if (created.data?.id) {
-        logger.info(`[AutomationsService] Created Ollama credential: ${created.data.id}`)
-        return created.data.id
+
+      let credId: string | null = null
+      try {
+        const res = await internalClient.get('/rest/credentials', {
+          params: { limit: 100 },
+        })
+        const creds: any[] = res.data?.data ?? res.data ?? []
+        const existing = creds.find(
+          (c: any) => c.name === OLLAMA_CRED_NAME && c.type === 'ollamaApi'
+        )
+        if (existing) {
+          logger.info(`[AutomationsService] Using existing Ollama credential: ${existing.id}`)
+          return existing.id
+        }
+      } catch (err) {
+        logger.warn(
+          `[AutomationsService] GET /rest/credentials failed: ${
+            err instanceof Error ? err.message : err
+          }`
+        )
+      }
+
+      try {
+        const created = await internalClient.post('/rest/credentials', {
+          name: OLLAMA_CRED_NAME,
+          type: 'ollamaApi',
+          data: { baseUrl: OLLAMA_BASE_URL, apiKey: '' },
+        })
+        if (created.data?.id) {
+          logger.info(`[AutomationsService] Created Ollama credential: ${created.data.id}`)
+          return created.data.id
+        }
+        if (created.data?.data?.id) {
+          logger.info(`[AutomationsService] Created Ollama credential: ${created.data.data.id}`)
+          return created.data.data.id
+        }
+      } catch (err) {
+        logger.warn(
+          `[AutomationsService] POST /rest/credentials failed: ${
+            err instanceof Error ? err.message : err
+          }`
+        )
       }
     } catch (err) {
       logger.warn(
