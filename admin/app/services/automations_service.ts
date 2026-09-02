@@ -444,6 +444,7 @@ export class AutomationsService {
       typeVersion: 1.7,
       position: [220, 0],
       parameters: {
+        agent: 'toolsAgent',
         promptType: 'define',
         text: params.prompt,
         options: {
@@ -490,10 +491,14 @@ export class AutomationsService {
 
     connections[triggerId] = { main: [[{ node: agentId, type: 'main', index: 0 }]] }
     connections[agentId] = { main: [[{ node: sendId, type: 'main', index: 0 }]] }
-    connections[agentId]['ai_agent'] = [
-      [{ node: modelId, type: 'ai_languageModel', index: 0 }],
-      ...toolNodeIds.map((tid) => [{ node: tid, type: 'ai_tool', index: 0 }]),
-    ]
+    connections[modelId] = {
+      ai_languageModel: [[{ node: agentId, type: 'ai_languageModel', index: 0 }]],
+    }
+    for (const tid of toolNodeIds) {
+      connections[tid] = {
+        ai_tool: [[{ node: agentId, type: 'ai_tool', index: 0 }]],
+      }
+    }
 
     return {
       name: params.name,
