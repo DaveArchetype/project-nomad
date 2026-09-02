@@ -56,7 +56,7 @@ export abstract class NomadToolBase implements INodeType {
       )
     }
 
-    const description = node.description.description ?? toolName
+    const description = toolName
 
     const tool = new DynamicToolCtor({
       name: toolName,
