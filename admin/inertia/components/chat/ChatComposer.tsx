@@ -347,8 +347,8 @@ export default function ChatComposer({
               isLoading
                 ? 'bg-surface-secondary text-text-muted border-border-default cursor-not-allowed'
                 : plusMenuOpen
-                  ? 'bg-desert-green/10 text-desert-green border-desert-green'
-                  : 'bg-surface-secondary text-text-secondary border-border-default hover:text-desert-green hover:border-desert-green'
+                  ? 'bg-desert-orange/10 text-desert-orange border-desert-orange'
+                  : 'bg-surface-secondary text-text-secondary border-border-default hover:text-desert-orange hover:border-desert-orange'
             )}
             style={{ height: '50px', width: '50px' }}
           >
@@ -399,14 +399,14 @@ export default function ChatComposer({
                 isLoading
                   ? 'bg-surface-secondary text-text-muted border-border-default cursor-not-allowed'
                   : toolsPopoverOpen || hasTools
-                    ? 'bg-desert-green/10 text-desert-green border-desert-green'
-                    : 'bg-surface-secondary text-text-secondary border-border-default hover:text-desert-green hover:border-desert-green'
+                    ? 'bg-desert-orange/10 text-desert-orange border-desert-orange'
+                    : 'bg-surface-secondary text-text-secondary border-border-default hover:text-desert-orange hover:border-desert-orange'
               )}
               style={{ height: '50px', width: '50px' }}
             >
               <IconTools className="h-6 w-6" />
               {hasTools && (
-                <span className="absolute -top-1 -right-1 flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-desert-green text-white text-[10px] font-bold leading-none">
+                <span className="absolute -top-1 -right-1 flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-desert-orange text-white text-[10px] font-bold leading-none">
                   {
                     [...enabledToolKeys].filter((key) =>
                       visibleToolDefs.some((def) => def.key === key)
@@ -431,7 +431,7 @@ export default function ChatComposer({
                       className={classNames(
                         'flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors text-left',
                         isActive
-                          ? 'text-desert-green bg-desert-green/5'
+                          ? 'text-desert-orange bg-desert-orange/10'
                           : 'text-text-primary hover:bg-surface-secondary'
                       )}
                     >
@@ -441,7 +441,7 @@ export default function ChatComposer({
                         className={classNames(
                           'flex items-center justify-center h-5 w-5 rounded-full border transition-colors shrink-0',
                           isActive
-                            ? 'bg-desert-green border-desert-green text-white'
+                            ? 'bg-desert-orange border-desert-orange text-white'
                             : 'border-border-default text-transparent'
                         )}
                       >

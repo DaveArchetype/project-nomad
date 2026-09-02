@@ -82,7 +82,7 @@ export default function ChatSidebar({
                   'group relative w-full text-left px-3 py-2 rounded-lg transition-colors',
                   activeSessionId === session.id
                     ? 'bg-desert-green text-white'
-                    : 'hover:bg-surface-secondary text-text-primary'
+                    : 'hover:bg-surface-elevated text-text-primary'
                 )}
               >
                 <button

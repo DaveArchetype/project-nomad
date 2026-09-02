@@ -547,7 +547,7 @@
   --color-desert-sand: #0f172a;
   --color-desert-green-darker: #e2e8f0;
   --color-desert-green-dark: #cbd5e1;
-  --color-desert-green: #475569;
+  --color-desert-green: #64748b;
   --color-desert-green-light: #334155;
   --color-desert-green-lighter: #1e293b;
   --color-desert-orange-dark: #1e40af;
@@ -588,7 +588,7 @@
   --color-desert-sand: #0f172a;
   --color-desert-green-darker: #f1f5f9;
   --color-desert-green-dark: #e2e8f0;
-  --color-desert-green: #475569;
+  --color-desert-green: #64748b;
   --color-desert-green-light: #334155;
   --color-desert-green-lighter: #1e293b;
   --color-desert-orange-dark: #4338ca;
@@ -629,7 +629,7 @@
   --color-desert-sand: #0a0a0a;
   --color-desert-green-darker: #fafafa;
   --color-desert-green-dark: #e5e5e5;
-  --color-desert-green: #404040;
+  --color-desert-green: #737373;
   --color-desert-green-light: #262626;
   --color-desert-green-lighter: #171717;
   --color-desert-orange-dark: #b91c1c;
@@ -660,8 +660,8 @@
   --color-text-muted: #737373;
   --color-border-default: #262626;
   --color-border-subtle: #171717;
-  --color-btn-green-hover: #404040;
-  --color-btn-green-active: #262626;
+  --color-btn-green-hover: #525252;
+  --color-btn-green-active: #404040;
   color-scheme: dark;
 }
 
@@ -670,7 +670,7 @@
   --color-desert-sand: #0f0f0f;
   --color-desert-green-darker: #ededed;
   --color-desert-green-dark: #d4d4d4;
-  --color-desert-green: #404040;
+  --color-desert-green: #737373;
   --color-desert-green-light: #262626;
   --color-desert-green-lighter: #1a1a1a;
   --color-desert-orange-dark: #c2410c;
@@ -701,8 +701,8 @@
   --color-text-muted: #737373;
   --color-border-default: #262626;
   --color-border-subtle: #1a1a1a;
-  --color-btn-green-hover: #404040;
-  --color-btn-green-active: #262626;
+  --color-btn-green-hover: #525252;
+  --color-btn-green-active: #404040;
   color-scheme: dark;
 }
 
@@ -998,7 +998,7 @@
   --color-desert-sand: #09090b;
   --color-desert-green-darker: #fafafa;
   --color-desert-green-dark: #e4e4e7;
-  --color-desert-green: #3f3f46;
+  --color-desert-green: #71717a;
   --color-desert-green-light: #27272a;
   --color-desert-green-lighter: #18181b;
   --color-desert-orange-dark: #52525b;
@@ -1029,8 +1029,8 @@
   --color-text-muted: #71717a;
   --color-border-default: #27272a;
   --color-border-subtle: #18181b;
-  --color-btn-green-hover: #3f3f46;
-  --color-btn-green-active: #27272a;
+  --color-btn-green-hover: #52525b;
+  --color-btn-green-active: #3f3f46;
   color-scheme: dark;
 }
 

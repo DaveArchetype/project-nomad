@@ -137,7 +137,7 @@ export default function AppearancePage() {
                     : 'border-border-subtle hover:border-border-default text-text-secondary'
                 )}
               >
-                <div className="h-5 w-5 rounded-full border border-black/10 bg-gradient-to-br from-desert-orange-dark via-desert-orange to-desert-orange-lighter" />
+                <div className="h-5 w-5 rounded-full border border-black/10 bg-linear-to-br from-desert-orange-dark via-desert-orange to-desert-orange-lighter" />
                 Default
                 {accentColor === 'default' && <IconCheck className="size-4 text-desert-orange" />}
               </button>
