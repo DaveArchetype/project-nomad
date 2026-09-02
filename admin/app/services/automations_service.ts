@@ -456,7 +456,7 @@ export class AutomationsService {
     nodes.push({
       id: modelId,
       name: modelId,
-      type: 'nomadChatModel',
+      type: 'CUSTOM.nomadChatModel',
       typeVersion: 1,
       position: [220, 220],
       parameters: {
@@ -470,7 +470,7 @@ export class AutomationsService {
       nodes.push({
         id: toolId,
         name: toolId,
-        type: `nomadTool_${toolName}`,
+        type: `CUSTOM.nomadTool_${toolName}`,
         typeVersion: 1,
         position: [440, 200 + i * 120],
         parameters: {},
@@ -480,7 +480,7 @@ export class AutomationsService {
     nodes.push({
       id: sendId,
       name: sendId,
-      type: 'nomadChatSend',
+      type: 'CUSTOM.nomadChatSend',
       typeVersion: 1,
       position: [660, 0],
       parameters: {
@@ -545,19 +545,19 @@ export class AutomationsService {
   }
 
   private _extractModel(w: any): string {
-    const modelNode = this._findNode(w, 'nomadChatModel')
+    const modelNode = this._findNode(w, 'CUSTOM.nomadChatModel')
     return modelNode?.parameters?.model ?? ''
   }
 
   private _extractTools(w: any): string[] {
     const nodes: any[] = w.nodes ?? []
     return nodes
-      .filter((n) => typeof n.type === 'string' && n.type.startsWith('nomadTool_'))
-      .map((n) => n.type.replace('nomadTool_', ''))
+      .filter((n) => typeof n.type === 'string' && n.type.includes('nomadTool_'))
+      .map((n) => n.type.replace('CUSTOM.nomadTool_', ''))
   }
 
   private _extractTargetChat(w: any): string {
-    const send = this._findNode(w, 'nomadChatSend')
+    const send = this._findNode(w, 'CUSTOM.nomadChatSend')
     return send?.parameters?.sessionId ?? 'new'
   }
 }
