@@ -496,61 +496,97 @@ export class AutomationsService {
     const OLLAMA_CRED_NAME = 'NOMAD Ollama'
     const OLLAMA_BASE_URL = process.env.NOMAD_OLLAMA_BASE_URL || 'http://nomad_ollama:11434'
     try {
-      const baseUrl = (client.defaults.baseURL ?? '').replace('/api/v1', '')
-      const apiKey = (client.defaults.headers?.['X-N8N-API-KEY'] as string) ?? ''
-      const internalClient = axios.create({
-        baseURL: baseUrl,
-        headers: {
-          'X-N8N-API-KEY': apiKey,
-          'Content-Type': 'application/json',
-        },
-        timeout: 30000,
-      })
+      try {
+        const res = await client.post('/credentials', {
+          name: OLLAMA_CRED_NAME,
+          type: 'ollamaApi',
+          data: { baseUrl: OLLAMA_BASE_URL, apiKey: '' },
+        })
+        if (res.data?.id) {
+          logger.info(`[AutomationsService] Created Ollama credential: ${res.data.id}`)
+          return res.data.id
+        }
+      } catch (err: any) {
+        if (err?.response?.status === 409 || err?.response?.status === 400) {
+          logger.info('[AutomationsService] Ollama credential may already exist, trying to find it')
+        } else {
+          logger.warn(
+            `[AutomationsService] POST /credentials failed: ${
+              err instanceof Error ? err.message : err
+            } (status: ${err?.response?.status})`
+          )
+        }
+      }
 
       try {
-        const res = await internalClient.get('/rest/credentials', {
-          params: { limit: 100 },
-        })
+        const res = await client.get('/credentials', { params: { limit: 100 } })
         const creds: any[] = res.data?.data ?? res.data ?? []
         const existing = creds.find(
           (c: any) => c.name === OLLAMA_CRED_NAME && c.type === 'ollamaApi'
         )
         if (existing) {
-          logger.info(`[AutomationsService] Using existing Ollama credential: ${existing.id}`)
+          logger.info(`[AutomationsService] Found existing Ollama credential: ${existing.id}`)
           return existing.id
         }
-      } catch (err) {
+      } catch (err: any) {
         logger.warn(
-          `[AutomationsService] GET /rest/credentials failed: ${
+          `[AutomationsService] GET /credentials failed: ${
             err instanceof Error ? err.message : err
-          }`
+          } (status: ${err?.response?.status})`
         )
       }
 
-      try {
-        const created = await internalClient.post('/rest/credentials', {
-          name: OLLAMA_CRED_NAME,
-          type: 'ollamaApi',
-          data: { baseUrl: OLLAMA_BASE_URL, apiKey: '' },
-        })
-        if (created.data?.id) {
-          logger.info(`[AutomationsService] Created Ollama credential: ${created.data.id}`)
-          return created.data.id
-        }
-        if (created.data?.data?.id) {
-          logger.info(`[AutomationsService] Created Ollama credential: ${created.data.data.id}`)
-          return created.data.data.id
-        }
-      } catch (err) {
-        logger.warn(
-          `[AutomationsService] POST /rest/credentials failed: ${
-            err instanceof Error ? err.message : err
-          }`
-        )
-      }
+      const credId = await this._importOllamaCredentialViaCli(OLLAMA_CRED_NAME, OLLAMA_BASE_URL)
+      if (credId) return credId
     } catch (err) {
       logger.warn(
         `[AutomationsService] Failed to ensure Ollama credential: ${
+          err instanceof Error ? err.message : err
+        }`
+      )
+    }
+    return null
+  }
+
+  private async _importOllamaCredentialViaCli(
+    name: string,
+    baseUrl: string
+  ): Promise<string | null> {
+    try {
+      const Docker = (await import('dockerode')).default
+      const docker = new Docker()
+      const container = docker.getContainer(SERVICE_NAMES.N8N)
+      const credJson = JSON.stringify([
+        {
+          name,
+          type: 'ollamaApi',
+          data: { baseUrl, apiKey: '' },
+        },
+      ])
+      const exec = await container.exec({
+        Cmd: ['n8n', 'import:credentials', '--input=/dev/stdin'],
+        AttachStdin: true,
+        AttachStdout: true,
+        AttachStderr: true,
+        Tty: false,
+      })
+      const stream = await exec.start({ stdin: true, hijack: true })
+      stream.write(credJson)
+      stream.end()
+      let output = ''
+      await new Promise<void>((resolve) => {
+        stream.on('data', (chunk: Buffer) => {
+          output += chunk.toString()
+        })
+        stream.on('end', () => resolve())
+        stream.on('error', () => resolve())
+      })
+      logger.info(`[AutomationsService] n8n CLI import output: ${output}`)
+      const idMatch = output.match(/id[:\s]+([A-Za-z0-9]+)/i)
+      if (idMatch) return idMatch[1]
+    } catch (err) {
+      logger.warn(
+        `[AutomationsService] CLI credential import failed: ${
           err instanceof Error ? err.message : err
         }`
       )
