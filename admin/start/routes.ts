@@ -539,6 +539,10 @@ router
       summary: 'Execute an automation tool (internal)',
       tags: ['automations'],
     })
+    documented(router.post('/suggestions', [AutomationsController, 'saveSuggestions']), {
+      summary: 'Save daily chat suggestions from an automation (internal)',
+      tags: ['automations'],
+    })
     documented(router.post('/model-chat', [AutomationsController, 'modelChat']), {
       summary: 'Run a model chat completion for an automation (internal)',
       tags: ['automations'],

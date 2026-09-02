@@ -598,6 +598,7 @@ export class AgentService {
             schedule?: string
             model?: string
             tools?: string[]
+            deliverToChat?: boolean
             targetChatSessionId?: string | 'new'
             automationId?: string
           }) => {
@@ -653,6 +654,7 @@ export class AgentService {
                   scheduleCron,
                   model: input.model,
                   tools: input.tools,
+                  deliverToChat: input.deliverToChat !== false,
                   targetChatSessionId: input.targetChatSessionId ?? 'new',
                 })
                 callbacks?.onToolStep?.({
@@ -661,7 +663,10 @@ export class AgentService {
                   input: { action: 'create', name: input.name },
                   output: `created id ${automation.id}`,
                 })
-                return `Automation "${automation.name}" created successfully (id: ${automation.id}). It will run ${scheduleCron ? `on schedule "${scheduleCron}"` : 'only when manually triggered'} and deliver output to ${automation.targetChatSessionId === 'new' ? 'a new chat' : `chat ${automation.targetChatSessionId}`}.`
+                const delivery = automation.deliverToChat
+                  ? `deliver output to ${automation.targetChatSessionId === 'new' ? 'a new chat' : `chat ${automation.targetChatSessionId}`}`
+                  : 'not deliver to any chat'
+                return `Automation "${automation.name}" created successfully (id: ${automation.id}). It will run ${scheduleCron ? `on schedule "${scheduleCron}"` : 'only when manually triggered'} and ${delivery}.`
               }
 
               if (input.action === 'update') {
@@ -682,6 +687,7 @@ export class AgentService {
                     scheduleCron,
                     model: input.model,
                     tools: input.tools,
+                    deliverToChat: input.deliverToChat,
                     targetChatSessionId: input.targetChatSessionId,
                   }
                 )
@@ -723,7 +729,7 @@ export class AgentService {
           {
             name: 'manage_automations',
             description:
-              'Create, list, update, or delete NOMAD Automations (scheduled AI prompt runs powered by n8n). Use action "create" with a name, prompt, and schedule (e.g. "every day at 15:00", "Mondays at 9am", or "cron: 0 15 * * *"). Use "list" to show all automations. Use "update" with an automationId to modify. Use "delete" with an automationId to remove. Output is delivered to a new chat by default, or an existing chat via targetChatSessionId.',
+              'Create, list, update, or delete NOMAD Automations (scheduled AI prompt runs powered by n8n). Use action "create" with a name, prompt, and schedule (e.g. "every day at 15:00", "Mondays at 9am", or "cron: 0 15 * * *"). Use "list" to show all automations. Use "update" with an automationId to modify. Use "delete" with an automationId to remove. By default output is delivered to a new chat; set deliverToChat=false to skip chat delivery (the automation runs but does not post to any chat).',
             schema: z.object({
               action: z.enum(['create', 'list', 'update', 'delete']),
               name: z.string().optional().describe('Automation name (for create/update)'),
@@ -746,6 +752,12 @@ export class AgentService {
                 .optional()
                 .describe(
                   'Tool names to enable (web_search, web_fetch, calculator, current_time, generate_image)'
+                ),
+              deliverToChat: z
+                .boolean()
+                .optional()
+                .describe(
+                  'Whether to deliver the automation output to a NOMAD chat. Default true. Set false for automations that should run without posting to chat.'
                 ),
               targetChatSessionId: z
                 .string()

@@ -14,6 +14,7 @@ import {
   runToolSchema,
   modelChatSchema,
   saveN8nApiKeySchema,
+  saveSuggestionsSchema,
 } from '#validators/automations'
 
 @inject()
@@ -63,6 +64,7 @@ export default class AutomationsController {
         scheduleCron: data.scheduleCron ?? null,
         model: data.model,
         tools: data.tools,
+        deliverToChat: data.deliverToChat,
         targetChatSessionId: data.targetChatSessionId,
         targetChatTitle: data.targetChatTitle,
       })
@@ -85,6 +87,7 @@ export default class AutomationsController {
         scheduleCron: data.scheduleCron,
         model: data.model,
         tools: data.tools,
+        deliverToChat: data.deliverToChat,
         targetChatSessionId: data.targetChatSessionId,
         targetChatTitle: data.targetChatTitle,
       })
@@ -213,6 +216,27 @@ export default class AutomationsController {
       logger.error({ err: error }, `[AutomationsController] runTool "${params.name}" failed`)
       return response.status(500).json({
         error: 'Tool execution failed',
+        message: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
+  async saveSuggestions({ request, response }: HttpContext) {
+    if (!(await this._verifyInternalSecret(request))) {
+      return response.status(401).json({ error: 'Unauthorized' })
+    }
+    try {
+      const data = await request.validateUsing(saveSuggestionsSchema)
+      const result = await this.automationsService.saveSuggestions({
+        content: data.content,
+        model: data.model,
+        date: data.date,
+      })
+      return response.status(201).json(result)
+    } catch (error) {
+      logger.error({ err: error }, '[AutomationsController] saveSuggestions failed')
+      return response.status(500).json({
+        error: 'Failed to save suggestions',
         message: error instanceof Error ? error.message : String(error),
       })
     }

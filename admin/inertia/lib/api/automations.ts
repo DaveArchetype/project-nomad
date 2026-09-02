@@ -8,7 +8,8 @@ export type Automation = {
   scheduleCron: string | null
   model: string
   tools: string[]
-  targetChatSessionId: string | 'new'
+  deliverToChat: boolean
+  targetChatSessionId: string | 'new' | null
   targetChatTitle: string | null
   active: boolean
   lastRunAt: string | null
@@ -41,6 +42,7 @@ export type CreateAutomationInput = {
   scheduleCron: string | null
   model?: string
   tools?: string[]
+  deliverToChat?: boolean
   targetChatSessionId?: string | 'new'
   targetChatTitle?: string
 }

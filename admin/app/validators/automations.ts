@@ -7,6 +7,7 @@ export const createAutomationSchema = vine.compile(
     scheduleCron: vine.string().trim().maxLength(120).nullable().optional(),
     model: vine.string().trim().optional(),
     tools: vine.array(vine.string().trim()).optional(),
+    deliverToChat: vine.boolean().optional(),
     targetChatSessionId: vine.string().trim().optional(),
     targetChatTitle: vine.string().trim().maxLength(200).optional(),
   })
@@ -19,6 +20,7 @@ export const updateAutomationSchema = vine.compile(
     scheduleCron: vine.string().trim().maxLength(120).nullable().optional(),
     model: vine.string().trim().optional(),
     tools: vine.array(vine.string().trim()).optional(),
+    deliverToChat: vine.boolean().optional(),
     targetChatSessionId: vine.string().trim().optional(),
     targetChatTitle: vine.string().trim().maxLength(200).optional(),
   })
@@ -55,5 +57,13 @@ export const modelChatSchema = vine.compile(
 export const saveN8nApiKeySchema = vine.compile(
   vine.object({
     apiKey: vine.string().trim().minLength(1).maxLength(500),
+  })
+)
+
+export const saveSuggestionsSchema = vine.compile(
+  vine.object({
+    content: vine.string().minLength(1),
+    model: vine.string().trim().optional(),
+    date: vine.string().trim().optional(),
   })
 )

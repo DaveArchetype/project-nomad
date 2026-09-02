@@ -4,6 +4,7 @@ import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
 import KVStore from '#models/kv_store'
 import Service from '#models/service'
+import ChatSuggestion from '#models/chat_suggestion'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import { OllamaService } from './ollama_service.js'
 import { ChatService } from './chat_service.js'
@@ -19,7 +20,8 @@ export type Automation = {
   scheduleCron: string | null
   model: string
   tools: string[]
-  targetChatSessionId: string | 'new'
+  deliverToChat: boolean
+  targetChatSessionId: string | 'new' | null
   targetChatTitle: string | null
   active: boolean
   lastRunAt: string | null
@@ -41,6 +43,8 @@ export type CreateAutomationInput = {
   scheduleCron: string | null
   model?: string
   tools?: string[]
+  deliverToChat?: boolean
+  saveSuggestions?: boolean
   targetChatSessionId?: string | 'new'
   targetChatTitle?: string
 }
@@ -49,7 +53,7 @@ const N8N_TAG = 'nomad-automation'
 const N8N_DEFAULT_TAG = 'nomad-default'
 const DEFAULT_AUTOMATION_NAME = 'Daily Topic Suggestions'
 const DEFAULT_AUTOMATION_PROMPT =
-  'Generate 5 interesting, varied topic suggestions the user might want to explore today. For each, write a one-line hook that makes them want to dig in. Return them as a numbered list.'
+  'Generate 12 interesting, varied conversation starter suggestions the user might want to explore today. Each should be a clear, complete question that sparks curiosity. Make them diverse — mix science, history, technology, cooking, philosophy, language, nature, space, everyday skills, creative writing, health, music, and art. Make them specific and vivid, not generic. Return them as a numbered list, one per line.'
 const DEFAULT_AUTOMATION_CRON = '0 15 * * *'
 
 @inject()
@@ -189,15 +193,20 @@ export class AutomationsService {
     const { client } = await this.getN8nClient()
     const model = input.model?.trim() || (await this.resolveDefaultModel())
     const tools = input.tools ?? []
-    const targetChatSessionId = input.targetChatSessionId ?? 'new'
-    let resolvedSessionId = targetChatSessionId
+    const deliverToChat = input.deliverToChat !== false
+    let resolvedSessionId: string | null = null
     let targetChatTitle = input.targetChatTitle ?? null
 
-    if (targetChatSessionId === 'new') {
-      const title = input.targetChatTitle || input.name
-      const session = await this.chatService.createSession(title, model)
-      resolvedSessionId = session.id
-      targetChatTitle = title
+    if (deliverToChat) {
+      const targetChatSessionId = input.targetChatSessionId ?? 'new'
+      if (targetChatSessionId === 'new') {
+        const title = input.targetChatTitle || input.name
+        const session = await this.chatService.createSession(title, model)
+        resolvedSessionId = session.id
+        targetChatTitle = title
+      } else {
+        resolvedSessionId = targetChatSessionId
+      }
     }
 
     const workflow = this._buildWorkflowJson({
@@ -206,6 +215,8 @@ export class AutomationsService {
       scheduleCron: input.scheduleCron,
       model,
       tools,
+      deliverToChat,
+      saveSuggestions: input.saveSuggestions === true,
       targetChatSessionId: resolvedSessionId,
     })
 
@@ -237,13 +248,23 @@ export class AutomationsService {
 
     let targetChatSessionId = this._extractTargetChat(current)
     let targetChatTitle = input.targetChatTitle ?? null
-    if (input.targetChatSessionId === 'new') {
-      const title = input.targetChatTitle || name
-      const session = await this.chatService.createSession(title, model)
-      targetChatSessionId = session.id
-      targetChatTitle = title
-    } else if (input.targetChatSessionId && input.targetChatSessionId !== 'new') {
-      targetChatSessionId = input.targetChatSessionId
+    const deliverToChat =
+      input.deliverToChat !== undefined ? input.deliverToChat : !!targetChatSessionId
+
+    if (deliverToChat) {
+      if (
+        input.targetChatSessionId === 'new' ||
+        (!targetChatSessionId && !input.targetChatSessionId)
+      ) {
+        const title = input.targetChatTitle || name
+        const session = await this.chatService.createSession(title, model)
+        targetChatSessionId = session.id
+        targetChatTitle = title
+      } else if (input.targetChatSessionId && input.targetChatSessionId !== 'new') {
+        targetChatSessionId = input.targetChatSessionId
+      }
+    } else {
+      targetChatSessionId = null
     }
 
     const workflow = this._buildWorkflowJson({
@@ -252,6 +273,8 @@ export class AutomationsService {
       scheduleCron,
       model,
       tools,
+      deliverToChat,
+      saveSuggestions: input.saveSuggestions === true,
       targetChatSessionId,
     })
 
@@ -296,14 +319,15 @@ export class AutomationsService {
     if (current.some((a) => a.isDefault)) return
 
     const model = await this.resolveDefaultModel()
-    const session = await this.chatService.createSession(DEFAULT_AUTOMATION_NAME, model)
     const workflow = this._buildWorkflowJson({
       name: DEFAULT_AUTOMATION_NAME,
       prompt: DEFAULT_AUTOMATION_PROMPT,
       scheduleCron: DEFAULT_AUTOMATION_CRON,
       model,
       tools: [],
-      targetChatSessionId: session.id,
+      deliverToChat: false,
+      saveSuggestions: true,
+      targetChatSessionId: null,
     })
 
     try {
@@ -364,6 +388,57 @@ export class AutomationsService {
     }
   }
 
+  async saveSuggestions(params: {
+    content: string
+    model?: string
+    date?: string
+  }): Promise<{ saved: number }> {
+    const raw = params.content.trim()
+    if (!raw) return { saved: 0 }
+
+    let lines: string[]
+    if (raw.includes('\n')) {
+      lines = raw.split(/\r?\n/).map((s) => s.trim())
+    } else if (raw.includes(',')) {
+      lines = raw.split(',').map((s) => s.trim())
+    } else {
+      lines = [raw]
+    }
+
+    lines = lines
+      .map((s) =>
+        s
+          .replace(/^\d+\.\s*/, '')
+          .replace(/^[-*•]\s*/, '')
+          .replace(/^["']|["']$/g, '')
+      )
+      .filter((s) => s.length > 0)
+
+    if (lines.length === 0) return { saved: 0 }
+
+    const date = params.date ? DateTime.fromISO(params.date) : DateTime.now()
+    if (!date.isValid) {
+      throw new Error(`Invalid date: ${params.date}`)
+    }
+
+    await ChatSuggestion.query().where('suggestion_date', date.toFormat('yyyy-MM-dd')).delete()
+
+    const rows = lines.map((text) => ({
+      suggestion_date: date.toFormat('yyyy-MM-dd'),
+      text,
+      model_used: params.model ?? null,
+      generated_at: DateTime.now().toISO()!,
+      created_at: DateTime.now().toISO()!,
+      updated_at: DateTime.now().toISO()!,
+    }))
+
+    await ChatSuggestion.createMany(rows)
+    logger.info(
+      `[AutomationsService] Saved ${rows.length} chat suggestions for ${date.toISODate()}`
+    )
+    return { saved: rows.length }
+  }
+
   private async _tagWorkflow(
     client: AxiosInstance,
     workflowId: string,
@@ -385,7 +460,9 @@ export class AutomationsService {
         }
       }
       if (tagIds.length > 0) {
-        await client.put(`/workflows/${workflowId}/tags`, { tagIds })
+        await client.put(`/workflows/${workflowId}/tags`, {
+          tagIds: tagIds.map((id) => ({ id })),
+        })
       }
     } catch (err) {
       logger.warn(
@@ -402,7 +479,9 @@ export class AutomationsService {
     scheduleCron: string | null
     model: string
     tools: string[]
-    targetChatSessionId: string
+    deliverToChat: boolean
+    targetChatSessionId: string | null
+    saveSuggestions: boolean
   }): any {
     const nodes: any[] = []
     const connections: any = {}
@@ -411,6 +490,7 @@ export class AutomationsService {
     const agentId = 'nomad-agent'
     const modelId = 'nomad-model'
     const sendId = 'nomad-send'
+    const saveSuggestionsId = 'nomad-save-suggestions'
     const toolNodeIds = params.tools.map((t) => `nomad-tool-${t}`)
 
     if (params.scheduleCron) {
@@ -477,20 +557,46 @@ export class AutomationsService {
       })
     }
 
-    nodes.push({
-      id: sendId,
-      name: sendId,
-      type: 'CUSTOM.nomadChatSend',
-      typeVersion: 1,
-      position: [660, 0],
-      parameters: {
-        sessionId: params.targetChatSessionId,
-        content: '={{ $json.output || $json.text || $json.content }}',
-      },
-    })
+    if (params.deliverToChat && params.targetChatSessionId) {
+      nodes.push({
+        id: sendId,
+        name: sendId,
+        type: 'CUSTOM.nomadChatSend',
+        typeVersion: 1,
+        position: [660, 0],
+        parameters: {
+          sessionId: params.targetChatSessionId,
+          content: '={{ $json.output || $json.text || $json.content }}',
+        },
+      })
+    }
+
+    if (params.saveSuggestions) {
+      nodes.push({
+        id: saveSuggestionsId,
+        name: saveSuggestionsId,
+        type: 'CUSTOM.nomadSaveSuggestions',
+        typeVersion: 1,
+        position: [660, params.deliverToChat ? 220 : 0],
+        parameters: {
+          content: '={{ $json.output || $json.text || $json.content }}',
+        },
+      })
+    }
 
     connections[triggerId] = { main: [[{ node: agentId, type: 'main', index: 0 }]] }
-    connections[agentId] = { main: [[{ node: sendId, type: 'main', index: 0 }]] }
+
+    const agentOutputs: any[] = []
+    if (params.deliverToChat && params.targetChatSessionId) {
+      agentOutputs.push([{ node: sendId, type: 'main', index: 0 }])
+    }
+    if (params.saveSuggestions) {
+      agentOutputs.push([{ node: saveSuggestionsId, type: 'main', index: 0 }])
+    }
+    if (agentOutputs.length > 0) {
+      connections[agentId] = { main: [agentOutputs[0], ...agentOutputs.slice(1)] }
+    }
+
     connections[modelId] = {
       ai_languageModel: [[{ node: agentId, type: 'ai_languageModel', index: 0 }]],
     }
@@ -511,6 +617,8 @@ export class AutomationsService {
   private _mapWorkflow(w: any, extra?: { targetChatTitle?: string | null }): Automation {
     const tags: string[] = w.tags?.map((t: any) => t.name) ?? []
     const isDefault = tags.includes(N8N_DEFAULT_TAG)
+    const sendNode = this._findNode(w, 'CUSTOM.nomadChatSend')
+    const deliverToChat = !!sendNode
     return {
       id: String(w.id),
       name: w.name ?? '',
@@ -518,7 +626,8 @@ export class AutomationsService {
       scheduleCron: this._extractCron(w),
       model: this._extractModel(w),
       tools: this._extractTools(w),
-      targetChatSessionId: this._extractTargetChat(w),
+      deliverToChat,
+      targetChatSessionId: deliverToChat ? this._extractTargetChat(w) : null,
       targetChatTitle: extra?.targetChatTitle ?? null,
       active: Boolean(w.active),
       lastRunAt: w.lastRunAt ?? null,
@@ -556,9 +665,9 @@ export class AutomationsService {
       .map((n) => n.type.replace('CUSTOM.nomadTool_', ''))
   }
 
-  private _extractTargetChat(w: any): string {
+  private _extractTargetChat(w: any): string | null {
     const send = this._findNode(w, 'CUSTOM.nomadChatSend')
-    return send?.parameters?.sessionId ?? 'new'
+    return send?.parameters?.sessionId ?? null
   }
 }
 

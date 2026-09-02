@@ -31,6 +31,7 @@ export default function AutomationsModal({ onClose }: AutomationsModalProps) {
     prompt: '',
     scheduleCron: '0 15 * * *',
     tools: [],
+    deliverToChat: true,
     targetChatSessionId: 'new',
   })
 
@@ -134,6 +135,7 @@ export default function AutomationsModal({ onClose }: AutomationsModalProps) {
       prompt: '',
       scheduleCron: '0 15 * * *',
       tools: [],
+      deliverToChat: true,
       targetChatSessionId: 'new',
     })
   }
@@ -147,7 +149,8 @@ export default function AutomationsModal({ onClose }: AutomationsModalProps) {
       scheduleCron: automation.scheduleCron,
       model: automation.model,
       tools: automation.tools,
-      targetChatSessionId: automation.targetChatSessionId,
+      deliverToChat: automation.deliverToChat,
+      targetChatSessionId: automation.targetChatSessionId ?? 'new',
     })
   }
 
@@ -311,20 +314,39 @@ export default function AutomationsModal({ onClose }: AutomationsModalProps) {
                 <label className="block text-sm font-medium text-text-primary mb-1">
                   Output destination
                 </label>
-                <select
-                  value={formData.targetChatSessionId ?? 'new'}
-                  onChange={(e) =>
-                    setFormData({ ...formData, targetChatSessionId: e.target.value })
-                  }
-                  className="w-full px-3 py-2 rounded-lg border border-border-subtle bg-surface-primary text-text-primary text-sm"
-                >
-                  <option value="new">New chat (auto-created)</option>
-                  {chats.map((chat: any) => (
-                    <option key={chat.id} value={String(chat.id)}>
-                      {chat.title}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center gap-2 mb-2">
+                  <label className="flex items-center gap-1.5 text-xs text-text-secondary">
+                    <input
+                      type="checkbox"
+                      checked={formData.deliverToChat !== false}
+                      onChange={(e) =>
+                        setFormData({ ...formData, deliverToChat: e.target.checked })
+                      }
+                    />
+                    Deliver to chat
+                  </label>
+                </div>
+                {formData.deliverToChat !== false && (
+                  <select
+                    value={formData.targetChatSessionId ?? 'new'}
+                    onChange={(e) =>
+                      setFormData({ ...formData, targetChatSessionId: e.target.value })
+                    }
+                    className="w-full px-3 py-2 rounded-lg border border-border-subtle bg-surface-primary text-text-primary text-sm"
+                  >
+                    <option value="new">New chat (auto-created)</option>
+                    {chats.map((chat: any) => (
+                      <option key={chat.id} value={String(chat.id)}>
+                        {chat.title}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {formData.deliverToChat === false && (
+                  <p className="text-xs text-text-muted py-2">
+                    Output will not be posted to any chat. The automation runs silently.
+                  </p>
+                )}
               </div>
             </div>
           ) : automations.length === 0 ? (

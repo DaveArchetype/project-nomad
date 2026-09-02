@@ -68,6 +68,14 @@ export default function ChatMessageList({
             {chatSuggestionsEnabled && chatSuggestionsLoading && (
               <BouncingDots text="Thinking" containerClassName="mt-8" />
             )}
+            {chatSuggestionsEnabled &&
+              !chatSuggestionsLoading &&
+              (!chatSuggestions || chatSuggestions.length === 0) && (
+                <div className="mt-8 text-sm text-text-muted">
+                  Suggestions will appear here once the daily automation runs. You can trigger it
+                  manually from the Automations page.
+                </div>
+              )}
             {!chatSuggestionsEnabled && (
               <div className="mt-8 text-sm text-text-muted">
                 Need some inspiration? Enable chat suggestions in settings to get started with
