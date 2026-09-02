@@ -11,6 +11,7 @@ import * as zim from './zim'
 import * as collections from './collections'
 import * as voice from './voice'
 import * as docs from './docs'
+import * as automations from './automations'
 
 class API {
   private client: AxiosInstance = createApiClient()
@@ -271,6 +272,21 @@ class API {
 
   // Docs
   listDocs = () => docs.listDocs(this.client)
+
+  // Automations
+  listAutomations = () => automations.listAutomations(this.client)
+  createAutomation = (input: automations.CreateAutomationInput) =>
+    automations.createAutomation(this.client, input)
+  updateAutomation = (id: string, input: Partial<automations.CreateAutomationInput>) =>
+    automations.updateAutomation(this.client, id, input)
+  deleteAutomation = (id: string) => automations.deleteAutomation(this.client, id)
+  runAutomation = (id: string) => automations.runAutomation(this.client, id)
+  listAutomationRuns = (id: string) => automations.listAutomationRuns(this.client, id)
+  listAutomationTools = () => automations.listAutomationTools(this.client)
+  getAutomationDefaultModel = () => automations.getAutomationDefaultModel(this.client)
+  listAutomationChats = () => automations.listAutomationChats(this.client)
+  getAutomationStatus = () => automations.getAutomationStatus(this.client)
+  saveN8nApiKey = (apiKey: string) => automations.saveN8nApiKey(this.client, apiKey)
 }
 
 export default new API()

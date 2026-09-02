@@ -1,6 +1,7 @@
 import {
   IconAntenna,
   IconArrowUp,
+  IconAutomation,
   IconBook,
   IconBooks,
   IconBox,
@@ -78,6 +79,7 @@ export const icons = {
   IconArrowLeft,
   IconArrowRight,
   IconArrowUp,
+  IconAutomation,
   IconBook,
   IconBooks,
   IconBox,

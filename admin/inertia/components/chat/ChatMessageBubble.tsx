@@ -9,6 +9,7 @@ import {
   IconCircleCheck,
   IconAlertTriangle,
   IconPhoto,
+  IconAutomation,
 } from '@tabler/icons-react'
 import classNames from '~/lib/classNames'
 import ReactMarkdown from 'react-markdown'
@@ -45,6 +46,7 @@ const TOOL_ICON_MAP: Record<string, typeof IconWorldSearch> = {
   calculator: IconCalculator,
   current_time: IconClock,
   generate_image: IconPhoto,
+  manage_automations: IconAutomation,
 }
 
 const TOOL_LABEL_MAP: Record<string, string> = {
@@ -53,6 +55,7 @@ const TOOL_LABEL_MAP: Record<string, string> = {
   calculator: 'Calculator',
   current_time: 'Current time',
   generate_image: 'Image generation',
+  manage_automations: 'Automations',
 }
 
 function ToolStepRow({ step }: { step: ChatToolStep }) {

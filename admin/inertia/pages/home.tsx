@@ -7,6 +7,7 @@ import {
   IconSettings,
   IconWifiOff,
   IconArrowUpRight,
+  IconAutomation,
 } from '@tabler/icons-react'
 import { Head, Link, usePage } from '@inertiajs/react'
 import { useLayoutEffect, useRef, useState } from 'react'
@@ -46,6 +47,18 @@ const DRUG_REFERENCE_ITEM: DashboardItem = {
   installed: true,
   displayOrder: 5,
   poweredBy: null,
+  category: 'core',
+}
+
+const AUTOMATIONS_ITEM: DashboardItem = {
+  label: 'Automations',
+  to: '/automations',
+  target: '',
+  description: 'Schedule AI prompts to run on a timer and deliver results to chat',
+  icon: <IconAutomation size={26} />,
+  installed: true,
+  displayOrder: 6,
+  poweredBy: 'n8n',
   category: 'core',
 }
 
@@ -317,6 +330,12 @@ export default function Home(props: {
   const coreItems: DashboardItem[] = [MAPS_ITEM]
   if (props.drugReferenceInstalled) {
     coreItems.push(DRUG_REFERENCE_ITEM)
+  }
+  const n8nInstalled = props.system.services.some(
+    (s) => s.service_name === SERVICE_NAMES.N8N && s.installed
+  )
+  if (n8nInstalled) {
+    coreItems.push(AUTOMATIONS_ITEM)
   }
   coreItems.sort((a, b) => a.displayOrder - b.displayOrder)
 

@@ -9,4 +9,5 @@ export const BROADCAST_CHANNELS = {
   // detected while the mic is enabled on a different tab).
   VOICE_STATE: 'voice-state',
   RECAP_READY: 'recap-ready',
+  AUTOMATION_DELIVERED: 'automation-delivered',
 }

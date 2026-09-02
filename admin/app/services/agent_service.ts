@@ -8,6 +8,7 @@ import { OllamaService } from './ollama_service.js'
 import { SearxngService } from './searxng_service.js'
 import { ComfyuiService } from './comfyui_service.js'
 import { ChatImageService } from './chat_image_service.js'
+import { AutomationsService, parseSchedule } from './automations_service.js'
 
 export type AgentToolName =
   | 'web_search'
@@ -15,6 +16,7 @@ export type AgentToolName =
   | 'calculator'
   | 'current_time'
   | 'generate_image'
+  | 'manage_automations'
 
 export type ToolStep = {
   tool: string
@@ -54,7 +56,8 @@ export class AgentService {
   constructor(
     private ollamaService: OllamaService,
     private searxngService: SearxngService,
-    private comfyuiService: ComfyuiService
+    private comfyuiService: ComfyuiService,
+    private automationsService: AutomationsService
   ) {}
 
   async runAgent(params: {
@@ -269,6 +272,11 @@ export class AgentService {
     if (enabledTools.includes('generate_image')) {
       parts.push(
         'IMAGE GENERATION RULES: (1) When the user asks you to create, generate, draw, paint, or make an image or picture, call generate_image exactly once. (2) Write a single detailed English prompt for the tool: describe the subject, setting, style, lighting, composition, and quality. Honor everything the user asked for; only ask a clarifying question if the request is truly ambiguous. (3) Optionally pass width and height when the user asks for a specific size, and negative_prompt for things to avoid. (4) After the tool returns, briefly describe the image to the user — do not call any more tools. (5) If the tool reports an error, explain what it said and how to fix it (for example, installing an image model in Image Studio).'
+      )
+    }
+    if (enabledTools.includes('manage_automations')) {
+      parts.push(
+        'AUTOMATION RULES: (1) When the user asks to create, schedule, list, update, or delete an automation (a scheduled AI prompt run), call manage_automations. (2) For create, provide a name, a prompt, and a schedule in natural language (e.g. "every day at 15:00", "Mondays at 9am") or a cron expression prefixed with "cron:". (3) After the tool returns, confirm the result to the user concisely — do not call any more tools. (4) If the tool reports that n8n is not installed, tell the user they can install it from the Supply Depot.'
       )
     }
     return parts.join(' ')
@@ -574,6 +582,176 @@ export class AgentService {
                 .describe('Image height in pixels'),
               steps: z.number().int().min(1).max(100).optional().describe('Sampling steps'),
               seed: z.number().int().optional().describe('Fixed seed for reproducible results'),
+            }),
+          }
+        )
+      )
+    }
+
+    if (enabledTools.includes('manage_automations')) {
+      tools.push(
+        tool(
+          async (input: {
+            action: 'create' | 'list' | 'update' | 'delete'
+            name?: string
+            prompt?: string
+            schedule?: string
+            model?: string
+            tools?: string[]
+            targetChatSessionId?: string | 'new'
+            automationId?: string
+          }) => {
+            if (guard && !guard()) {
+              return 'Tool call limit reached. Answer the user directly.'
+            }
+            const step: ToolStep = {
+              tool: 'manage_automations',
+              step: 'start',
+              input: { action: input.action, name: input.name },
+            }
+            callbacks?.onToolStep?.(step)
+            try {
+              const n8nInstalled = await this.automationsService.isN8nInstalled()
+              if (!n8nInstalled) {
+                callbacks?.onToolStep?.({
+                  tool: 'manage_automations',
+                  step: 'end',
+                  input: { action: input.action },
+                  output: 'n8n not installed',
+                })
+                return 'The Automations feature is not available because the n8n service is not installed. The user can install it from the Supply Depot.'
+              }
+
+              if (input.action === 'list') {
+                const automations = await this.automationsService.listAutomations()
+                const summary = automations
+                  .map(
+                    (a) =>
+                      `- ${a.name} (id: ${a.id}, schedule: ${a.scheduleCron ?? 'manual'}, model: ${a.model}, active: ${a.active})`
+                  )
+                  .join('\n')
+                callbacks?.onToolStep?.({
+                  tool: 'manage_automations',
+                  step: 'end',
+                  input: { action: 'list' },
+                  output: `${automations.length} automations`,
+                })
+                return `Current automations:\n${summary || '(none)'}`
+              }
+
+              if (input.action === 'create') {
+                if (!input.name || !input.prompt) {
+                  return 'To create an automation, provide both a name and a prompt.'
+                }
+                const scheduleCron = input.schedule ? parseSchedule(input.schedule) : null
+                if (input.schedule && !scheduleCron) {
+                  return `Could not parse the schedule "${input.schedule}". Use a format like "every day at 15:00", "Mondays at 9am", or "cron: 0 15 * * *".`
+                }
+                const automation = await this.automationsService.createAutomation({
+                  name: input.name,
+                  prompt: input.prompt,
+                  scheduleCron,
+                  model: input.model,
+                  tools: input.tools,
+                  targetChatSessionId: input.targetChatSessionId ?? 'new',
+                })
+                callbacks?.onToolStep?.({
+                  tool: 'manage_automations',
+                  step: 'end',
+                  input: { action: 'create', name: input.name },
+                  output: `created id ${automation.id}`,
+                })
+                return `Automation "${automation.name}" created successfully (id: ${automation.id}). It will run ${scheduleCron ? `on schedule "${scheduleCron}"` : 'only when manually triggered'} and deliver output to ${automation.targetChatSessionId === 'new' ? 'a new chat' : `chat ${automation.targetChatSessionId}`}.`
+              }
+
+              if (input.action === 'update') {
+                if (!input.automationId) {
+                  return 'To update an automation, provide its id.'
+                }
+                const scheduleCron = input.schedule
+                  ? (parseSchedule(input.schedule) ?? undefined)
+                  : undefined
+                if (input.schedule && scheduleCron === undefined) {
+                  return `Could not parse the schedule "${input.schedule}".`
+                }
+                const automation = await this.automationsService.updateAutomation(
+                  input.automationId,
+                  {
+                    name: input.name,
+                    prompt: input.prompt,
+                    scheduleCron,
+                    model: input.model,
+                    tools: input.tools,
+                    targetChatSessionId: input.targetChatSessionId,
+                  }
+                )
+                callbacks?.onToolStep?.({
+                  tool: 'manage_automations',
+                  step: 'end',
+                  input: { action: 'update', id: input.automationId },
+                  output: `updated id ${automation.id}`,
+                })
+                return `Automation "${automation.name}" updated successfully.`
+              }
+
+              if (input.action === 'delete') {
+                if (!input.automationId) {
+                  return 'To delete an automation, provide its id.'
+                }
+                await this.automationsService.deleteAutomation(input.automationId)
+                callbacks?.onToolStep?.({
+                  tool: 'manage_automations',
+                  step: 'end',
+                  input: { action: 'delete', id: input.automationId },
+                  output: 'deleted',
+                })
+                return `Automation ${input.automationId} deleted successfully.`
+              }
+
+              return `Unknown action: ${input.action}`
+            } catch (err) {
+              const message = err instanceof Error ? err.message : String(err)
+              callbacks?.onToolStep?.({
+                tool: 'manage_automations',
+                step: 'error',
+                input: { action: input.action },
+                error: message,
+              })
+              return `Automation operation failed: ${message}`
+            }
+          },
+          {
+            name: 'manage_automations',
+            description:
+              'Create, list, update, or delete NOMAD Automations (scheduled AI prompt runs powered by n8n). Use action "create" with a name, prompt, and schedule (e.g. "every day at 15:00", "Mondays at 9am", or "cron: 0 15 * * *"). Use "list" to show all automations. Use "update" with an automationId to modify. Use "delete" with an automationId to remove. Output is delivered to a new chat by default, or an existing chat via targetChatSessionId.',
+            schema: z.object({
+              action: z.enum(['create', 'list', 'update', 'delete']),
+              name: z.string().optional().describe('Automation name (for create/update)'),
+              prompt: z
+                .string()
+                .optional()
+                .describe('The prompt to run on schedule (for create/update)'),
+              schedule: z
+                .string()
+                .optional()
+                .describe(
+                  'Natural-language schedule like "every day at 15:00" or a cron expression prefixed with "cron:"'
+                ),
+              model: z
+                .string()
+                .optional()
+                .describe('Ollama model name (defaults to the current chat model)'),
+              tools: z
+                .array(z.string())
+                .optional()
+                .describe(
+                  'Tool names to enable (web_search, web_fetch, calculator, current_time, generate_image)'
+                ),
+              targetChatSessionId: z
+                .string()
+                .optional()
+                .describe('Chat session id for output, or "new" for a new chat (default)'),
+              automationId: z.string().optional().describe('The automation id (for update/delete)'),
             }),
           }
         )

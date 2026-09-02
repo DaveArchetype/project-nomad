@@ -737,6 +737,51 @@ export default class ServiceSeeder extends BaseSeeder {
       depends_on: null,
       metadata: JSON.stringify({ minMemoryMB: 4096, minDiskMB: 20480 }),
     },
+    {
+      service_name: SERVICE_NAMES.N8N,
+      friendly_name: 'Automations',
+      powered_by: 'n8n',
+      display_order: 34,
+      description:
+        'Schedule and run AI prompts on a timer — powers the Automations feature with reusable workflows, tools, and chat delivery',
+      icon: 'IconAutomation',
+      container_image: 'n8nio/n8n:1.110.0',
+      source_repo: 'https://github.com/n8n-io/n8n',
+      container_command: null,
+      container_config: JSON.stringify({
+        HostConfig: {
+          RestartPolicy: { Name: 'unless-stopped' },
+          PortBindings: { '5678/tcp': [{ HostPort: '8530' }] },
+          Binds: [
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/n8n/data:/home/node/.n8n`,
+            `${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/n8n/custom-nodes:/custom-nodes`,
+          ],
+        },
+        ExposedPorts: { '5678/tcp': {} },
+        Env: [
+          'N8N_HOST=0.0.0.0',
+          'N8N_PORT=5678',
+          'N8N_PROTOCOL=http',
+          'N8N_PATH=n8n',
+          'WEBHOOK_URL=http://localhost:8530/n8n/',
+          'GENERIC_TIMEZONE=UTC',
+          'N8N_CUSTOM_EXTENSIONS=/custom-nodes',
+          'N8N_DIAGNOSTICS_ENABLED=false',
+          'N8N_RUNNERS_ENABLED=true',
+          'N8N_ENFORCE_SETTINGS_PERMISSIONS=false',
+          'N8N_SECURE_COOKIE=false',
+        ],
+      }),
+      ui_location: '8530',
+      ui_path: '/n8n',
+      installed: false,
+      installation_status: 'idle',
+      is_dependency_service: false,
+      is_custom: false,
+      category: 'productivity',
+      depends_on: null,
+      metadata: JSON.stringify({ minMemoryMB: 1024, minDiskMB: 1024 }),
+    },
   ]
 
   async run() {

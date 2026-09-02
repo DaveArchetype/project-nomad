@@ -12,6 +12,7 @@ import {
   runPreinstallActions__MeshCoreWeb,
   runPreinstallActions__CodeServer,
   runPreinstallActions__Comfyui,
+  runPreinstallActions__N8n,
 } from './preinstall_actions.js'
 
 const PREINSTALL_MAP: Record<string, (ctx: DockerCtx) => Promise<void>> = {
@@ -22,6 +23,7 @@ const PREINSTALL_MAP: Record<string, (ctx: DockerCtx) => Promise<void>> = {
   [SERVICE_NAMES.MESHCORE_WEB]: runPreinstallActions__MeshCoreWeb,
   [SERVICE_NAMES.CODE_SERVER]: runPreinstallActions__CodeServer,
   [SERVICE_NAMES.COMFYUI]: runPreinstallActions__Comfyui,
+  [SERVICE_NAMES.N8N]: runPreinstallActions__N8n,
 }
 
 export async function createContainerPreflight(
@@ -472,6 +474,13 @@ async function createContainer(
     const appEnv: string[] = []
     if (service.service_name === SERVICE_NAMES.HOMEBOX) {
       appEnv.push(`HBOX_AUTH_API_KEY_PEPPER=${await ctx.resolveHomeboxPepper()}`)
+    }
+    if (service.service_name === SERVICE_NAMES.N8N) {
+      appEnv.push(`N8N_ENCRYPTION_KEY=${await ctx.resolveN8nEncryptionKey()}`)
+      const tz = await KVStore.getValue('recap.timezone')
+      if (tz && typeof tz === 'string' && tz.trim() !== '') {
+        appEnv.push(`GENERIC_TIMEZONE=${tz.trim()}`)
+      }
     }
 
     ctx.broadcast(

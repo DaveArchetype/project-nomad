@@ -28,6 +28,7 @@ export const CODE_SERVER_STORAGE_PATH = '/storage/code-server'
 // ComfyUI (Image Studio) storage root. The custom_nodes subdir is populated with
 // ComfyUI-RunpodDirect on install — see runPreinstallActions__Comfyui.
 export const COMFYUI_STORAGE_PATH = '/storage/comfyui'
+export const N8N_STORAGE_PATH = '/storage/n8n'
 
 export async function listDirectoryContents(path: string): Promise<FileEntry[]> {
   const entries = await readdir(path, { withFileTypes: true })

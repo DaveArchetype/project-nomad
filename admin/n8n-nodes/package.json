@@ -1,0 +1,39 @@
+{
+  "name": "n8n-nodes-nomad",
+  "version": "1.0.0",
+  "description": "Custom n8n nodes that bridge n8n workflows to Project NOMAD's Ollama models, agent tools, and chat sessions.",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "n8n-community-node-package"
+  ],
+  "license": "Apache-2.0",
+  "files": [
+    "dist"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "nodes": [
+      "dist/nodes/NomadChatSend.node.js",
+      "dist/nodes/NomadChatModel.node.js",
+      "dist/nodes/NomadToolWebSearch.node.js",
+      "dist/nodes/NomadToolWebFetch.node.js",
+      "dist/nodes/NomadToolCalculator.node.js",
+      "dist/nodes/NomadToolCurrentTime.node.js",
+      "dist/nodes/NomadToolGenerateImage.node.js"
+    ],
+    "credentials": [
+      "dist/credentials/NomadAutomationSecret.credential.js"
+    ]
+  },
+  "devDependencies": {
+    "n8n-workflow": "^1.110.0",
+    "typescript": "^5.8.3"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  }
+}

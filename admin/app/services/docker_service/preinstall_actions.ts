@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
-import { mkdir, copyFile, chown, chmod, access, writeFile, readdir } from 'node:fs/promises'
+import { mkdir, copyFile, cp, chown, chmod, access, writeFile, readdir } from 'node:fs/promises'
 import logger from '@adonisjs/core/services/logger'
 import { doResumableDownloadWithRetry } from '../../utils/downloads.js'
 import {
@@ -14,6 +14,7 @@ import {
   JELLYFIN_MEDIA_SUBFOLDERS,
   CODE_SERVER_STORAGE_PATH,
   COMFYUI_STORAGE_PATH,
+  N8N_STORAGE_PATH,
 } from '../../utils/fs.js'
 import { KiwixLibraryService } from '../kiwix_library_service.js'
 import { SERVICE_NAMES } from '../../../constants/service_names.js'
@@ -304,6 +305,44 @@ export async function runPreinstallActions__Comfyui(ctx: DockerCtx): Promise<voi
       SERVICE_NAMES.COMFYUI,
       'preinstall-error',
       `Failed to set up ComfyUI-RunpodDirect: ${error.message}`
+    )
+    throw new Error(`Pre-install action failed: ${error.message}`)
+  }
+}
+
+const N8N_NODES_STAGING_DIR = '/app/n8n-nodes-dist'
+
+export async function runPreinstallActions__N8n(ctx: DockerCtx): Promise<void> {
+  const dataDir = join(process.cwd(), N8N_STORAGE_PATH, 'data')
+  const customNodesDir = join(process.cwd(), N8N_STORAGE_PATH, 'custom-nodes')
+
+  ctx.broadcast(SERVICE_NAMES.N8N, 'preinstall', `Running pre-install actions for Automations...`)
+
+  try {
+    await mkdir(dataDir, { recursive: true })
+    await mkdir(customNodesDir, { recursive: true })
+
+    const staged = await readdir(N8N_NODES_STAGING_DIR).catch(() => null)
+    if (staged && staged.length > 0) {
+      ctx.broadcast(
+        SERVICE_NAMES.N8N,
+        'preinstall',
+        `Copying NOMAD custom n8n nodes into the n8n volume...`
+      )
+      await cp(N8N_NODES_STAGING_DIR, customNodesDir, { recursive: true, force: true })
+      ctx.broadcast(SERVICE_NAMES.N8N, 'preinstall', `Copied custom n8n nodes.`)
+    } else {
+      ctx.broadcast(
+        SERVICE_NAMES.N8N,
+        'preinstall',
+        `No staged custom n8n nodes found — n8n will start without NOMAD-bridge nodes.`
+      )
+    }
+  } catch (error: any) {
+    ctx.broadcast(
+      SERVICE_NAMES.N8N,
+      'preinstall-error',
+      `Failed to set up n8n storage/custom nodes: ${error.message}`
     )
     throw new Error(`Pre-install action failed: ${error.message}`)
   }

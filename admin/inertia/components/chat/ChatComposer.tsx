@@ -10,6 +10,7 @@ import {
   IconCalculator,
   IconClock,
   IconPhoto,
+  IconAutomation,
 } from '@tabler/icons-react'
 import classNames from '~/lib/classNames'
 import { useNotifications } from '~/context/NotificationContext'
@@ -62,6 +63,12 @@ const TOOL_DEFS = [
     label: 'Calculator',
     icon: IconCalculator,
     tools: ['calculator'],
+  },
+  {
+    key: 'manage_automations',
+    label: 'Automations',
+    icon: IconAutomation,
+    tools: ['manage_automations'],
   },
 ] as const
 

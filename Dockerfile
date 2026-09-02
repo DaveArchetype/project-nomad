@@ -38,6 +38,8 @@ ADD admin/ ./
 COPY collections/ /collections/
 RUN npm run gen:curated-data
 RUN node ace build
+RUN cd /app/n8n-nodes && npm ci --omit=optional && npm run build && \
+  cp -r /app/n8n-nodes/dist /app/n8n-nodes-dist
 
 # Production stage
 FROM base
@@ -96,6 +98,7 @@ ENV CREATOR_PACKS_APP_KEY=$CREATOR_PACKS_APP_KEY
 WORKDIR /app
 COPY --from=production-deps /app/node_modules /app/node_modules
 COPY --from=build /app/build /app
+COPY --from=build /app/n8n-nodes-dist /app/n8n-nodes-dist
 # Generate version.json from the VERSION build-arg so the image tag is the
 # single source of truth (previously copied root package.json, which drifted
 # from the tag when semantic-release did not commit the bump back).

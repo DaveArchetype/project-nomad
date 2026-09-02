@@ -179,6 +179,11 @@ export const KV_STORE_SCHEMA = {
   // doesn't have a per-service default or override. 0 = no global cap (only
   // the host-mem fallback watchdog applies). Default 0.
   'oom.defaultMemoryLimitMB': 'string',
+  'automation.n8nEncryptionKey': 'string',
+  'automation.n8nApiKey': 'string',
+  'automation.n8nBaseUrl': 'string',
+  'automation.defaultModel': 'string',
+  'automation.enabled': 'boolean',
 } as const
 
 type KVTagToType<T extends string> = T extends 'boolean' ? boolean : string

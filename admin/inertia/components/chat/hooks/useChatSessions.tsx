@@ -1,9 +1,11 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTransmit } from 'react-adonis-transmit'
 import api from '~/lib/api'
 import { useModals } from '~/context/ModalContext'
 import StyledModal from '../../StyledModal'
 import { ChatMessage } from '../../../../types/chat'
+import { BROADCAST_CHANNELS } from '../../../../constants/broadcast'
 
 interface UseChatSessionsResult {
   sessions: Array<{
@@ -45,8 +47,16 @@ export function useChatSessions({
     queryKey: ['chatSessions'],
     queryFn: () => api.getChatSessions(),
     enabled,
-    select: (data) =>
-      data?.map((s) => ({
+    select: (data: any) =>
+      (
+        data as Array<{
+          id: string
+          title: string
+          model: string | null
+          timestamp: string
+          lastMessage: string | null
+        }>
+      )?.map((s) => ({
         id: s.id,
         title: s.title,
         model: s.model || undefined,
@@ -162,6 +172,35 @@ export function useChatSessions({
     },
     [queryClient, abortStream, setActiveSessionId, setMessages, setSelectedModel, selectedModel]
   )
+
+  const { subscribe } = useTransmit()
+  useEffect(() => {
+    if (!enabled) return
+    const unsubscribe = subscribe(
+      BROADCAST_CHANNELS.AUTOMATION_DELIVERED,
+      async (data: { sessionId: string; messageId: string }) => {
+        if (!activeSessionId || data.sessionId !== activeSessionId) return
+        const sessionData = await api.getChatSession(activeSessionId)
+        if (sessionData?.messages) {
+          setMessages(
+            sessionData.messages.map((m) => ({
+              id: m.id,
+              role: m.role,
+              content: m.content,
+              images: m.images,
+              sources: m.sources,
+              toolSteps: m.toolSteps,
+              timestamp: new Date(m.timestamp),
+            }))
+          )
+        }
+        queryClient.invalidateQueries({ queryKey: ['chatSessions'] })
+      }
+    )
+    return () => {
+      unsubscribe()
+    }
+  }, [enabled, activeSessionId, subscribe, setMessages, queryClient])
 
   return {
     sessions,

@@ -7,7 +7,7 @@ import { BROADCAST_CHANNELS } from '../../../constants/broadcast.js'
 import { GITEA_REGISTRY_HOST, getGiteaCredentials } from '../container_registry_service.js'
 import type { DockerCtx, OperationResult, ServiceStatus } from './types.js'
 import { humanizeDockerError, parseContainerConfig } from './utils.js'
-import { resolveHomeboxPepper } from './secrets.js'
+import { resolveHomeboxPepper, resolveN8nEncryptionKey } from './secrets.js'
 import { checkPortConflicts } from './port_conflicts.js'
 import { getServiceURL } from './service_url.js'
 import { detectGPUType, resolveAmdHsaOverride, discoverAMDDevices } from './gpu.js'
@@ -72,6 +72,7 @@ export class DockerService {
       resolveAmdHsaOverride: () => this._resolveAmdHsaOverride(),
       discoverAMDDevices: () => this._discoverAMDDevices(),
       resolveHomeboxPepper: () => this._resolveHomeboxPepper(),
+      resolveN8nEncryptionKey: () => this._resolveN8nEncryptionKey(),
       findContainerByName: (serviceName) => this._findContainerByName(serviceName),
       removeServiceContainer: (serviceName) => this._removeServiceContainer(serviceName),
       humanizeDockerError: (error, serviceName) => this._humanizeDockerError(error, serviceName),
@@ -256,6 +257,10 @@ export class DockerService {
 
   private async _resolveHomeboxPepper(): Promise<string> {
     return resolveHomeboxPepper()
+  }
+
+  private async _resolveN8nEncryptionKey(): Promise<string> {
+    return resolveN8nEncryptionKey()
   }
 
   private async _findContainerByName(serviceName: string) {

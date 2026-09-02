@@ -29,6 +29,7 @@ export const chatSchema = vine.compile(
           'calculator',
           'current_time',
           'generate_image',
+          'manage_automations',
         ] as const)
       )
       .optional(),

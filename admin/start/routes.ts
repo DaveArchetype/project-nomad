@@ -25,6 +25,7 @@ import CollectionUpdatesController from '#controllers/collection_updates_control
 import CreatorPacksController from '#controllers/creator_packs_controller'
 import ZimController from '#controllers/zim_controller'
 import VoiceController from '#controllers/voice_controller'
+import AutomationsController from '#controllers/automations_controller'
 import router from '@adonisjs/core/services/router'
 import transmit from '@adonisjs/transmit/services/main'
 import { documented } from '#start/openapi/documented'
@@ -94,6 +95,7 @@ router.on('/about').renderInertia('about')
 router.get('/chat', [ChatsController, 'inertia'])
 router.get('/maps', [MapsController, 'index'])
 router.get('/supply-depot', [SupplyDepotController, 'index'])
+router.get('/automations', [AutomationsController, 'inertia'])
 router.on('/knowledge-base').redirectToPath('/chat?knowledge_base=true') // redirect for legacy knowledge-base links
 
 router.get('/easy-setup', [EasySetupController, 'index'])
@@ -482,6 +484,67 @@ documented(router.get('/api/chat/images/*', [ChatsController, 'serveImage']), {
   summary: 'Serve a persisted chat image attachment',
   tags: ['chat'],
 })
+
+router
+  .group(() => {
+    documented(router.get('/', [AutomationsController, 'index']), {
+      summary: 'List automations',
+      tags: ['automations'],
+    })
+    documented(router.post('/', [AutomationsController, 'store']), {
+      summary: 'Create an automation',
+      tags: ['automations'],
+    })
+    documented(router.put('/:id', [AutomationsController, 'update']), {
+      summary: 'Update an automation',
+      tags: ['automations'],
+    })
+    documented(router.delete('/:id', [AutomationsController, 'destroy']), {
+      summary: 'Delete an automation',
+      tags: ['automations'],
+    })
+    documented(router.post('/:id/run', [AutomationsController, 'run']), {
+      summary: 'Run an automation now',
+      tags: ['automations'],
+    })
+    documented(router.get('/:id/runs', [AutomationsController, 'runs']), {
+      summary: 'List recent runs for an automation',
+      tags: ['automations'],
+    })
+    documented(router.get('/tools', [AutomationsController, 'tools']), {
+      summary: 'List available automation tools',
+      tags: ['automations'],
+    })
+    documented(router.get('/models', [AutomationsController, 'models']), {
+      summary: 'Get the default automation model',
+      tags: ['automations'],
+    })
+    documented(router.get('/chats', [AutomationsController, 'chats']), {
+      summary: 'List chat sessions for the target-chat picker',
+      tags: ['automations'],
+    })
+    documented(router.get('/status', [AutomationsController, 'status']), {
+      summary: 'Get automations feature status',
+      tags: ['automations'],
+    })
+    documented(router.post('/api-key', [AutomationsController, 'saveApiKey']), {
+      summary: 'Save the n8n API key',
+      tags: ['automations'],
+    })
+    documented(router.post('/deliver', [AutomationsController, 'deliver']), {
+      summary: 'Deliver an automation run output to a chat session (internal)',
+      tags: ['automations'],
+    })
+    documented(router.post('/tools/:name/run', [AutomationsController, 'runTool']), {
+      summary: 'Execute an automation tool (internal)',
+      tags: ['automations'],
+    })
+    documented(router.post('/model-chat', [AutomationsController, 'modelChat']), {
+      summary: 'Run a model chat completion for an automation (internal)',
+      tags: ['automations'],
+    })
+  })
+  .prefix('/api/automations')
 
 router
   .group(() => {
