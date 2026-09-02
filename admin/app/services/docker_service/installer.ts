@@ -481,6 +481,10 @@ async function createContainer(
       if (tz && typeof tz === 'string' && tz.trim() !== '') {
         appEnv.push(`GENERIC_TIMEZONE=${tz.trim()}`)
       }
+      const n8nApiKey = await KVStore.getValue('automation.n8nApiKey')
+      if (n8nApiKey && typeof n8nApiKey === 'string' && n8nApiKey.trim() !== '') {
+        appEnv.push(`NOMAD_AUTOMATION_SECRET=${n8nApiKey.trim()}`)
+      }
     }
 
     ctx.broadcast(

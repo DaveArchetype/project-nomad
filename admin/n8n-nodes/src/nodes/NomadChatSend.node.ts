@@ -22,7 +22,7 @@ export class NomadChatSend implements INodeType {
     credentials: [
       {
         name: 'nomadAutomationSecret',
-        required: true,
+        required: false,
       },
     ],
     properties: [

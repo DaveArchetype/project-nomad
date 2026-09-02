@@ -22,7 +22,7 @@ export class NomadSaveSuggestions implements INodeType {
     credentials: [
       {
         name: 'nomadAutomationSecret',
-        required: true,
+        required: false,
       },
     ],
     properties: [

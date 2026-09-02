@@ -34,7 +34,7 @@ export abstract class NomadToolBase implements INodeType {
       credentials: [
         {
           name: 'nomadAutomationSecret',
-          required: true,
+          required: false,
         },
       ],
       properties: [],

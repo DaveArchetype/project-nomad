@@ -316,7 +316,7 @@ export class AutomationsService {
 
   async ensureDefaultAutomation(existing?: Automation[]): Promise<void> {
     const current = existing ?? (await this.listAutomations().catch(() => []))
-    if (current.some((a) => a.isDefault)) return
+    if (current.some((a) => a.isDefault || a.name === DEFAULT_AUTOMATION_NAME)) return
 
     const model = await this.resolveDefaultModel()
     const workflow = this._buildWorkflowJson({
