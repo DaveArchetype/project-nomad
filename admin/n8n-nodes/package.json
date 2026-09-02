@@ -18,7 +18,6 @@
     "n8nNodesApiVersion": 1,
     "nodes": [
       "dist/nodes/NomadChatSend.node.js",
-      "dist/nodes/NomadChatModel.node.js",
       "dist/nodes/NomadSaveSuggestions.node.js",
       "dist/nodes/NomadToolWebSearch.node.js",
       "dist/nodes/NomadToolWebFetch.node.js",

@@ -209,6 +209,8 @@ export class AutomationsService {
       }
     }
 
+    const ollamaCredentialId = await this._ensureOllamaCredential(client)
+
     const workflow = this._buildWorkflowJson({
       name: input.name,
       prompt: input.prompt,
@@ -218,6 +220,7 @@ export class AutomationsService {
       deliverToChat,
       saveSuggestions: input.saveSuggestions === true,
       targetChatSessionId: resolvedSessionId,
+      ollamaCredentialId,
     })
 
     const res = await client.post('/workflows', workflow)
@@ -267,6 +270,8 @@ export class AutomationsService {
       targetChatSessionId = null
     }
 
+    const ollamaCredentialId = await this._ensureOllamaCredential(client)
+
     const workflow = this._buildWorkflowJson({
       name,
       prompt,
@@ -276,6 +281,7 @@ export class AutomationsService {
       deliverToChat,
       saveSuggestions: input.saveSuggestions === true,
       targetChatSessionId,
+      ollamaCredentialId,
     })
 
     const res = await client.put(`/workflows/${id}`, { ...workflow, versionId: current.versionId })
@@ -319,6 +325,12 @@ export class AutomationsService {
     if (current.some((a) => a.isDefault || a.name === DEFAULT_AUTOMATION_NAME)) return
 
     const model = await this.resolveDefaultModel()
+    let ollamaCredentialId: string | null = null
+    try {
+      const { client } = await this.getN8nClient()
+      ollamaCredentialId = await this._ensureOllamaCredential(client)
+    } catch {}
+
     const workflow = this._buildWorkflowJson({
       name: DEFAULT_AUTOMATION_NAME,
       prompt: DEFAULT_AUTOMATION_PROMPT,
@@ -328,6 +340,7 @@ export class AutomationsService {
       deliverToChat: false,
       saveSuggestions: true,
       targetChatSessionId: null,
+      ollamaCredentialId,
     })
 
     try {
@@ -472,6 +485,34 @@ export class AutomationsService {
     }
   }
 
+  private async _ensureOllamaCredential(client: AxiosInstance): Promise<string | null> {
+    const OLLAMA_CRED_NAME = 'NOMAD Ollama'
+    const OLLAMA_BASE_URL = process.env.NOMAD_OLLAMA_BASE_URL || 'http://nomad_ollama:11434'
+    try {
+      const res = await client.get('/credentials', { params: { limit: 100 } })
+      const creds: any[] = res.data?.data ?? res.data ?? []
+      const existing = creds.find((c: any) => c.name === OLLAMA_CRED_NAME && c.type === 'ollamaApi')
+      if (existing) return existing.id
+
+      const created = await client.post('/credentials', {
+        name: OLLAMA_CRED_NAME,
+        type: 'ollamaApi',
+        data: { baseUrl: OLLAMA_BASE_URL, apiKey: '' },
+      })
+      if (created.data?.id) {
+        logger.info(`[AutomationsService] Created Ollama credential: ${created.data.id}`)
+        return created.data.id
+      }
+    } catch (err) {
+      logger.warn(
+        `[AutomationsService] Failed to ensure Ollama credential: ${
+          err instanceof Error ? err.message : err
+        }`
+      )
+    }
+    return null
+  }
+
   private _buildWorkflowJson(params: {
     name: string
     prompt: string
@@ -481,6 +522,7 @@ export class AutomationsService {
     deliverToChat: boolean
     targetChatSessionId: string | null
     saveSuggestions: boolean
+    ollamaCredentialId: string | null
   }): any {
     const nodes: any[] = []
     const connections: any = {}
@@ -535,12 +577,15 @@ export class AutomationsService {
     nodes.push({
       id: modelId,
       name: modelId,
-      type: 'CUSTOM.nomadChatModel',
+      type: '@n8n/n8n-nodes-langchain.lmChatOllama',
       typeVersion: 1,
       position: [220, 220],
       parameters: {
         model: params.model,
       },
+      ...(params.ollamaCredentialId
+        ? { credentials: { ollamaApi: { id: params.ollamaCredentialId } } }
+        : {}),
     })
 
     for (let i = 0; i < params.tools.length; i++) {
@@ -653,7 +698,7 @@ export class AutomationsService {
   }
 
   private _extractModel(w: any): string {
-    const modelNode = this._findNode(w, 'CUSTOM.nomadChatModel')
+    const modelNode = this._findNode(w, 'lmChatOllama')
     return modelNode?.parameters?.model ?? ''
   }
 
