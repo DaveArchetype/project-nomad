@@ -507,7 +507,6 @@ export class AutomationsService {
         timeout: 30000,
       })
 
-      let credId: string | null = null
       try {
         const res = await internalClient.get('/rest/credentials', {
           params: { limit: 100 },
