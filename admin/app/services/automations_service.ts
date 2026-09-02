@@ -58,6 +58,7 @@ const DEFAULT_AUTOMATION_CRON = '0 15 * * *'
 
 @inject()
 export class AutomationsService {
+  private seedingDefault = false
   constructor(
     private ollamaService: OllamaService,
     private chatService: ChatService,
@@ -162,9 +163,10 @@ export class AutomationsService {
     }
 
     try {
-      const res = await client.get('/workflows', { params: { tags: N8N_TAG } })
-      const workflows: any[] = res.data?.data ?? res.data ?? []
-      const mapped = workflows.map((w) => this._mapWorkflow(w))
+      const res = await client.get('/workflows', { params: { limit: 250 } })
+      const allWorkflows: any[] = res.data?.data ?? res.data ?? []
+      const nomadWorkflows = allWorkflows.filter((w) => this._isNomadWorkflow(w))
+      const mapped = nomadWorkflows.map((w) => this._mapWorkflow(w))
       await this.ensureDefaultAutomation(mapped).catch((err) => {
         logger.warn(
           `[AutomationsService] ensureDefaultAutomation failed: ${
@@ -174,8 +176,9 @@ export class AutomationsService {
       })
       if (mapped.length === 0) {
         try {
-          const res2 = await client.get('/workflows', { params: { tags: N8N_TAG } })
-          return (res2.data?.data ?? res2.data ?? []).map((w: any) => this._mapWorkflow(w))
+          const res2 = await client.get('/workflows', { params: { limit: 250 } })
+          const all2: any[] = res2.data?.data ?? res2.data ?? []
+          return all2.filter((w) => this._isNomadWorkflow(w)).map((w: any) => this._mapWorkflow(w))
         } catch {
           return mapped
         }
@@ -321,8 +324,10 @@ export class AutomationsService {
   }
 
   async ensureDefaultAutomation(existing?: Automation[]): Promise<void> {
+    if (this.seedingDefault) return
     const current = existing ?? (await this.listAutomations().catch(() => []))
     if (current.some((a) => a.isDefault || a.name === DEFAULT_AUTOMATION_NAME)) return
+    this.seedingDefault = true
 
     const model = await this.resolveDefaultModel()
     let ollamaCredentialId: string | null = null
@@ -356,6 +361,8 @@ export class AutomationsService {
           err instanceof Error ? err.message : err
         }`
       )
+    } finally {
+      this.seedingDefault = false
     }
   }
 
@@ -656,6 +663,19 @@ export class AutomationsService {
       connections,
       settings: { executionOrder: 'v1' },
     }
+  }
+
+  private _isNomadWorkflow(w: any): boolean {
+    const tags: string[] = w.tags?.map((t: any) => t.name) ?? []
+    if (tags.includes(N8N_TAG) || tags.includes(N8N_DEFAULT_TAG)) return true
+    const nodes: any[] = w.nodes ?? []
+    return nodes.some(
+      (n) =>
+        typeof n.type === 'string' &&
+        (n.type.includes('CUSTOM.nomadChatSend') ||
+          n.type.includes('CUSTOM.nomadSaveSuggestions') ||
+          n.type.includes('CUSTOM.nomadTool_'))
+    )
   }
 
   private _mapWorkflow(w: any, extra?: { targetChatTitle?: string | null }): Automation {
