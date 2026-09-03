@@ -50,7 +50,8 @@ export abstract class NomadToolBase implements INodeType {
       )
     }
 
-    const description = toolName
+    const spec = (this.constructor as any).spec as NomadToolSpec | undefined
+    const description = spec?.description ?? toolName
 
     const tool = new DynamicToolCtor({
       name: toolName,
