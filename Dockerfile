@@ -39,10 +39,14 @@ COPY collections/ /collections/
 RUN npm run gen:curated-data
 RUN node ace build
 RUN cd /app/n8n-nodes && npm ci --omit=optional && npm run build && \
-  mkdir -p /app/n8n-nodes-dist && \
+  mkdir -p /app/n8n-nodes-dist/node_modules && \
   cp /app/n8n-nodes/package.json /app/n8n-nodes-dist/package.json && \
   cp -r /app/n8n-nodes/dist /app/n8n-nodes-dist/dist && \
-  cp -r /app/n8n-nodes/node_modules /app/n8n-nodes-dist/node_modules
+  for pkg in zod @langchain; do \
+  if [ -d "/app/n8n-nodes/node_modules/$pkg" ]; then \
+  cp -r "/app/n8n-nodes/node_modules/$pkg" "/app/n8n-nodes-dist/node_modules/$pkg"; \
+  fi; \
+  done
 
 # Production stage
 FROM base
