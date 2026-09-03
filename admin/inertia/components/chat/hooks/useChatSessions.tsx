@@ -176,10 +176,23 @@ export function useChatSessions({
   const { subscribe } = useTransmit()
   useEffect(() => {
     if (!enabled) return
+    console.debug(
+      '[useChatSessions] Subscribing to AUTOMATION_DELIVERED, activeSessionId:',
+      activeSessionId
+    )
     const unsubscribe = subscribe(
       BROADCAST_CHANNELS.AUTOMATION_DELIVERED,
       async (data: { sessionId: string; messageId: string }) => {
-        if (!activeSessionId || data.sessionId !== activeSessionId) return
+        console.debug(
+          '[useChatSessions] AUTOMATION_DELIVERED received:',
+          data,
+          'activeSessionId:',
+          activeSessionId
+        )
+        if (!activeSessionId || data.sessionId !== activeSessionId) {
+          console.debug('[useChatSessions] Skipping — sessionId mismatch or no active session')
+          return
+        }
         const sessionData = await api.getChatSession(activeSessionId)
         if (sessionData?.messages) {
           setMessages(

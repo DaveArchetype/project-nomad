@@ -38,7 +38,23 @@ export default function Chat({
   autoReadReplies = false,
 }: ChatProps) {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('nomad_active_chat_session')
+    } catch {
+      return null
+    }
+  })
+
+  useEffect(() => {
+    try {
+      if (activeSessionId) {
+        localStorage.setItem('nomad_active_chat_session', activeSessionId)
+      } else {
+        localStorage.removeItem('nomad_active_chat_session')
+      }
+    } catch {}
+  }, [activeSessionId])
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [selectedModel, setSelectedModel] = useState<string>('')
   const effectiveThinkingRef = useRef<(model: string) => boolean>(() => false)
