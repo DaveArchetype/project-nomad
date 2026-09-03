@@ -48,10 +48,9 @@ export abstract class NomadToolBase implements INodeType {
   }
 
   async supplyData(this: ISupplyDataFunctions): Promise<SupplyData> {
-    const node = this.getNode()
-    const toolName = node.type.replace('CUSTOM.nomadTool_', '')
+    const spec = (this.constructor as any).spec as NomadToolSpec
+    const toolName = spec.toolName
     const secret = await getNomadSecret.call(this as any)
-    const spec = (this.constructor as any).spec as NomadToolSpec | undefined
 
     let zod: any
     try {
@@ -70,7 +69,7 @@ export abstract class NomadToolBase implements INodeType {
       )
     }
 
-    const schemaFields = spec?.inputSchema ?? {}
+    const schemaFields = spec.inputSchema ?? {}
     const zodShape: Record<string, any> = {}
     for (const [key, field] of Object.entries(schemaFields)) {
       let zodType: any
@@ -86,7 +85,7 @@ export abstract class NomadToolBase implements INodeType {
     }
     const schema = zod.object(zodShape)
 
-    const description = spec?.description ?? toolName
+    const description = spec.description
 
     const tool = new StructuredToolCtor({
       name: toolName,
