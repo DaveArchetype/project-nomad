@@ -5,6 +5,8 @@ import {
   type ISupplyDataFunctions,
   type SupplyData,
 } from 'n8n-workflow'
+import { z } from 'zod'
+import { DynamicStructuredTool } from '@langchain/core/tools'
 import { NOMAD_ADMIN_BASE_URL, getNomadSecret, nomadPost } from '../nomadConfig'
 
 export class NomadToolWebSearch implements INodeType {
@@ -35,14 +37,12 @@ export class NomadToolWebSearch implements INodeType {
 
   async supplyData(this: ISupplyDataFunctions): Promise<SupplyData> {
     const secret = await getNomadSecret.call(this as any)
-    const zod = require('zod')
-    const { StructuredTool } = require('@langchain/core/tools')
 
-    const schema = zod.object({
-      query: zod.string().describe('The search query'),
+    const schema = z.object({
+      query: z.string().describe('The search query'),
     })
 
-    const tool = new StructuredTool({
+    const tool = new DynamicStructuredTool({
       name: 'web_search',
       description:
         'Search the web for current information. Returns results with titles, URLs, and snippets. Use this for news, facts, or any information that requires up-to-date data.',

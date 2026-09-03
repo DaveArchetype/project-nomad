@@ -5,6 +5,8 @@ import {
   type ISupplyDataFunctions,
   type SupplyData,
 } from 'n8n-workflow'
+import { z } from 'zod'
+import { DynamicStructuredTool } from '@langchain/core/tools'
 import { NOMAD_ADMIN_BASE_URL, getNomadSecret, nomadPost } from '../nomadConfig'
 
 export class NomadToolWebFetch implements INodeType {
@@ -35,14 +37,12 @@ export class NomadToolWebFetch implements INodeType {
 
   async supplyData(this: ISupplyDataFunctions): Promise<SupplyData> {
     const secret = await getNomadSecret.call(this as any)
-    const zod = require('zod')
-    const { StructuredTool } = require('@langchain/core/tools')
 
-    const schema = zod.object({
-      url: zod.string().describe('The full URL of the page to fetch'),
+    const schema = z.object({
+      url: z.string().describe('The full URL of the page to fetch'),
     })
 
-    const tool = new StructuredTool({
+    const tool = new DynamicStructuredTool({
       name: 'web_fetch',
       description:
         'Fetch the text content of a specific web page URL. Use this to read a full page when search snippets are not enough.',

@@ -5,6 +5,8 @@ import {
   type ISupplyDataFunctions,
   type SupplyData,
 } from 'n8n-workflow'
+import { z } from 'zod'
+import { DynamicStructuredTool } from '@langchain/core/tools'
 import { NOMAD_ADMIN_BASE_URL, getNomadSecret, nomadPost } from '../nomadConfig'
 
 export class NomadToolCalculator implements INodeType {
@@ -35,14 +37,12 @@ export class NomadToolCalculator implements INodeType {
 
   async supplyData(this: ISupplyDataFunctions): Promise<SupplyData> {
     const secret = await getNomadSecret.call(this as any)
-    const zod = require('zod')
-    const { StructuredTool } = require('@langchain/core/tools')
 
-    const schema = zod.object({
-      expression: zod.string().describe('The mathematical expression to evaluate'),
+    const schema = z.object({
+      expression: z.string().describe('The mathematical expression to evaluate'),
     })
 
-    const tool = new StructuredTool({
+    const tool = new DynamicStructuredTool({
       name: 'calculator',
       description:
         'Evaluate a mathematical expression. Supports +, -, *, /, %, ^, parentheses, and decimals. Use this for any arithmetic or math computation.',

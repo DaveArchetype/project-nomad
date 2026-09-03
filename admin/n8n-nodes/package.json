@@ -26,6 +26,10 @@
       "dist/nodes/NomadToolGenerateImage.node.js"
     ]
   },
+  "dependencies": {
+    "zod": "^3.24.1",
+    "@langchain/core": "^0.3.60"
+  },
   "devDependencies": {
     "n8n-workflow": "^1.110.0",
     "typescript": "^5.8.3"

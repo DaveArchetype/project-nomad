@@ -5,6 +5,8 @@ import {
   type ISupplyDataFunctions,
   type SupplyData,
 } from 'n8n-workflow'
+import { z } from 'zod'
+import { DynamicStructuredTool } from '@langchain/core/tools'
 import { NOMAD_ADMIN_BASE_URL, getNomadSecret, nomadPost } from '../nomadConfig'
 
 export class NomadToolCurrentTime implements INodeType {
@@ -35,14 +37,12 @@ export class NomadToolCurrentTime implements INodeType {
 
   async supplyData(this: ISupplyDataFunctions): Promise<SupplyData> {
     const secret = await getNomadSecret.call(this as any)
-    const zod = require('zod')
-    const { StructuredTool } = require('@langchain/core/tools')
 
-    const schema = zod.object({
-      timezone: zod.string().optional().describe('Optional timezone, e.g. "Europe/London"'),
+    const schema = z.object({
+      timezone: z.string().optional().describe('Optional timezone, e.g. "Europe/London"'),
     })
 
-    const tool = new StructuredTool({
+    const tool = new DynamicStructuredTool({
       name: 'current_time',
       description:
         'Get the current date and time. Use this when the user asks about the current time or date.',

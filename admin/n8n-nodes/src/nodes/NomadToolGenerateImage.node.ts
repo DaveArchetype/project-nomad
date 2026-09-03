@@ -5,6 +5,8 @@ import {
   type ISupplyDataFunctions,
   type SupplyData,
 } from 'n8n-workflow'
+import { z } from 'zod'
+import { DynamicStructuredTool } from '@langchain/core/tools'
 import { NOMAD_ADMIN_BASE_URL, getNomadSecret, nomadPost } from '../nomadConfig'
 
 export class NomadToolGenerateImage implements INodeType {
@@ -35,14 +37,12 @@ export class NomadToolGenerateImage implements INodeType {
 
   async supplyData(this: ISupplyDataFunctions): Promise<SupplyData> {
     const secret = await getNomadSecret.call(this as any)
-    const zod = require('zod')
-    const { StructuredTool } = require('@langchain/core/tools')
 
-    const schema = zod.object({
-      prompt: zod.string().describe('The text description of the image to generate'),
+    const schema = z.object({
+      prompt: z.string().describe('The text description of the image to generate'),
     })
 
-    const tool = new StructuredTool({
+    const tool = new DynamicStructuredTool({
       name: 'generate_image',
       description:
         'Generate an image from a text prompt via Project NOMAD Image Studio. Use this when the user asks to create, draw, or generate an image.',
