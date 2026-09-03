@@ -5,8 +5,7 @@ import {
   type ISupplyDataFunctions,
   type SupplyData,
 } from 'n8n-workflow'
-import { z } from 'zod'
-import { DynamicStructuredTool } from '@langchain/core/tools'
+import { DynamicTool } from '@langchain/core/tools'
 import { NOMAD_ADMIN_BASE_URL, getNomadSecret, nomadPost } from '../nomadConfig'
 
 export class NomadToolCurrentTime implements INodeType {
@@ -23,34 +22,24 @@ export class NomadToolCurrentTime implements INodeType {
     outputs: [NodeConnectionTypes.AiTool],
     outputNames: ['Tool'],
     usableAsTool: true,
-    properties: [
-      {
-        displayName: 'Timezone',
-        name: 'timezone',
-        type: 'string',
-        description: 'Optional timezone, e.g. "Europe/London". Defaults to UTC.',
-        default: '',
-        required: false,
-      },
-    ],
+    properties: [],
   }
 
   async supplyData(this: ISupplyDataFunctions): Promise<SupplyData> {
     const secret = await getNomadSecret.call(this as any)
 
-    const schema = z.object({
-      timezone: z.string().optional().describe('Optional timezone, e.g. "Europe/London"'),
-    })
-
-    const tool = new DynamicStructuredTool({
+    const tool = new DynamicTool({
       name: 'current_time',
       description:
-        'Get the current date and time. Use this when the user asks about the current time or date.',
-      schema,
-      func: async (input: any) => {
+        'Gets the current date and time. Input can be a timezone string like "Europe/London" or empty for UTC. Use this when the user asks about the current time or date.',
+      func: async (input: string) => {
+        try {
+          const parsed = JSON.parse(input)
+          if (parsed?.timezone) input = parsed.timezone
+        } catch {}
         const result = await nomadPost(
           `${NOMAD_ADMIN_BASE_URL}/api/automations/tools/current_time/run`,
-          { input },
+          { input: { timezone: input || undefined } },
           secret
         )
         return typeof result?.result === 'string'

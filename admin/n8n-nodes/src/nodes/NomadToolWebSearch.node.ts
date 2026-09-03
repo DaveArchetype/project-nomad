@@ -5,8 +5,7 @@ import {
   type ISupplyDataFunctions,
   type SupplyData,
 } from 'n8n-workflow'
-import { z } from 'zod'
-import { DynamicStructuredTool } from '@langchain/core/tools'
+import { DynamicTool } from '@langchain/core/tools'
 import { NOMAD_ADMIN_BASE_URL, getNomadSecret, nomadPost } from '../nomadConfig'
 
 export class NomadToolWebSearch implements INodeType {
@@ -23,34 +22,24 @@ export class NomadToolWebSearch implements INodeType {
     outputs: [NodeConnectionTypes.AiTool],
     outputNames: ['Tool'],
     usableAsTool: true,
-    properties: [
-      {
-        displayName: 'Query',
-        name: 'query',
-        type: 'string',
-        description: 'The search query',
-        default: '',
-        required: true,
-      },
-    ],
+    properties: [],
   }
 
   async supplyData(this: ISupplyDataFunctions): Promise<SupplyData> {
     const secret = await getNomadSecret.call(this as any)
 
-    const schema = z.object({
-      query: z.string().describe('The search query'),
-    })
-
-    const tool = new DynamicStructuredTool({
+    const tool = new DynamicTool({
       name: 'web_search',
       description:
-        'Search the web for current information. Returns results with titles, URLs, and snippets. Use this for news, facts, or any information that requires up-to-date data.',
-      schema,
-      func: async (input: any) => {
+        'Searches the web for current information. Input should be a search query string. Returns results with titles, URLs, and snippets. Use this for news, facts, or any information that requires up-to-date data.',
+      func: async (input: string) => {
+        try {
+          const parsed = JSON.parse(input)
+          if (parsed?.query) input = parsed.query
+        } catch {}
         const result = await nomadPost(
           `${NOMAD_ADMIN_BASE_URL}/api/automations/tools/web_search/run`,
-          { input },
+          { input: { query: input } },
           secret
         )
         return typeof result?.result === 'string'

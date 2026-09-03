@@ -5,8 +5,7 @@ import {
   type ISupplyDataFunctions,
   type SupplyData,
 } from 'n8n-workflow'
-import { z } from 'zod'
-import { DynamicStructuredTool } from '@langchain/core/tools'
+import { DynamicTool } from '@langchain/core/tools'
 import { NOMAD_ADMIN_BASE_URL, getNomadSecret, nomadPost } from '../nomadConfig'
 
 export class NomadToolGenerateImage implements INodeType {
@@ -23,34 +22,24 @@ export class NomadToolGenerateImage implements INodeType {
     outputs: [NodeConnectionTypes.AiTool],
     outputNames: ['Tool'],
     usableAsTool: true,
-    properties: [
-      {
-        displayName: 'Prompt',
-        name: 'prompt',
-        type: 'string',
-        description: 'The text description of the image to generate',
-        default: '',
-        required: true,
-      },
-    ],
+    properties: [],
   }
 
   async supplyData(this: ISupplyDataFunctions): Promise<SupplyData> {
     const secret = await getNomadSecret.call(this as any)
 
-    const schema = z.object({
-      prompt: z.string().describe('The text description of the image to generate'),
-    })
-
-    const tool = new DynamicStructuredTool({
+    const tool = new DynamicTool({
       name: 'generate_image',
       description:
-        'Generate an image from a text prompt via Project NOMAD Image Studio. Use this when the user asks to create, draw, or generate an image.',
-      schema,
-      func: async (input: any) => {
+        'Generates an image from a text description via Project NOMAD Image Studio. Input should be a text description of the image to generate. Use this when the user asks to create, draw, or generate an image.',
+      func: async (input: string) => {
+        try {
+          const parsed = JSON.parse(input)
+          if (parsed?.prompt) input = parsed.prompt
+        } catch {}
         const result = await nomadPost(
           `${NOMAD_ADMIN_BASE_URL}/api/automations/tools/generate_image/run`,
-          { input },
+          { input: { prompt: input } },
           secret
         )
         return typeof result?.result === 'string'

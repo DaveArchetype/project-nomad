@@ -5,8 +5,7 @@ import {
   type ISupplyDataFunctions,
   type SupplyData,
 } from 'n8n-workflow'
-import { z } from 'zod'
-import { DynamicStructuredTool } from '@langchain/core/tools'
+import { DynamicTool } from '@langchain/core/tools'
 import { NOMAD_ADMIN_BASE_URL, getNomadSecret, nomadPost } from '../nomadConfig'
 
 export class NomadToolWebFetch implements INodeType {
@@ -23,34 +22,24 @@ export class NomadToolWebFetch implements INodeType {
     outputs: [NodeConnectionTypes.AiTool],
     outputNames: ['Tool'],
     usableAsTool: true,
-    properties: [
-      {
-        displayName: 'URL',
-        name: 'url',
-        type: 'string',
-        description: 'The full URL of the page to fetch',
-        default: '',
-        required: true,
-      },
-    ],
+    properties: [],
   }
 
   async supplyData(this: ISupplyDataFunctions): Promise<SupplyData> {
     const secret = await getNomadSecret.call(this as any)
 
-    const schema = z.object({
-      url: z.string().describe('The full URL of the page to fetch'),
-    })
-
-    const tool = new DynamicStructuredTool({
+    const tool = new DynamicTool({
       name: 'web_fetch',
       description:
-        'Fetch the text content of a specific web page URL. Use this to read a full page when search snippets are not enough.',
-      schema,
-      func: async (input: any) => {
+        'Fetches the text content of a web page. Input should be a full URL string like https://example.com/page. Use this to read a full page when search snippets are not enough.',
+      func: async (input: string) => {
+        try {
+          const parsed = JSON.parse(input)
+          if (parsed?.url) input = parsed.url
+        } catch {}
         const result = await nomadPost(
           `${NOMAD_ADMIN_BASE_URL}/api/automations/tools/web_fetch/run`,
-          { input },
+          { input: { url: input } },
           secret
         )
         return typeof result?.result === 'string'

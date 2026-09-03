@@ -646,7 +646,7 @@ export class AutomationsService {
       typeVersion: 1.7,
       position: [220, 0],
       parameters: {
-        agent: 'conversationalAgent',
+        agent: params.tools.length > 0 ? 'conversationalAgent' : 'toolsAgent',
         promptType: 'define',
         text: params.prompt,
         options: {
@@ -667,6 +667,10 @@ You have access to tools. When the user's request requires external data (web se
       position: [220, 220],
       parameters: {
         model: params.model,
+        options: {
+          numPredict: 125000,
+          keepAlive: '30m',
+        },
       },
       ...(params.ollamaCredentialId
         ? { credentials: { ollamaApi: { id: params.ollamaCredentialId } } }

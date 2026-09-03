@@ -5,8 +5,7 @@ import {
   type ISupplyDataFunctions,
   type SupplyData,
 } from 'n8n-workflow'
-import { z } from 'zod'
-import { DynamicStructuredTool } from '@langchain/core/tools'
+import { DynamicTool } from '@langchain/core/tools'
 import { NOMAD_ADMIN_BASE_URL, getNomadSecret, nomadPost } from '../nomadConfig'
 
 export class NomadToolCalculator implements INodeType {
@@ -23,34 +22,24 @@ export class NomadToolCalculator implements INodeType {
     outputs: [NodeConnectionTypes.AiTool],
     outputNames: ['Tool'],
     usableAsTool: true,
-    properties: [
-      {
-        displayName: 'Expression',
-        name: 'expression',
-        type: 'string',
-        description: 'The mathematical expression to evaluate, e.g. "2 + 3 * 4"',
-        default: '',
-        required: true,
-      },
-    ],
+    properties: [],
   }
 
   async supplyData(this: ISupplyDataFunctions): Promise<SupplyData> {
     const secret = await getNomadSecret.call(this as any)
 
-    const schema = z.object({
-      expression: z.string().describe('The mathematical expression to evaluate'),
-    })
-
-    const tool = new DynamicStructuredTool({
+    const tool = new DynamicTool({
       name: 'calculator',
       description:
-        'Evaluate a mathematical expression. Supports +, -, *, /, %, ^, parentheses, and decimals. Use this for any arithmetic or math computation.',
-      schema,
-      func: async (input: any) => {
+        'Evaluates a mathematical expression. Input should be a math expression string like "2 + 3 * 4" or "sqrt(16) + 5". Supports +, -, *, /, %, ^, parentheses, and decimals.',
+      func: async (input: string) => {
+        try {
+          const parsed = JSON.parse(input)
+          if (parsed?.expression) input = parsed.expression
+        } catch {}
         const result = await nomadPost(
           `${NOMAD_ADMIN_BASE_URL}/api/automations/tools/calculator/run`,
-          { input },
+          { input: { expression: input } },
           secret
         )
         return typeof result?.result === 'string'
