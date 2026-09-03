@@ -328,20 +328,27 @@ export class AutomationsService {
     const baseUrl = await this.resolveN8nBaseUrl()
     const webhookUrl = `${baseUrl}/webhook/${webhookPath}`
 
-    try {
-      const res = await axios({
-        method: 'POST',
-        url: webhookUrl,
-        timeout: 120000,
-        headers: { 'Content-Type': 'application/json' },
-        data: {},
-      })
-      return { executionId: String(res.data?.executionId ?? res.data?.id ?? 'manual') }
-    } finally {
-      if (!wasActive) {
-        await client.post(`/workflows/${id}/deactivate`).catch(() => {})
-      }
+    axios({
+      method: 'POST',
+      url: webhookUrl,
+      timeout: 300000,
+      headers: { 'Content-Type': 'application/json' },
+      data: {},
+    }).catch((err) => {
+      logger.warn(
+        `[AutomationsService] Webhook trigger failed: ${err instanceof Error ? err.message : err}`
+      )
+    })
+
+    if (!wasActive) {
+      setTimeout(async () => {
+        try {
+          await client.post(`/workflows/${id}/deactivate`)
+        } catch {}
+      }, 5000)
     }
+
+    return { executionId: 'triggered' }
   }
 
   async listRuns(id: string, limit = 20): Promise<AutomationRun[]> {
@@ -706,7 +713,8 @@ export class AutomationsService {
           systemMessage:
             params.tools.length > 0
               ? `${SYSTEM_PROMPTS.default}
-You have access to tools. When the user's request requires external data (web search, fetching pages, calculations, current time, image generation), ALWAYS use the appropriate tool. Do not just describe what you would do — actually call the tool and use its result in your answer.`
+You have access to tools. When the user's request requires external data (web search, fetching pages, calculations, current time, image generation), ALWAYS use the appropriate tool. Do not just describe what you would do — actually call the tool and use its result in your answer.
+Answer the user's question directly and concisely. Do not include meta-commentary about your search process, the dates of results, or recommendations for other sources. Just present the information asked for.`
               : SYSTEM_PROMPTS.default,
         },
       },
