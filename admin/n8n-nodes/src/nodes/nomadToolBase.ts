@@ -19,7 +19,24 @@ export abstract class NomadToolBase implements INodeType {
   description: INodeTypeDescription
 
   constructor() {
-    const spec = (this.constructor as any).spec as NomadToolSpec
+    const spec = (this.constructor as any).spec as NomadToolSpec | undefined
+    if (!spec) {
+      this.description = {
+        displayName: 'NOMAD Tool',
+        name: 'nomadTool_unknown',
+        icon: 'file:nomad.svg',
+        group: ['transform'],
+        version: 1,
+        description: 'NOMAD Tool (not configured)',
+        defaults: { name: 'NOMAD Tool' },
+        inputs: [],
+        outputs: [NodeConnectionTypes.AiTool],
+        outputNames: ['Tool'],
+        usableAsTool: true,
+        properties: [],
+      }
+      return
+    }
     const schemaFields = Object.entries(spec.inputSchema || {})
     const properties: any[] = schemaFields.map(([key, field]) => ({
       displayName: key.charAt(0).toUpperCase() + key.slice(1),
@@ -48,7 +65,10 @@ export abstract class NomadToolBase implements INodeType {
   }
 
   async supplyData(this: ISupplyDataFunctions): Promise<SupplyData> {
-    const spec = (this.constructor as any).spec as NomadToolSpec
+    const spec = (this.constructor as any).spec as NomadToolSpec | undefined
+    if (!spec) {
+      throw new Error('NOMAD tool node spec is not configured')
+    }
     const toolName = spec.toolName
     const secret = await getNomadSecret.call(this as any)
 
