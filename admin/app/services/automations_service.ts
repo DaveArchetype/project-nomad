@@ -340,14 +340,6 @@ export class AutomationsService {
       )
     })
 
-    if (!wasActive) {
-      setTimeout(async () => {
-        try {
-          await client.post(`/workflows/${id}/deactivate`)
-        } catch {}
-      }, 5000)
-    }
-
     return { executionId: 'triggered' }
   }
 
@@ -427,7 +419,7 @@ export class AutomationsService {
       params.toolSteps ?? null
     )
     transmit.broadcast(BROADCAST_CHANNELS.AUTOMATION_DELIVERED, {
-      sessionId: params.sessionId,
+      sessionId: String(params.sessionId),
       messageId: message.id,
     })
     return { messageId: message.id }
