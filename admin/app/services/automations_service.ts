@@ -646,7 +646,7 @@ export class AutomationsService {
       typeVersion: 1.7,
       position: [220, 0],
       parameters: {
-        agent: 'toolsAgent',
+        agent: 'conversationalAgent',
         promptType: 'define',
         text: params.prompt,
         options: {
