@@ -650,7 +650,11 @@ export class AutomationsService {
         promptType: 'define',
         text: params.prompt,
         options: {
-          systemMessage: SYSTEM_PROMPTS.default,
+          systemMessage:
+            params.tools.length > 0
+              ? `${SYSTEM_PROMPTS.default}
+You have access to tools. When the user's request requires external data (web search, fetching pages, calculations, current time, image generation), ALWAYS use the appropriate tool. Do not just describe what you would do — actually call the tool and use its result in your answer.`
+              : SYSTEM_PROMPTS.default,
         },
       },
     })
