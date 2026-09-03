@@ -287,7 +287,13 @@ export class AutomationsService {
       ollamaCredentialId,
     })
 
-    const res = await client.put(`/workflows/${id}`, { ...workflow, versionId: current.versionId })
+    const res = await client.put(`/workflows/${id}`, {
+      name: workflow.name,
+      nodes: workflow.nodes,
+      connections: workflow.connections,
+      settings: workflow.settings,
+      versionId: current.versionId,
+    })
     const updated = res.data
 
     if (scheduleCron) {
