@@ -292,7 +292,6 @@ export class AutomationsService {
       nodes: workflow.nodes,
       connections: workflow.connections,
       settings: workflow.settings,
-      versionId: current.versionId,
     })
     const updated = res.data
 
@@ -313,9 +312,36 @@ export class AutomationsService {
   async runNow(id: string): Promise<{ executionId: string }> {
     const { client } = await this.getN8nClient()
     const wfRes = await client.get(`/workflows/${id}`)
-    const workflowData = wfRes.data
-    const res = await client.post(`/workflows/${id}/run`, { workflowData })
-    return { executionId: String(res.data?.executionId ?? res.data?.id ?? '') }
+    const workflow = wfRes.data
+
+    const webhookNode = (workflow.nodes ?? []).find((n: any) => n.type === 'n8n-nodes-base.webhook')
+    if (!webhookNode) {
+      throw new Error('Workflow does not have a webhook trigger for manual execution')
+    }
+
+    const webhookPath = webhookNode.parameters?.path || ''
+    const wasActive = workflow.active === true
+    if (!wasActive) {
+      await client.post(`/workflows/${id}/activate`).catch(() => {})
+    }
+
+    const baseUrl = await this.resolveN8nBaseUrl()
+    const webhookUrl = `${baseUrl}/webhook/${webhookPath}`
+
+    try {
+      const res = await axios({
+        method: 'POST',
+        url: webhookUrl,
+        timeout: 120000,
+        headers: { 'Content-Type': 'application/json' },
+        data: {},
+      })
+      return { executionId: String(res.data?.executionId ?? res.data?.id ?? 'manual') }
+    } finally {
+      if (!wasActive) {
+        await client.post(`/workflows/${id}/deactivate`).catch(() => {})
+      }
+    }
   }
 
   async listRuns(id: string, limit = 20): Promise<AutomationRun[]> {
@@ -618,11 +644,29 @@ export class AutomationsService {
     const connections: any = {}
 
     const triggerId = 'nomad-trigger'
+    const webhookId = 'nomad-webhook'
     const agentId = 'nomad-agent'
     const modelId = 'nomad-model'
     const sendId = 'nomad-send'
     const saveSuggestionsId = 'nomad-save-suggestions'
     const toolNodeIds = params.tools.map((t) => `nomad-tool-${t}`)
+
+    const webhookPath = `nomad-run-${params.name.toLowerCase().replace(/[^a-z0-9]/g, '')}`
+
+    nodes.push({
+      id: webhookId,
+      name: webhookId,
+      type: 'n8n-nodes-base.webhook',
+      typeVersion: 2,
+      position: [0, 200],
+      parameters: {
+        httpMethod: 'POST',
+        path: webhookPath,
+        responseMode: 'onReceived',
+        options: {},
+      },
+      webhookId: webhookPath,
+    })
 
     if (params.scheduleCron) {
       nodes.push({
@@ -727,6 +771,7 @@ You have access to tools. When the user's request requires external data (web se
     }
 
     connections[triggerId] = { main: [[{ node: agentId, type: 'main', index: 0 }]] }
+    connections[webhookId] = { main: [[{ node: agentId, type: 'main', index: 0 }]] }
 
     const agentOutputs: any[] = []
     if (params.deliverToChat && params.targetChatSessionId) {
