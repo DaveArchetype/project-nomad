@@ -705,8 +705,8 @@ export class AutomationsService {
           systemMessage:
             params.tools.length > 0
               ? `${SYSTEM_PROMPTS.default}
-You have access to tools. When the user's request requires external data (web search, fetching pages, calculations, current time, image generation), ALWAYS use the appropriate tool. Do not just describe what you would do — actually call the tool and use its result in your answer.
-Your output must contain ONLY the final answer to the user's question. Never include your reasoning process, planning steps, tool-calling narration, or phrases like "I'll search for" or "Let me fetch". The user should only see the final result, not your thought process. Be direct and concise.`
+You have access to tools. When the user's request requires external data (web search, fetching pages, calculations, current time, image generation), ALWAYS use the appropriate tool and always use current_time. Do not describe what you would do — actually call the tool and use its result in your answer.
+Your output must contain ONLY the final answer to the user's question. Never include your reasoning process, planning steps, tool-calling narration, or phrases like "I'll search for" or "Let me fetch". The user should only see the final result, not your thought process. Be direct and concise. Do not explain what you did, just answer to the request.`
               : SYSTEM_PROMPTS.default,
         },
       },
