@@ -205,10 +205,10 @@ export class AutomationsService {
       if (targetChatSessionId === 'new') {
         const title = input.targetChatTitle || input.name
         const session = await this.chatService.createSession(title, model)
-        resolvedSessionId = session.id
+        resolvedSessionId = String(session.id)
         targetChatTitle = title
       } else {
-        resolvedSessionId = targetChatSessionId
+        resolvedSessionId = String(targetChatSessionId)
       }
     }
 
@@ -264,10 +264,10 @@ export class AutomationsService {
       ) {
         const title = input.targetChatTitle || name
         const session = await this.chatService.createSession(title, model)
-        targetChatSessionId = session.id
+        targetChatSessionId = String(session.id)
         targetChatTitle = title
       } else if (input.targetChatSessionId && input.targetChatSessionId !== 'new') {
-        targetChatSessionId = input.targetChatSessionId
+        targetChatSessionId = String(input.targetChatSessionId)
       }
     } else {
       targetChatSessionId = null
@@ -420,7 +420,7 @@ export class AutomationsService {
     )
     transmit.broadcast(BROADCAST_CHANNELS.AUTOMATION_DELIVERED, {
       sessionId: String(params.sessionId),
-      messageId: message.id,
+      messageId: String(message.id),
     })
     return { messageId: message.id }
   }
