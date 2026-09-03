@@ -706,7 +706,7 @@ export class AutomationsService {
             params.tools.length > 0
               ? `${SYSTEM_PROMPTS.default}
 You have access to tools. When the user's request requires external data (web search, fetching pages, calculations, current time, image generation), ALWAYS use the appropriate tool. Do not just describe what you would do — actually call the tool and use its result in your answer.
-Answer the user's question directly and concisely. Do not include meta-commentary about your search process, the dates of results, or recommendations for other sources. Just present the information asked for.`
+Your output must contain ONLY the final answer to the user's question. Never include your reasoning process, planning steps, tool-calling narration, or phrases like "I'll search for" or "Let me fetch". The user should only see the final result, not your thought process. Be direct and concise.`
               : SYSTEM_PROMPTS.default,
         },
       },

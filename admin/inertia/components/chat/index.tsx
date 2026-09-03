@@ -305,6 +305,32 @@ export default function Chat({
     abortStream: stream.abort,
   })
 
+  const restoredRef = useRef(false)
+  useEffect(() => {
+    if (restoredRef.current || !activeSessionId || !enabled) return
+    restoredRef.current = true
+    api
+      .getChatSession(activeSessionId)
+      .then((sessionData) => {
+        if (sessionData?.messages) {
+          setMessages(
+            sessionData.messages.map((m: any) => ({
+              id: m.id,
+              role: m.role,
+              content: m.content,
+              images: m.images,
+              sources: m.sources,
+              toolSteps: m.toolSteps,
+              timestamp: new Date(m.timestamp),
+            }))
+          )
+        }
+      })
+      .catch(() => {
+        setActiveSessionId(null)
+      })
+  }, [enabled, activeSessionId, setMessages, setActiveSessionId])
+
   const { data: chatSuggestions, isLoading: chatSuggestionsLoading } = useQuery<string[]>({
     queryKey: ['chatSuggestions'],
     queryFn: async ({ signal }) => {
