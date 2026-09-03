@@ -102,7 +102,9 @@ export function listAutomationTools(client: AxiosInstance) {
 
 export function getAutomationDefaultModel(client: AxiosInstance) {
   return catchInternal(async () => {
-    const response = await client.get<{ defaultModel: string }>('/automations/models')
+    const response = await client.get<{ defaultModel: string; installedModels: string[] }>(
+      '/automations/models'
+    )
     return response.data
   })()
 }

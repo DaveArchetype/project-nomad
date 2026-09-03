@@ -178,6 +178,7 @@ export default function AutomationsModal({ onClose }: AutomationsModalProps) {
   const automations = automationsData?.automations ?? []
   const tools = toolsData?.tools ?? []
   const defaultModel = defaultModelData?.defaultModel ?? ''
+  const installedModels = defaultModelData?.installedModels ?? []
   const chats = chatsData?.chats ?? []
   const n8nInstalled = status?.n8nInstalled ?? false
   const apiKeyConfigured = status?.n8nApiKeyConfigured ?? false
@@ -279,15 +280,20 @@ export default function AutomationsModal({ onClose }: AutomationsModalProps) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-text-primary mb-1">Model</label>
-                <input
-                  type="text"
+                <select
                   value={formData.model ?? ''}
-                  onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, model: e.target.value || undefined })}
                   className="w-full px-3 py-2 rounded-lg border border-border-subtle bg-surface-primary text-text-primary text-sm"
-                  placeholder={
-                    defaultModel ? `Default: ${defaultModel}` : 'Default: current chat model'
-                  }
-                />
+                >
+                  <option value="">
+                    {defaultModel ? `Default (${defaultModel})` : 'Default (current chat model)'}
+                  </option>
+                  {installedModels.map((model: string) => (
+                    <option key={model} value={model}>
+                      {model}
+                    </option>
+                  ))}
+                </select>
               </div>
               {tools.length > 0 && (
                 <div>

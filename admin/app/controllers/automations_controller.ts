@@ -6,6 +6,7 @@ import { AutomationsService } from '#services/automations_service'
 import { AutomationToolRegistry } from '#services/automation_tool_registry'
 import { SystemService } from '#services/system_service'
 import { ChatService } from '#services/chat_service'
+import { OllamaService } from '#services/ollama_service'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import {
   createAutomationSchema,
@@ -23,7 +24,8 @@ export default class AutomationsController {
     private automationsService: AutomationsService,
     private toolRegistry: AutomationToolRegistry,
     private systemService: SystemService,
-    private chatService: ChatService
+    private chatService: ChatService,
+    private ollamaService: OllamaService
   ) {}
 
   async inertia({ inertia }: HttpContext) {
@@ -151,9 +153,14 @@ export default class AutomationsController {
   async models({ response }: HttpContext) {
     try {
       const defaultModel = await this.automationsService.resolveDefaultModel()
-      return response.status(200).json({ defaultModel })
+      let installedModels: string[] = []
+      try {
+        const models = await this.ollamaService.getModels()
+        installedModels = models.map((m) => m.name)
+      } catch {}
+      return response.status(200).json({ defaultModel, installedModels })
     } catch {
-      return response.status(200).json({ defaultModel: '' })
+      return response.status(200).json({ defaultModel: '', installedModels: [] })
     }
   }
 
