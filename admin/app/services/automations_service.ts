@@ -553,7 +553,8 @@ export class AutomationsService {
     baseUrl: string
   ): Promise<string | null> {
     try {
-      const Docker = (await import('dockerode')).default
+      const dockerode = await import('dockerode')
+      const Docker = dockerode.default
       const docker = new Docker()
       const container = docker.getContainer(SERVICE_NAMES.N8N)
       const credJson = JSON.stringify([
@@ -646,15 +647,14 @@ export class AutomationsService {
       typeVersion: 1.7,
       position: [220, 0],
       parameters: {
-        agent: params.tools.length > 0 ? 'conversationalAgent' : 'toolsAgent',
+        agent: 'toolsAgent',
         promptType: 'define',
         text: params.prompt,
         options: {
           systemMessage:
             params.tools.length > 0
               ? `${SYSTEM_PROMPTS.default}
-You have access to tools. When the user's request requires external data (web search, fetching pages, calculations, current time, image generation), ALWAYS use the appropriate tool. Do not just describe what you would do — actually call the tool and use its result in your answer.
-CRITICAL: When you need to use a tool, respond with ONLY the JSON action block. Do NOT output any reasoning, analysis, numbered steps, or text before or after the JSON. No internal simulation, no "thinking out loud". Just the raw JSON action block.`
+You have access to tools. When the user's request requires external data (web search, fetching pages, calculations, current time, image generation), ALWAYS use the appropriate tool. Do not just describe what you would do — actually call the tool and use its result in your answer.`
               : SYSTEM_PROMPTS.default,
         },
       },
