@@ -306,7 +306,9 @@ export class AutomationsService {
 
   async runNow(id: string): Promise<{ executionId: string }> {
     const { client } = await this.getN8nClient()
-    const res = await client.post(`/workflows/${id}/execute`, { runData: {} })
+    const wfRes = await client.get(`/workflows/${id}`)
+    const workflowData = wfRes.data
+    const res = await client.post(`/workflows/${id}/run`, { workflowData })
     return { executionId: String(res.data?.executionId ?? res.data?.id ?? '') }
   }
 
