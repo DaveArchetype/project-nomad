@@ -653,7 +653,8 @@ export class AutomationsService {
           systemMessage:
             params.tools.length > 0
               ? `${SYSTEM_PROMPTS.default}
-You have access to tools. When the user's request requires external data (web search, fetching pages, calculations, current time, image generation), ALWAYS use the appropriate tool. Do not just describe what you would do — actually call the tool and use its result in your answer.`
+You have access to tools. When the user's request requires external data (web search, fetching pages, calculations, current time, image generation), ALWAYS use the appropriate tool. Do not just describe what you would do — actually call the tool and use its result in your answer.
+CRITICAL: When you need to use a tool, respond with ONLY the JSON action block. Do NOT output any reasoning, analysis, numbered steps, or text before or after the JSON. No internal simulation, no "thinking out loud". Just the raw JSON action block.`
               : SYSTEM_PROMPTS.default,
         },
       },
