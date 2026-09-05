@@ -812,6 +812,7 @@ export default class ServiceSeeder extends BaseSeeder {
         await Service.query()
           .where('service_name', service.service_name)
           .update({
+            container_image: service.container_image,
             container_config: service.container_config,
             container_command: service.container_command ?? null,
             metadata: (service as any).metadata ?? null,
