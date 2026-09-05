@@ -568,7 +568,13 @@ export default class ServiceSeeder extends BaseSeeder {
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
           CapAdd: ['NET_ADMIN'],
-          Devices: [{ PathOnHost: '/dev/net/tun', PathInContainer: '/dev/net/tun' }],
+          Devices: [
+            {
+              PathOnHost: '/dev/net/tun',
+              PathInContainer: '/dev/net/tun',
+              CgroupPermissions: 'rwm',
+            },
+          ],
           PortBindings: { '8080/tcp': [{ HostPort: '8530' }] },
           Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/vpn/gluetun:/gluetun`],
         },
