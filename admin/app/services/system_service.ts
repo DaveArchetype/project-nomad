@@ -991,21 +991,21 @@ export class SystemService {
       })
     }
     if (key === 'vpn.openvpnUser' || key === 'vpn.openvpnPassword' || key === 'vpn.countries') {
+      const vpn = await Service.query().where('service_name', SERVICE_NAMES.VPN).first()
+      if (vpn?.installed) {
+        this.dockerService.forceReinstall(SERVICE_NAMES.VPN).catch((err) => {
+          logger.warn(
+            `[SystemService] Auto-reinstall of VPN after setting change failed: ${err instanceof Error ? err.message : String(err)}`
+          )
+        })
+      }
       const stremioVpnEnabled = await KVStore.getValue('stremio.vpnEnabled')
       if (stremioVpnEnabled === true) {
-        const vpn = await Service.query().where('service_name', SERVICE_NAMES.VPN).first()
-        if (vpn?.installed) {
-          this.dockerService.forceReinstall(SERVICE_NAMES.VPN).catch((err) => {
-            logger.warn(
-              `[SystemService] Auto-reinstall of VPN after credential change failed: ${err instanceof Error ? err.message : String(err)}`
-            )
-          })
-        }
         const stremio = await Service.query().where('service_name', SERVICE_NAMES.STREMIO).first()
         if (stremio?.installed) {
           this.dockerService.forceReinstall(SERVICE_NAMES.STREMIO).catch((err) => {
             logger.warn(
-              `[SystemService] Auto-reinstall of Stremio after VPN credential change failed: ${err instanceof Error ? err.message : String(err)}`
+              `[SystemService] Auto-reinstall of Stremio after VPN setting change failed: ${err instanceof Error ? err.message : String(err)}`
             )
           })
         }

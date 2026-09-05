@@ -213,9 +213,14 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
       queryClient.invalidateQueries({ queryKey: ['system-setting', 'vpn.openvpnPassword'] })
       queryClient.invalidateQueries({ queryKey: ['system-setting', 'vpn.countries'] })
       addNotification({
-        message: 'VPN settings saved. Stremio will be reinstalled if VPN routing is enabled.',
+        message:
+          'VPN settings saved. Reinstalling VPN container — running connection test in 15s...',
         type: 'success',
       })
+      setVpnTestResult(null)
+      setTimeout(() => {
+        testVpnMutation.mutate()
+      }, 15000)
     },
     onError: (error: any) => {
       showError(error?.message || 'Failed to update VPN settings.')
@@ -231,10 +236,16 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
       queryClient.invalidateQueries({ queryKey: ['system-setting', 'stremio.vpnEnabled'] })
       addNotification({
         message: stremioVpnEnabled
-          ? 'VPN disabled for Stremio. Both containers are being reinstalled.'
-          : 'VPN enabled for Stremio. Both containers are being reinstalled.',
+          ? 'VPN disabled for Stremio. Both containers are being reinstalled — running tests in 15s...'
+          : 'VPN enabled for Stremio. Both containers are being reinstalled — running tests in 15s...',
         type: 'success',
       })
+      setVpnTestResult(null)
+      setStremioVpnTestResult(null)
+      setTimeout(() => {
+        testVpnMutation.mutate()
+        testStremioVpnMutation.mutate()
+      }, 15000)
     },
     onError: (error: any) => {
       showError(error?.message || 'Failed to toggle VPN for Stremio.')
