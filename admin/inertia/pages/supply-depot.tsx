@@ -184,10 +184,11 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
   const { data: vpnPasswordSetting } = useSystemSetting({ key: 'vpn.openvpnPassword' })
   const { data: vpnCountriesSetting } = useSystemSetting({ key: 'vpn.countries' })
   const { data: stremioVpnEnabledSetting } = useSystemSetting({ key: 'stremio.vpnEnabled' })
-  const { data: vpnCountriesData } = useQuery({
+  const { data: vpnCountriesData, refetch: refetchVpnCountries } = useQuery({
     queryKey: ['vpn-countries'],
     queryFn: async () => await api.getVpnCountries(),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: true,
   })
   const [vpnUserDraft, setVpnUserDraft] = useState('')
   const [vpnPasswordDraft, setVpnPasswordDraft] = useState('')
@@ -267,6 +268,9 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
     mutationFn: async () => await api.testVpn(),
     onSuccess: (data) => {
       setVpnTestResult(data)
+      if (data.connected) {
+        refetchVpnCountries()
+      }
     },
     onError: (error: any) => {
       showError(error?.message || 'Failed to test VPN connection.')
