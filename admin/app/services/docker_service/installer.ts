@@ -238,11 +238,23 @@ async function createContainer(
           )
           await createContainer(ctx, dependency, ctx.parseConfig(dependency.container_config))
         } else {
-          ctx.broadcast(
-            service.service_name,
-            'dependency-installed',
-            `Dependency service ${dependency.service_name} is already installed.`
-          )
+          const depContainerInfo = await ctx.findContainerByName(dependency.service_name)
+          if (!depContainerInfo) {
+            ctx.broadcast(
+              service.service_name,
+              'dependency-recreating',
+              `Dependency service ${dependency.service_name} is marked installed but container is missing. Recreating...`
+            )
+            dependency.installed = false
+            await dependency.save()
+            await createContainer(ctx, dependency, ctx.parseConfig(dependency.container_config))
+          } else {
+            ctx.broadcast(
+              service.service_name,
+              'dependency-installed',
+              `Dependency service ${dependency.service_name} is already installed.`
+            )
+          }
         }
       }
     }
