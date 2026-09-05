@@ -572,7 +572,12 @@ export default class ServiceSeeder extends BaseSeeder {
           Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/stremio:/root/.stremio-server`],
         },
         ExposedPorts: { '8080/tcp': {} },
-        Env: ['NO_CORS=1', 'AUTO_SERVER_URL=1', 'CASTING_DISABLED=1'],
+        Env: [
+          'NO_CORS=1',
+          'AUTO_SERVER_URL=1',
+          'CASTING_DISABLED=1',
+          'WEBUI_LOCATION=stremio.dasaroff.com',
+        ],
       }),
       ui_location: '8530',
       ui_path: '/stremio',
