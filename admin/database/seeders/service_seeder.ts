@@ -562,17 +562,17 @@ export default class ServiceSeeder extends BaseSeeder {
       description:
         'Stream movies, TV shows, and live channels from community add-ons — your personal media center',
       icon: 'IconDeviceTv',
-      container_image: 'stremio/server:v4.21.1',
-      source_repo: 'https://github.com/Stremio/server-docker',
+      container_image: 'tsaridas/stremio-docker:v1.3.10',
+      source_repo: 'https://github.com/tsaridas/stremio-docker',
       container_command: null,
       container_config: JSON.stringify({
         HostConfig: {
           RestartPolicy: { Name: 'unless-stopped' },
-          PortBindings: { '11470/tcp': [{ HostPort: '8530' }] },
-          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/stremio/config:/app/config`],
+          PortBindings: { '8080/tcp': [{ HostPort: '8530' }] },
+          Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/stremio:/root/.stremio-server`],
         },
-        ExposedPorts: { '11470/tcp': {} },
-        Env: ['APP_PATH=/app/config', 'NO_CORS=1'],
+        ExposedPorts: { '8080/tcp': {} },
+        Env: ['NO_CORS=1', 'AUTO_SERVER_URL=1', 'CASTING_DISABLED=1'],
       }),
       ui_location: '8530',
       ui_path: '/stremio',
