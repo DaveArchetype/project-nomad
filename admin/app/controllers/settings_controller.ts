@@ -238,42 +238,56 @@ export default class SettingsController {
 
   async getVpnCountries({ response }: HttpContext) {
     try {
-      const serversPath = path.join(ADMIN_STORAGE_DEST, 'vpn', 'gluetun', 'servers.json')
-      let raw: string
+      let raw: string | null = null
+
       try {
+        const serversPath = path.join(ADMIN_STORAGE_DEST, 'vpn', 'gluetun', 'servers.json')
         raw = await fs.readFile(serversPath, 'utf-8')
       } catch {
+        // File not accessible from admin container's filesystem
+      }
+
+      if (!raw) {
         const execResult = await this.execInContainer(SERVICE_NAMES.VPN, [
           'cat',
           '/gluetun/servers.json',
         ])
-        if (execResult.exitCode !== 0 || !execResult.stdout) {
-          return response
-            .status(200)
-            .send({
-              countries: [],
-              error: 'VPN server list not available. Install and start the VPN first.',
-            })
+        if (execResult.exitCode === 0 && execResult.stdout) {
+          raw = execResult.stdout
         }
-        raw = execResult.stdout
       }
+
+      if (!raw) {
+        return response.status(200).send({
+          countries: [],
+          error: 'VPN server list not available. Install and start the VPN first.',
+        })
+      }
+
       const parsed = JSON.parse(raw)
-      const servers = Array.isArray(parsed) ? parsed : (parsed.servers ?? [])
+      let servers: any[]
+      if (Array.isArray(parsed)) {
+        servers = parsed
+      } else if (parsed.servers && Array.isArray(parsed.servers)) {
+        servers = parsed.servers
+      } else {
+        servers = []
+      }
+
       const countries = new Set<string>()
       for (const server of servers) {
-        if (server.country) {
-          countries.add(server.country)
+        const country = server.country || server.Country
+        if (country) {
+          countries.add(country)
         }
       }
       const sorted = Array.from(countries).sort((a, b) => a.localeCompare(b))
       return response.status(200).send({ countries: sorted })
     } catch (err: any) {
-      return response
-        .status(200)
-        .send({
-          countries: [],
-          error: 'VPN server list not available. Install and start the VPN first.',
-        })
+      return response.status(200).send({
+        countries: [],
+        error: `VPN server list error: ${err instanceof Error ? err.message : String(err)}`,
+      })
     }
   }
 
@@ -290,34 +304,31 @@ export default class SettingsController {
     const exec = await container.exec({ Cmd: cmd, AttachStdout: true, AttachStderr: true })
     const stream = await exec.start({})
     return new Promise((resolve) => {
-      let stdout = ''
-      let stderr = ''
-      container.modem.demuxStream(
-        stream,
-        {
-          write: (data: Buffer) => {
-            stdout += data.toString()
-          },
-        },
-        {
-          write: (data: Buffer) => {
-            stderr += data.toString()
-          },
+      let chunks: Buffer[] = []
+      stream.on('data', (chunk: Buffer) => {
+        chunks.push(chunk)
+      })
+      stream.on('end', async () => {
+        try {
+          const inspect = await exec.inspect()
+          const raw = Buffer.concat(chunks).toString('utf-8')
+          resolve({ stdout: raw.trim(), stderr: '', exitCode: inspect.ExitCode })
+        } catch {
+          const raw = Buffer.concat(chunks).toString('utf-8')
+          resolve({ stdout: raw.trim(), stderr: '', exitCode: null })
         }
-      )
-      stream.on('end', () => {
-        exec
-          .inspect()
-          .then((inspect: any) => {
-            resolve({ stdout: stdout.trim(), stderr: stderr.trim(), exitCode: inspect.ExitCode })
-          })
-          .catch(() => {
-            resolve({ stdout: stdout.trim(), stderr: stderr.trim(), exitCode: null })
-          })
       })
       stream.on('error', () => {
-        resolve({ stdout: stdout.trim(), stderr: stderr.trim(), exitCode: null })
+        const raw = Buffer.concat(chunks).toString('utf-8')
+        resolve({ stdout: raw.trim(), stderr: 'stream error', exitCode: null })
       })
+      setTimeout(() => {
+        if (!stream.destroyed) {
+          stream.destroy()
+          const raw = Buffer.concat(chunks).toString('utf-8')
+          resolve({ stdout: raw.trim(), stderr: 'timeout', exitCode: null })
+        }
+      }, 15000)
     })
   }
 
@@ -459,7 +470,10 @@ export default class SettingsController {
 
       const inspected = await this.dockerService.docker.getContainer(stremioContainer.Id).inspect()
       const networkMode = inspected.HostConfig?.NetworkMode ?? 'default'
-      const usingVpnNetwork = networkMode === `container:${SERVICE_NAMES.VPN}`
+      const usingVpnNetwork = vpnContainer
+        ? networkMode === `container:${SERVICE_NAMES.VPN}` ||
+          networkMode === `container:${vpnContainer.Id}`
+        : networkMode === `container:${SERVICE_NAMES.VPN}`
 
       checks.push({
         label: 'Stremio uses VPN network namespace',
