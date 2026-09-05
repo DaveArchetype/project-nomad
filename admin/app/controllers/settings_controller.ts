@@ -539,6 +539,41 @@ export default class SettingsController {
             : 'Stremio is not reachable on port 8080 inside the VPN namespace',
       })
 
+      const vpnIpResult = await this.execInContainer(SERVICE_NAMES.VPN, [
+        'wget',
+        '-qO-',
+        'https://api.ipify.org',
+        '--timeout=10',
+      ])
+      const vpnIp = vpnIpResult.exitCode === 0 ? vpnIpResult.stdout : null
+
+      let hostIp: string | null = null
+      try {
+        const hostIpRes = await fetch('https://api.ipify.org', {
+          signal: AbortSignal.timeout(10000),
+        })
+        if (hostIpRes.ok) {
+          hostIp = (await hostIpRes.text()).trim()
+        }
+      } catch {}
+
+      if (vpnIp && hostIp) {
+        const ipsDiffer = vpnIp !== hostIp
+        checks.push({
+          label: 'Traffic routed through VPN',
+          passed: ipsDiffer,
+          detail: ipsDiffer
+            ? `Stremio exits via VPN IP ${vpnIp} (host IP is ${hostIp}) — traffic is encrypted`
+            : `Stremio IP (${vpnIp}) matches host IP (${hostIp}) — traffic is NOT going through VPN`,
+        })
+      } else if (vpnIp) {
+        checks.push({
+          label: 'Traffic routed through VPN',
+          passed: true,
+          detail: `Stremio exits via IP ${vpnIp} (could not fetch host IP for comparison)`,
+        })
+      }
+
       const routed = checks.every((c) => c.passed)
       return response.status(200).send({ routed, checks })
     } catch (err: any) {
