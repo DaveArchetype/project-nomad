@@ -991,43 +991,61 @@ export class SystemService {
       })
     }
     if (key === 'vpn.openvpnUser' || key === 'vpn.openvpnPassword' || key === 'vpn.countries') {
-      const vpn = await Service.query().where('service_name', SERVICE_NAMES.VPN).first()
-      if (vpn?.installed) {
-        this.dockerService.forceReinstall(SERVICE_NAMES.VPN).catch((err) => {
-          logger.warn(
-            `[SystemService] Auto-reinstall of VPN after setting change failed: ${err instanceof Error ? err.message : String(err)}`
-          )
-        })
-      }
       const stremioVpnEnabled = await KVStore.getValue('stremio.vpnEnabled')
       if (stremioVpnEnabled === true) {
-        const stremio = await Service.query().where('service_name', SERVICE_NAMES.STREMIO).first()
-        if (stremio?.installed) {
-          this.dockerService.forceReinstall(SERVICE_NAMES.STREMIO).catch((err) => {
+        await this.coordinatedVpnStremioReinstall()
+      } else {
+        const vpn = await Service.query().where('service_name', SERVICE_NAMES.VPN).first()
+        if (vpn?.installed) {
+          this.dockerService.forceReinstall(SERVICE_NAMES.VPN).catch((err) => {
             logger.warn(
-              `[SystemService] Auto-reinstall of Stremio after VPN setting change failed: ${err instanceof Error ? err.message : String(err)}`
+              `[SystemService] Auto-reinstall of VPN after setting change failed: ${err instanceof Error ? err.message : String(err)}`
             )
           })
         }
       }
     }
     if (key === 'stremio.vpnEnabled') {
-      const vpn = await Service.query().where('service_name', SERVICE_NAMES.VPN).first()
-      if (vpn?.installed) {
-        this.dockerService.forceReinstall(SERVICE_NAMES.VPN).catch((err) => {
-          logger.warn(
-            `[SystemService] Auto-reinstall of VPN after VPN toggle failed: ${err instanceof Error ? err.message : String(err)}`
-          )
-        })
+      await this.coordinatedVpnStremioReinstall()
+    }
+  }
+
+  private async coordinatedVpnStremioReinstall(): Promise<void> {
+    try {
+      const containers = await this.dockerService.docker.listContainers({ all: true })
+      const stremioContainer = containers.find((c) => c.Names.includes(`/${SERVICE_NAMES.STREMIO}`))
+      if (stremioContainer) {
+        const container = this.dockerService.docker.getContainer(stremioContainer.Id)
+        if (stremioContainer.State === 'running') {
+          await container.stop({ t: 5 }).catch(() => {})
+        }
+        await container.remove({ force: true }).catch(() => {})
+        const stremio = await Service.query().where('service_name', SERVICE_NAMES.STREMIO).first()
+        if (stremio) {
+          stremio.installed = false
+          stremio.installation_status = 'idle'
+          await stremio.save()
+        }
       }
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+      this.dockerService.forceReinstall(SERVICE_NAMES.VPN).catch((err) => {
+        logger.warn(
+          `[SystemService] Auto-reinstall of VPN failed: ${err instanceof Error ? err.message : String(err)}`
+        )
+      })
+      await new Promise((resolve) => setTimeout(resolve, 5000))
       const stremio = await Service.query().where('service_name', SERVICE_NAMES.STREMIO).first()
-      if (stremio?.installed) {
+      if (stremio?.installed === false) {
         this.dockerService.forceReinstall(SERVICE_NAMES.STREMIO).catch((err) => {
           logger.warn(
-            `[SystemService] Auto-reinstall of Stremio after VPN toggle failed: ${err instanceof Error ? err.message : String(err)}`
+            `[SystemService] Auto-reinstall of Stremio failed: ${err instanceof Error ? err.message : String(err)}`
           )
         })
       }
+    } catch (err: any) {
+      logger.warn(
+        `[SystemService] Coordinated VPN/Stremio reinstall failed: ${err instanceof Error ? err.message : String(err)}`
+      )
     }
   }
 
