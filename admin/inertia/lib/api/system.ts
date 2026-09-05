@@ -208,6 +208,28 @@ export function getVpnCountries(client: AxiosInstance) {
   })()
 }
 
+export function testVpn(client: AxiosInstance) {
+  return catchInternal(async () => {
+    const response = await client.get<{
+      connected: boolean
+      checks: { label: string; passed: boolean; detail: string }[]
+      publicIp?: string
+      geolocation?: string
+    }>('/system/vpn/test')
+    return response.data
+  })()
+}
+
+export function testStremioVpn(client: AxiosInstance) {
+  return catchInternal(async () => {
+    const response = await client.get<{
+      routed: boolean
+      checks: { label: string; passed: boolean; detail: string }[]
+    }>('/system/vpn/stremio-test')
+    return response.data
+  })()
+}
+
 export function preflightCheck(client: AxiosInstance, service_name: string) {
   return catchInternal(async () => {
     const response = await client.get<{

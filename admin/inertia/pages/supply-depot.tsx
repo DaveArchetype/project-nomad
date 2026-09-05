@@ -8,6 +8,7 @@ import {
   IconBox,
   IconBrandDocker,
   IconChartBar,
+  IconCircleCheck,
   IconClockBolt,
   IconCloudDownload,
   IconFileText,
@@ -19,6 +20,7 @@ import {
   IconSearch,
   IconTrash,
   IconWorld,
+  IconX,
 } from '@tabler/icons-react'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import DynamicIcon, { DynamicIconName } from '~/components/DynamicIcon'
@@ -26,6 +28,7 @@ import StyledButton from '~/components/StyledButton'
 import StyledModal from '~/components/StyledModal'
 import Input from '~/components/inputs/Input'
 import Select from '~/components/inputs/Select'
+import Switch from '~/components/inputs/Switch'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import InstallActivityFeed from '~/components/InstallActivityFeed'
 import LoadingSpinner from '~/components/LoadingSpinner'
@@ -180,11 +183,12 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
   const { data: vpnUserSetting } = useSystemSetting({ key: 'vpn.openvpnUser' })
   const { data: vpnPasswordSetting } = useSystemSetting({ key: 'vpn.openvpnPassword' })
   const { data: vpnCountriesSetting } = useSystemSetting({ key: 'vpn.countries' })
+  const { data: stremioVpnEnabledSetting } = useSystemSetting({ key: 'stremio.vpnEnabled' })
   const { data: vpnCountriesData } = useQuery({
     queryKey: ['vpn-countries'],
     queryFn: async () => await api.getVpnCountries(),
     staleTime: 5 * 60 * 1000,
-  }))
+  })
   const [vpnUserDraft, setVpnUserDraft] = useState('')
   const [vpnPasswordDraft, setVpnPasswordDraft] = useState('')
   const [vpnCountriesDraft, setVpnCountriesDraft] = useState('')
@@ -209,12 +213,62 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
       queryClient.invalidateQueries({ queryKey: ['system-setting', 'vpn.openvpnPassword'] })
       queryClient.invalidateQueries({ queryKey: ['system-setting', 'vpn.countries'] })
       addNotification({
-        message: 'VPN settings updated. Stremio is being reinstalled automatically.',
+        message: 'VPN settings saved. Stremio will be reinstalled if VPN routing is enabled.',
         type: 'success',
       })
     },
     onError: (error: any) => {
       showError(error?.message || 'Failed to update VPN settings.')
+    },
+  })
+
+  const stremioVpnEnabled = stremioVpnEnabledSetting?.value === true
+  const toggleStremioVpnMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      await api.updateSetting('stremio.vpnEnabled', enabled)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['system-setting', 'stremio.vpnEnabled'] })
+      addNotification({
+        message: stremioVpnEnabled
+          ? 'VPN disabled for Stremio. Both containers are being reinstalled.'
+          : 'VPN enabled for Stremio. Both containers are being reinstalled.',
+        type: 'success',
+      })
+    },
+    onError: (error: any) => {
+      showError(error?.message || 'Failed to toggle VPN for Stremio.')
+    },
+  })
+
+  const [vpnTestResult, setVpnTestResult] = useState<{
+    connected: boolean
+    checks: { label: string; passed: boolean; detail: string }[]
+    publicIp?: string
+    geolocation?: string
+  } | null>(null)
+  const [stremioVpnTestResult, setStremioVpnTestResult] = useState<{
+    routed: boolean
+    checks: { label: string; passed: boolean; detail: string }[]
+  } | null>(null)
+
+  const testVpnMutation = useMutation({
+    mutationFn: async () => await api.testVpn(),
+    onSuccess: (data) => {
+      setVpnTestResult(data)
+    },
+    onError: (error: any) => {
+      showError(error?.message || 'Failed to test VPN connection.')
+    },
+  })
+
+  const testStremioVpnMutation = useMutation({
+    mutationFn: async () => await api.testStremioVpn(),
+    onSuccess: (data) => {
+      setStremioVpnTestResult(data)
+    },
+    onError: (error: any) => {
+      showError(error?.message || 'Failed to test Stremio VPN routing.')
     },
   })
 
@@ -731,9 +785,9 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                   <StyledSectionHeader title="VPN Settings" className="mb-4" />
                   <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
                     <p className="text-sm text-text-secondary mb-4">
-                      Stremio routes all traffic through a Surfshark VPN tunnel. Set your Surfshark
+                      Install the VPN Gateway from the catalog above, then set your Surfshark
                       service credentials below (found at my.surfshark.com &gt; VPN &gt; Manual
-                      setup &gt; Router). Stremio is reinstalled automatically when these change.
+                      setup &gt; Router). Enable the toggle to route Stremio through the VPN.
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
                       <Input
@@ -772,9 +826,10 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                           })),
                         ]}
                       />
-                      {(!vpnCountriesData?.countries?.length) && (
+                      {!vpnCountriesData?.countries?.length && (
                         <Input
                           name="vpnCountriesManual"
+                          label="Server Country (manual)"
                           placeholder="Type a country name"
                           value={vpnCountriesDraft}
                           onChange={(e) => setVpnCountriesDraft(e.target.value)}
@@ -791,6 +846,104 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                       >
                         Save
                       </StyledButton>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-border-subtle">
+                      <Switch
+                        checked={stremioVpnEnabled}
+                        onChange={(checked) => toggleStremioVpnMutation.mutate(checked)}
+                        label="Route Stremio through VPN"
+                        description="When enabled, Stremio shares the VPN's network namespace. All traffic (streams, torrents, scrapers) goes through the encrypted tunnel. Both containers are reinstalled automatically when toggled."
+                      />
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-border-subtle">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <StyledButton
+                          variant="secondary"
+                          onClick={() => testVpnMutation.mutate()}
+                          loading={testVpnMutation.isPending}
+                          disabled={testVpnMutation.isPending}
+                        >
+                          Test VPN Connection
+                        </StyledButton>
+                        <StyledButton
+                          variant="secondary"
+                          onClick={() => testStremioVpnMutation.mutate()}
+                          loading={testStremioVpnMutation.isPending}
+                          disabled={testStremioVpnMutation.isPending}
+                        >
+                          Test Stremio VPN Routing
+                        </StyledButton>
+                      </div>
+                      {vpnTestResult && (
+                        <div className="mt-3 rounded-lg border border-border-subtle p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            {vpnTestResult.connected ? (
+                              <IconCircleCheck className="w-5 h-5 text-green-500" />
+                            ) : (
+                              <IconAlertTriangle className="w-5 h-5 text-yellow-500" />
+                            )}
+                            <span className="font-medium text-text-primary">
+                              VPN Connection:{' '}
+                              {vpnTestResult.connected ? 'Connected' : 'Issues detected'}
+                            </span>
+                            {vpnTestResult.publicIp && (
+                              <span className="text-sm text-text-muted ml-2">
+                                IP: {vpnTestResult.publicIp}
+                                {vpnTestResult.geolocation ? ` (${vpnTestResult.geolocation})` : ''}
+                              </span>
+                            )}
+                          </div>
+                          <div className="space-y-1.5">
+                            {vpnTestResult.checks.map((check, i) => (
+                              <div key={i} className="flex items-start gap-2 text-sm">
+                                {check.passed ? (
+                                  <IconCircleCheck className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                                ) : (
+                                  <IconX className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                                )}
+                                <div>
+                                  <span className="text-text-primary font-medium">
+                                    {check.label}
+                                  </span>
+                                  <span className="text-text-muted ml-2">{check.detail}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {stremioVpnTestResult && (
+                        <div className="mt-3 rounded-lg border border-border-subtle p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            {stremioVpnTestResult.routed ? (
+                              <IconCircleCheck className="w-5 h-5 text-green-500" />
+                            ) : (
+                              <IconAlertTriangle className="w-5 h-5 text-yellow-500" />
+                            )}
+                            <span className="font-medium text-text-primary">
+                              Stremio VPN Routing:{' '}
+                              {stremioVpnTestResult.routed ? 'Working' : 'Issues detected'}
+                            </span>
+                          </div>
+                          <div className="space-y-1.5">
+                            {stremioVpnTestResult.checks.map((check, i) => (
+                              <div key={i} className="flex items-start gap-2 text-sm">
+                                {check.passed ? (
+                                  <IconCircleCheck className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                                ) : (
+                                  <IconX className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                                )}
+                                <div>
+                                  <span className="text-text-primary font-medium">
+                                    {check.label}
+                                  </span>
+                                  <span className="text-text-muted ml-2">{check.detail}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </section>

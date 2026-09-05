@@ -488,6 +488,7 @@ async function createContainer(
       appEnv.push(`HBOX_AUTH_API_KEY_PEPPER=${await ctx.resolveHomeboxPepper()}`)
     }
     if (service.service_name === SERVICE_NAMES.VPN) {
+      appEnv.push('HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE={"auth":"none"}')
       const openvpnUser = await KVStore.getValue('vpn.openvpnUser')
       if (openvpnUser) {
         appEnv.push(`OPENVPN_USER=${openvpnUser}`)
@@ -518,6 +519,39 @@ async function createContainer(
       'creating',
       `Creating Docker container for service ${service.service_name}...`
     )
+
+    const stremioVpnEnabled = await KVStore.getValue('stremio.vpnEnabled')
+    let finalHostConfig = { ...gpuHostConfig }
+    let finalExposedPorts = containerConfig?.ExposedPorts
+
+    if (service.service_name === SERVICE_NAMES.VPN && stremioVpnEnabled === true) {
+      finalHostConfig = {
+        ...finalHostConfig,
+        PortBindings: { '8080/tcp': [{ HostPort: '8530' }] },
+      }
+      finalExposedPorts = { '8080/tcp': {} }
+    }
+
+    if (service.service_name === SERVICE_NAMES.STREMIO && stremioVpnEnabled === true) {
+      const vpnInstalled = await Service.query()
+        .where('service_name', SERVICE_NAMES.VPN)
+        .where('installed', true)
+        .first()
+      if (vpnInstalled) {
+        const { PortBindings, ExposedPorts, ...restHost } = finalHostConfig
+        finalHostConfig = {
+          ...restHost,
+          NetworkMode: `container:${SERVICE_NAMES.VPN}`,
+        }
+        finalExposedPorts = undefined
+        ctx.broadcast(
+          service.service_name,
+          'vpn-attached',
+          `Routing Stremio through VPN container ${SERVICE_NAMES.VPN}...`
+        )
+      }
+    }
+
     const container = await ctx.docker.createContainer({
       Image: finalImage,
       name: service.service_name,
@@ -527,9 +561,9 @@ async function createContainer(
         'io.project-nomad.managed': 'true',
       },
       ...(containerConfig?.User && { User: containerConfig.User }),
-      HostConfig: gpuHostConfig,
+      HostConfig: finalHostConfig,
       ...(containerConfig?.WorkingDir && { WorkingDir: containerConfig.WorkingDir }),
-      ...(containerConfig?.ExposedPorts && { ExposedPorts: containerConfig.ExposedPorts }),
+      ...(finalExposedPorts && { ExposedPorts: finalExposedPorts }),
       Env: [...(containerConfig?.Env ?? []), ...ollamaEnv, ...appEnv],
       ...(service.container_command ? { Cmd: service.container_command.split(' ') } : {}),
       ...(process.env.NODE_ENV === 'production' && {

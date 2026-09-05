@@ -870,6 +870,14 @@ router
       summary: 'Get available VPN server countries from gluetun',
       tags: ['system'],
     })
+    documented(router.get('/vpn/test', [SettingsController, 'testVpn']), {
+      summary: 'Test VPN connection status',
+      tags: ['system'],
+    })
+    documented(router.get('/vpn/stremio-test', [SettingsController, 'testStremioVpn']), {
+      summary: 'Test if Stremio is correctly routed through VPN',
+      tags: ['system'],
+    })
   })
   .prefix('/api/system')
 
