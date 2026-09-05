@@ -849,6 +849,7 @@ export default class ServiceSeeder extends BaseSeeder {
             ui_location: service.ui_location,
             ui_path: service.ui_path ?? null,
             display_order: service.display_order,
+            depends_on: service.depends_on ?? null,
           })
       }
     }
