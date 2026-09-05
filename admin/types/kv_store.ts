@@ -101,6 +101,7 @@ export const KV_STORE_SCHEMA = {
   'vpn.openvpnPassword': 'string',
   'vpn.countries': 'string',
   'stremio.vpnEnabled': 'boolean',
+  'mediaflow.apiPassword': 'string',
   // Drug Reference v1 — export_date of the last successfully completed
   // openFDA drug-label ingest (e.g. "2026-06-06"). Written by
   // IngestDrugDataJob on final-part completion; read by the search page's
