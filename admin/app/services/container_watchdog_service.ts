@@ -3,6 +3,7 @@ import logger from '@adonisjs/core/services/logger'
 import transmit from '@adonisjs/transmit/services/main'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import KVStore from '#models/kv_store'
+import Service from '#models/service'
 import {
   MANAGED_LABEL,
   MB_BYTES,
@@ -37,6 +38,14 @@ export class ContainerWatchdogService {
     } catch (err: any) {
       logger.warn(
         '[ContainerWatchdog] reconcileMemoryLimits failed: %s',
+        err instanceof Error ? err.message : String(err)
+      )
+    }
+    try {
+      await this.reconcileDependencies()
+    } catch (err: any) {
+      logger.warn(
+        '[ContainerWatchdog] reconcileDependencies failed: %s',
         err instanceof Error ? err.message : String(err)
       )
     }
@@ -88,6 +97,53 @@ export class ContainerWatchdogService {
           `[ContainerWatchdog] reconcile ${name} failed: %s`,
           err instanceof Error ? err.message : String(err)
         )
+      }
+    }
+  }
+
+  private async reconcileDependencies(): Promise<void> {
+    const services = await Service.query().where('installed', true).whereNotNull('depends_on')
+    if (services.length === 0) return
+
+    const allContainers = await this.docker.listContainers({ all: true })
+    const containerMap = new Map<string, any>()
+    for (const c of allContainers) {
+      const name = c.Names[0]?.replace('/', '')
+      if (name) containerMap.set(name, c)
+    }
+
+    for (const service of services) {
+      const depName = service.depends_on!
+      const depContainer = containerMap.get(depName)
+      if (!depContainer) continue
+
+      if (depContainer.State !== 'running') {
+        logger.info(
+          `[ContainerWatchdog] Dependency ${depName} is stopped — starting it for ${service.service_name}...`
+        )
+        try {
+          await this.docker.getContainer(depContainer.Id).start()
+        } catch (err: any) {
+          logger.warn(
+            `[ContainerWatchdog] Failed to start dependency ${depName}: %s`,
+            err instanceof Error ? err.message : String(err)
+          )
+        }
+      }
+
+      const dependentContainer = containerMap.get(service.service_name)
+      if (dependentContainer && dependentContainer.State !== 'running') {
+        logger.info(
+          `[ContainerWatchdog] ${service.service_name} is stopped — starting it (dependency ${depName} is running)...`
+        )
+        try {
+          await this.docker.getContainer(dependentContainer.Id).start()
+        } catch (err: any) {
+          logger.warn(
+            `[ContainerWatchdog] Failed to start dependent ${service.service_name}: %s`,
+            err instanceof Error ? err.message : String(err)
+          )
+        }
       }
     }
   }

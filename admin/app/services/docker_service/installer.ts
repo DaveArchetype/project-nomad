@@ -475,6 +475,16 @@ async function createContainer(
     if (service.service_name === SERVICE_NAMES.HOMEBOX) {
       appEnv.push(`HBOX_AUTH_API_KEY_PEPPER=${await ctx.resolveHomeboxPepper()}`)
     }
+    if (service.service_name === SERVICE_NAMES.VPN) {
+      const openvpnUser = process.env.OPENVPN_USER
+      const openvpnPassword = process.env.OPENVPN_PASSWORD
+      if (openvpnUser) {
+        appEnv.push(`OPENVPN_USER=${openvpnUser}`)
+      }
+      if (openvpnPassword) {
+        appEnv.push(`OPENVPN_PASSWORD=${openvpnPassword}`)
+      }
+    }
     if (service.service_name === SERVICE_NAMES.N8N) {
       appEnv.push(`N8N_ENCRYPTION_KEY=${await ctx.resolveN8nEncryptionKey()}`)
       const tz = await KVStore.getValue('recap.timezone')

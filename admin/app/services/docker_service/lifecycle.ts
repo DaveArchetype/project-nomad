@@ -37,6 +37,18 @@ export async function affectContainer(
       }
     }
 
+    if (service.depends_on) {
+      const depContainer = containers.find((c) => c.Names.includes(`/${service.depends_on}`))
+      if (depContainer && depContainer.State !== 'running') {
+        logger.info(
+          `[DockerService] Starting dependency ${service.depends_on} before ${serviceName}...`
+        )
+        const depDockerContainer = ctx.docker.getContainer(depContainer.Id)
+        await depDockerContainer.start()
+        await new Promise((resolve) => setTimeout(resolve, 3000))
+      }
+    }
+
     if (action === 'restart') {
       if (serviceName === SERVICE_NAMES.KIWIX) {
         const isLegacy = await isKiwixOnLegacyConfig(ctx)
