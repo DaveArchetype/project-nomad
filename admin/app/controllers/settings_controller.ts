@@ -311,29 +311,40 @@ export default class SettingsController {
     const exec = await container.exec({ Cmd: cmd, AttachStdout: true, AttachStderr: true })
     const stream = await exec.start({})
     return new Promise((resolve) => {
-      let chunks: Buffer[] = []
-      stream.on('data', (chunk: Buffer) => {
-        chunks.push(chunk)
-      })
-      stream.on('end', async () => {
-        try {
-          const inspect = await exec.inspect()
-          const raw = Buffer.concat(chunks).toString('utf-8')
-          resolve({ stdout: raw.trim(), stderr: '', exitCode: inspect.ExitCode })
-        } catch {
-          const raw = Buffer.concat(chunks).toString('utf-8')
-          resolve({ stdout: raw.trim(), stderr: '', exitCode: null })
+      let stdout = ''
+      let stderr = ''
+      let settled = false
+      const done = (exitCode: number | null) => {
+        if (settled) return
+        settled = true
+        resolve({ stdout: stdout.trim(), stderr: stderr.trim(), exitCode })
+      }
+      container.modem.demuxStream(
+        stream,
+        {
+          write: (data: Buffer) => {
+            stdout += data.toString('utf-8')
+          },
+        },
+        {
+          write: (data: Buffer) => {
+            stderr += data.toString('utf-8')
+          },
         }
+      )
+      stream.on('end', () => {
+        exec
+          .inspect()
+          .then((i: any) => done(i.ExitCode))
+          .catch(() => done(null))
       })
-      stream.on('error', () => {
-        const raw = Buffer.concat(chunks).toString('utf-8')
-        resolve({ stdout: raw.trim(), stderr: 'stream error', exitCode: null })
-      })
+      stream.on('error', () => done(null))
       setTimeout(() => {
-        if (!stream.destroyed) {
-          stream.destroy()
-          const raw = Buffer.concat(chunks).toString('utf-8')
-          resolve({ stdout: raw.trim(), stderr: 'timeout', exitCode: null })
+        if (!settled) {
+          try {
+            stream.destroy()
+          } catch {}
+          done(null)
         }
       }, 15000)
     })
