@@ -990,6 +990,16 @@ export class SystemService {
         auto_update_disabled_reason: null,
       })
     }
+    if (key === 'vpn.openvpnUser' || key === 'vpn.openvpnPassword' || key === 'vpn.countries') {
+      const stremio = await Service.query().where('service_name', SERVICE_NAMES.STREMIO).first()
+      if (stremio?.installed) {
+        this.dockerService.forceReinstall(SERVICE_NAMES.STREMIO).catch((err) => {
+          logger.warn(
+            `[SystemService] Auto-reinstall of Stremio after VPN setting change failed: ${err instanceof Error ? err.message : String(err)}`
+          )
+        })
+      }
+    }
   }
 
   /**

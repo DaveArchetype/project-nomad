@@ -203,7 +203,7 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
       queryClient.invalidateQueries({ queryKey: ['system-setting', 'vpn.openvpnPassword'] })
       queryClient.invalidateQueries({ queryKey: ['system-setting', 'vpn.countries'] })
       addNotification({
-        message: 'VPN settings updated. Reinstall Stremio to apply.',
+        message: 'VPN settings updated. Stremio is being reinstalled automatically.',
         type: 'success',
       })
     },
@@ -727,7 +727,7 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                     <p className="text-sm text-text-secondary mb-4">
                       Stremio routes all traffic through a Surfshark VPN tunnel. Set your Surfshark
                       service credentials below (found at my.surfshark.com &gt; VPN &gt; Manual
-                      setup &gt; Router). Reinstall Stremio after changing these to apply.
+                      setup &gt; Router). Stremio is reinstalled automatically when these change.
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
                       <Input
