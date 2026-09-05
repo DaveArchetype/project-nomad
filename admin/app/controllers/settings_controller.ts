@@ -271,7 +271,6 @@ export default class SettingsController {
     return new Promise((resolve) => {
       let stdout = ''
       let stderr = ''
-      const demuxStream = require('dockerode/lib/docker') ? null : null
       container.modem.demuxStream(
         stream,
         {
