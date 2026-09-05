@@ -265,13 +265,20 @@ export default class SettingsController {
       }
 
       const parsed = JSON.parse(raw)
-      let servers: any[]
+      let servers: any[] = []
       if (Array.isArray(parsed)) {
         servers = parsed
       } else if (parsed.servers && Array.isArray(parsed.servers)) {
         servers = parsed.servers
+      } else if (parsed.surfshark?.servers && Array.isArray(parsed.surfshark.servers)) {
+        servers = parsed.surfshark.servers
       } else {
-        servers = []
+        for (const key of Object.keys(parsed)) {
+          const provider = parsed[key]
+          if (provider && provider.servers && Array.isArray(provider.servers)) {
+            servers = servers.concat(provider.servers)
+          }
+        }
       }
 
       const countries = new Set<string>()
