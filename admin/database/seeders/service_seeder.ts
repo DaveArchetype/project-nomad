@@ -572,7 +572,7 @@ export default class ServiceSeeder extends BaseSeeder {
           Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/stremio/config:/app/config`],
         },
         ExposedPorts: { '11470/tcp': {} },
-        Env: ['APP_PATH=/app/config'],
+        Env: ['APP_PATH=/app/config', 'NO_CORS=1'],
       }),
       ui_location: '8530',
       ui_path: '/stremio',
