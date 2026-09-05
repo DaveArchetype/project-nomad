@@ -25,7 +25,8 @@ import DynamicIcon, { DynamicIconName } from '~/components/DynamicIcon'
 import StyledButton from '~/components/StyledButton'
 import StyledModal from '~/components/StyledModal'
 import Input from '~/components/inputs/Input'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import Select from '~/components/inputs/Select'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import InstallActivityFeed from '~/components/InstallActivityFeed'
 import LoadingSpinner from '~/components/LoadingSpinner'
 import Alert from '~/components/Alert'
@@ -179,6 +180,11 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
   const { data: vpnUserSetting } = useSystemSetting({ key: 'vpn.openvpnUser' })
   const { data: vpnPasswordSetting } = useSystemSetting({ key: 'vpn.openvpnPassword' })
   const { data: vpnCountriesSetting } = useSystemSetting({ key: 'vpn.countries' })
+  const { data: vpnCountriesData } = useQuery({
+    queryKey: ['vpn-countries'],
+    queryFn: async () => await api.getVpnCountries(),
+    staleTime: 5 * 60 * 1000,
+  }))
   const [vpnUserDraft, setVpnUserDraft] = useState('')
   const [vpnPasswordDraft, setVpnPasswordDraft] = useState('')
   const [vpnCountriesDraft, setVpnCountriesDraft] = useState('')
@@ -747,14 +753,34 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                       />
                     </div>
                     <div className="mt-3">
-                      <Input
+                      <Select
                         name="vpnCountries"
-                        label="Server Countries"
-                        placeholder="Netherlands"
-                        helpText="Comma-separated country names (e.g. Netherlands,Germany,UK). Defaults to Netherlands."
+                        label="Server Country"
+                        placeholder="Select a country"
+                        helpText={
+                          vpnCountriesData?.countries?.length
+                            ? undefined
+                            : 'Install the VPN first to populate the list, or type manually.'
+                        }
                         value={vpnCountriesDraft}
-                        onChange={(e) => setVpnCountriesDraft(e.target.value)}
+                        onChange={(val) => setVpnCountriesDraft(val)}
+                        options={[
+                          { value: '', label: 'Default (Netherlands)' },
+                          ...(vpnCountriesData?.countries ?? []).map((c: string) => ({
+                            value: c,
+                            label: c,
+                          })),
+                        ]}
                       />
+                      {(!vpnCountriesData?.countries?.length) && (
+                        <Input
+                          name="vpnCountriesManual"
+                          placeholder="Type a country name"
+                          value={vpnCountriesDraft}
+                          onChange={(e) => setVpnCountriesDraft(e.target.value)}
+                          className="mt-2"
+                        />
+                      )}
                     </div>
                     <div className="flex justify-end mt-3">
                       <StyledButton

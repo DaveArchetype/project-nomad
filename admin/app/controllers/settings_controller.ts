@@ -6,6 +6,9 @@ import { getSettingSchema, updateSettingSchema, validateSettingValue } from '#va
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
 import env from '#start/env'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { ADMIN_STORAGE_DEST } from '#services/docker_service/host_storage'
 
 @inject()
 export default class SettingsController {
@@ -228,5 +231,25 @@ export default class SettingsController {
     }
 
     return response.status(200).send({ success: true, message: 'Setting updated successfully' })
+  }
+
+  async getVpnCountries({ response }: HttpContext) {
+    try {
+      const serversPath = path.join(ADMIN_STORAGE_DEST, 'vpn', 'gluetun', 'servers.json')
+      const raw = await fs.readFile(serversPath, 'utf-8')
+      const servers = JSON.parse(raw)
+      const countries = new Set<string>()
+      for (const server of servers) {
+        if (server.country) {
+          countries.add(server.country)
+        }
+      }
+      const sorted = Array.from(countries).sort((a, b) => a.localeCompare(b))
+      return response.status(200).send({ countries: sorted })
+    } catch (err: any) {
+      return response
+        .status(200)
+        .send({ countries: [], error: 'VPN server list not available yet. Install the VPN first.' })
+    }
   }
 }

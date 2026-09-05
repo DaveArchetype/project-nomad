@@ -44,6 +44,7 @@ class API {
   subscribeToReleaseNotes = (email: string) => system.subscribeToReleaseNotes(this.client, email)
   getSetting = (key: string) => system.getSetting(this.client, key)
   updateSetting = (key: string, value: any) => system.updateSetting(this.client, key, value)
+  getVpnCountries = () => system.getVpnCountries(this.client)
   preflightCheck = (service_name: string) => system.preflightCheck(this.client, service_name)
   suggestCustomPort = () => system.suggestCustomPort(this.client)
   preflightCustomApp = (payload: {

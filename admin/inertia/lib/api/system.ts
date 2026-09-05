@@ -199,6 +199,15 @@ export function updateSetting(client: AxiosInstance, key: string, value: any) {
   })()
 }
 
+export function getVpnCountries(client: AxiosInstance) {
+  return catchInternal(async () => {
+    const response = await client.get<{ countries: string[]; error?: string }>(
+      '/system/vpn/countries'
+    )
+    return response.data
+  })()
+}
+
 export function preflightCheck(client: AxiosInstance, service_name: string) {
   return catchInternal(async () => {
     const response = await client.get<{

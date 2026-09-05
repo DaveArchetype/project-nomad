@@ -866,6 +866,10 @@ router
       tags: ['system'],
       request: updateSettingSchema,
     })
+    documented(router.get('/vpn/countries', [SettingsController, 'getVpnCountries']), {
+      summary: 'Get available VPN server countries from gluetun',
+      tags: ['system'],
+    })
   })
   .prefix('/api/system')
 
