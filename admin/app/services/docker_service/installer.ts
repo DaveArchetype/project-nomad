@@ -488,13 +488,17 @@ async function createContainer(
       appEnv.push(`HBOX_AUTH_API_KEY_PEPPER=${await ctx.resolveHomeboxPepper()}`)
     }
     if (service.service_name === SERVICE_NAMES.VPN) {
-      const openvpnUser = process.env.OPENVPN_USER
-      const openvpnPassword = process.env.OPENVPN_PASSWORD
+      const openvpnUser = await KVStore.getValue('vpn.openvpnUser')
       if (openvpnUser) {
         appEnv.push(`OPENVPN_USER=${openvpnUser}`)
       }
+      const openvpnPassword = await KVStore.getValue('vpn.openvpnPassword')
       if (openvpnPassword) {
         appEnv.push(`OPENVPN_PASSWORD=${openvpnPassword}`)
+      }
+      const vpnCountries = await KVStore.getValue('vpn.countries')
+      if (vpnCountries) {
+        appEnv.push(`SERVER_COUNTRIES=${vpnCountries}`)
       }
     }
     if (service.service_name === SERVICE_NAMES.N8N) {

@@ -67,8 +67,6 @@ services:
       # haven't adopted the worker service keep working.
       - START_WORKER=false
       - SEARXNG_SECRET_KEY=${SEARXNG_SECRET_KEY}
-      - OPENVPN_USER=${OPENVPN_USER}
-      - OPENVPN_PASSWORD=${OPENVPN_PASSWORD}
     depends_on:
       mysql:
         condition: service_healthy

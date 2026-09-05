@@ -176,6 +176,42 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
     },
   })
 
+  const { data: vpnUserSetting } = useSystemSetting({ key: 'vpn.openvpnUser' })
+  const { data: vpnPasswordSetting } = useSystemSetting({ key: 'vpn.openvpnPassword' })
+  const { data: vpnCountriesSetting } = useSystemSetting({ key: 'vpn.countries' })
+  const [vpnUserDraft, setVpnUserDraft] = useState('')
+  const [vpnPasswordDraft, setVpnPasswordDraft] = useState('')
+  const [vpnCountriesDraft, setVpnCountriesDraft] = useState('')
+  useEffect(() => {
+    setVpnUserDraft((vpnUserSetting?.value as string | null | undefined) ?? '')
+  }, [vpnUserSetting])
+  useEffect(() => {
+    setVpnPasswordDraft((vpnPasswordSetting?.value as string | null | undefined) ?? '')
+  }, [vpnPasswordSetting])
+  useEffect(() => {
+    setVpnCountriesDraft((vpnCountriesSetting?.value as string | null | undefined) ?? '')
+  }, [vpnCountriesSetting])
+
+  const updateVpnSettingsMutation = useMutation({
+    mutationFn: async () => {
+      await api.updateSetting('vpn.openvpnUser', vpnUserDraft.trim())
+      await api.updateSetting('vpn.openvpnPassword', vpnPasswordDraft)
+      await api.updateSetting('vpn.countries', vpnCountriesDraft.trim())
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['system-setting', 'vpn.openvpnUser'] })
+      queryClient.invalidateQueries({ queryKey: ['system-setting', 'vpn.openvpnPassword'] })
+      queryClient.invalidateQueries({ queryKey: ['system-setting', 'vpn.countries'] })
+      addNotification({
+        message: 'VPN settings updated. Reinstall Stremio to apply.',
+        type: 'success',
+      })
+    },
+    onError: (error: any) => {
+      showError(error?.message || 'Failed to update VPN settings.')
+    },
+  })
+
   // Global master switch for app auto-updates (Settings → Updates). Per-app
   // toggles are inert until this is on, so the UI reflects that state.
   const { data: appAutoUpdateStatus } = useAppAutoUpdateStatus()
@@ -678,6 +714,54 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                         onClick={() => updateGiteaCredentialsMutation.mutate()}
                         loading={updateGiteaCredentialsMutation.isPending}
                         disabled={updateGiteaCredentialsMutation.isPending}
+                      >
+                        Save
+                      </StyledButton>
+                    </div>
+                  </div>
+                </section>
+
+                <section>
+                  <StyledSectionHeader title="VPN Settings" className="mb-4" />
+                  <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
+                    <p className="text-sm text-text-secondary mb-4">
+                      Stremio routes all traffic through a Surfshark VPN tunnel. Set your Surfshark
+                      service credentials below (found at my.surfshark.com &gt; VPN &gt; Manual
+                      setup &gt; Router). Reinstall Stremio after changing these to apply.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                      <Input
+                        name="vpnUser"
+                        label="Surfshark Username"
+                        placeholder="Service username"
+                        value={vpnUserDraft}
+                        onChange={(e) => setVpnUserDraft(e.target.value)}
+                      />
+                      <Input
+                        name="vpnPassword"
+                        type="password"
+                        label="Surfshark Password"
+                        placeholder="Service password"
+                        value={vpnPasswordDraft}
+                        onChange={(e) => setVpnPasswordDraft(e.target.value)}
+                      />
+                    </div>
+                    <div className="mt-3">
+                      <Input
+                        name="vpnCountries"
+                        label="Server Countries"
+                        placeholder="Netherlands"
+                        helpText="Comma-separated country names (e.g. Netherlands,Germany,UK). Defaults to Netherlands."
+                        value={vpnCountriesDraft}
+                        onChange={(e) => setVpnCountriesDraft(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex justify-end mt-3">
+                      <StyledButton
+                        variant="primary"
+                        onClick={() => updateVpnSettingsMutation.mutate()}
+                        loading={updateVpnSettingsMutation.isPending}
+                        disabled={updateVpnSettingsMutation.isPending}
                       >
                         Save
                       </StyledButton>
