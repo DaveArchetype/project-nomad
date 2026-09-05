@@ -239,8 +239,26 @@ export default class SettingsController {
   async getVpnCountries({ response }: HttpContext) {
     try {
       const serversPath = path.join(ADMIN_STORAGE_DEST, 'vpn', 'gluetun', 'servers.json')
-      const raw = await fs.readFile(serversPath, 'utf-8')
-      const servers = JSON.parse(raw)
+      let raw: string
+      try {
+        raw = await fs.readFile(serversPath, 'utf-8')
+      } catch {
+        const execResult = await this.execInContainer(SERVICE_NAMES.VPN, [
+          'cat',
+          '/gluetun/servers.json',
+        ])
+        if (execResult.exitCode !== 0 || !execResult.stdout) {
+          return response
+            .status(200)
+            .send({
+              countries: [],
+              error: 'VPN server list not available. Install and start the VPN first.',
+            })
+        }
+        raw = execResult.stdout
+      }
+      const parsed = JSON.parse(raw)
+      const servers = Array.isArray(parsed) ? parsed : (parsed.servers ?? [])
       const countries = new Set<string>()
       for (const server of servers) {
         if (server.country) {
@@ -252,7 +270,10 @@ export default class SettingsController {
     } catch (err: any) {
       return response
         .status(200)
-        .send({ countries: [], error: 'VPN server list not available yet. Install the VPN first.' })
+        .send({
+          countries: [],
+          error: 'VPN server list not available. Install and start the VPN first.',
+        })
     }
   }
 
@@ -350,8 +371,11 @@ export default class SettingsController {
       }
       checks.push({
         label: 'VPN tunnel status',
-        passed: vpnStatus === 'up',
-        detail: vpnStatus === 'up' ? 'VPN tunnel is up' : `VPN status: ${vpnStatus}`,
+        passed: vpnStatus === 'up' || vpnStatus === 'running',
+        detail:
+          vpnStatus === 'up' || vpnStatus === 'running'
+            ? 'VPN tunnel is up'
+            : `VPN status: ${vpnStatus}`,
       })
 
       const ipResult = await this.execInContainer(SERVICE_NAMES.VPN, [
