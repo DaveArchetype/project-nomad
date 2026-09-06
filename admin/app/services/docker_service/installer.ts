@@ -520,6 +520,10 @@ async function createContainer(
         if (slug) {
           const host = `${slug}.${baseDomain.trim()}`
           appEnv.push(`SERVER_URL=https://${host}/`)
+          gpuHostConfig = {
+            ...gpuHostConfig,
+            ExtraHosts: [...(gpuHostConfig.ExtraHosts || []), `127.0.0.1 ${host}`],
+          }
         }
       }
     }
@@ -546,21 +550,9 @@ async function createContainer(
     let finalExposedPorts = containerConfig?.ExposedPorts
 
     if (service.service_name === SERVICE_NAMES.VPN && stremioVpnEnabled === true) {
-      const baseDomain = await KVStore.getValue('ui.reverseProxyBaseDomain')
-      const stremioService = await Service.query()
-        .where('service_name', SERVICE_NAMES.STREMIO)
-        .first()
-      const extraHosts: string[] = []
-      if (baseDomain && typeof baseDomain === 'string' && stremioService?.ui_path) {
-        const slug = stremioService.ui_path.replace(/^\/+/, '')
-        if (slug) {
-          extraHosts.push(`127.0.0.1 ${slug}.${baseDomain.trim()}`)
-        }
-      }
       finalHostConfig = {
         ...finalHostConfig,
         PortBindings: { '8080/tcp': [{ HostPort: '8530' }] },
-        ...(extraHosts.length > 0 && { ExtraHosts: extraHosts }),
       }
       finalExposedPorts = { '8080/tcp': {} }
     }
