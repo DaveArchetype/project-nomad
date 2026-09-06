@@ -427,7 +427,7 @@ async function createContainer(
             {
               Driver: 'nvidia',
               Count: -1,
-              Capabilities: [['gpu']],
+              Capabilities: [['gpu', 'video', 'compute', 'utility']],
             },
           ],
         }
@@ -620,6 +620,120 @@ async function createContainer(
       `Starting Docker container for service ${service.service_name}...`
     )
     await container.start()
+
+    if (service.service_name === SERVICE_NAMES.STREMIO) {
+      const gpuResult = await ctx.detectGPUType()
+      if (gpuResult.type === 'nvidia') {
+        ctx.broadcast(
+          service.service_name,
+          'nvenc-setup',
+          `Installing NVENC-enabled ffmpeg and patching Stremio server.js...`
+        )
+        try {
+          const ffmpegImage = 'mwader/static-ffmpeg:cuda'
+          await ctx.docker.pull(ffmpegImage)
+          const tempContainer = await ctx.docker.createContainer({
+            Image: ffmpegImage,
+            Cmd: ['sleep', '1'],
+          })
+
+          const ffmpegStream = await tempContainer.getArchive({ path: '/ffmpeg' })
+          const ffmpegChunks: Buffer[] = []
+          for await (const chunk of ffmpegStream) {
+            ffmpegChunks.push(chunk as Buffer)
+          }
+          const ffmpegTar = Buffer.concat(ffmpegChunks)
+
+          const ffprobeStream = await tempContainer.getArchive({ path: '/ffprobe' })
+          const ffprobeChunks: Buffer[] = []
+          for await (const chunk of ffprobeStream) {
+            ffprobeChunks.push(chunk as Buffer)
+          }
+          const ffprobeTar = Buffer.concat(ffprobeChunks)
+
+          await tempContainer.remove({ force: true })
+
+          await container.putArchive(ffmpegTar, { path: '/tmp/' })
+          await container.putArchive(ffprobeTar, { path: '/tmp/' })
+
+          const replaceExec = await container.exec({
+            Cmd: [
+              'sh',
+              '-c',
+              'cp /tmp/ffmpeg /usr/bin/ffmpeg && cp /tmp/ffprobe /usr/bin/ffprobe && chmod +x /usr/bin/ffmpeg /usr/bin/ffprobe',
+            ],
+            AttachStdout: true,
+            AttachStderr: true,
+          })
+          const replaceStream = await replaceExec.start({})
+          await new Promise<void>((resolve) => {
+            replaceStream.on('end', () => resolve())
+            replaceStream.on('error', () => resolve())
+            setTimeout(() => {
+              try {
+                replaceStream.destroy()
+              } catch {}
+              resolve()
+            }, 30000)
+          })
+
+          const patchExec = await container.exec({
+            Cmd: [
+              'sh',
+              '-c',
+              [
+                'cd /srv/stremio-server',
+                'if [ -f server.js ]; then',
+                '  sed -i "s/transcodeHardwareAccel: !1/transcodeHardwareAccel: !0/g" server.js',
+                '  sed -i "s/\\"-hwaccel\\", \\"cuda\\", \\"-hwaccel_output_format\\", \\"cuda\\"/\\"-hwaccel\\", \\"cuda\\"/g" server.js',
+                '  sed -i "s/\\"-init_hw_device\\", \\"cuda=cu:0\\", \\"-filter_hw_device\\", \\"cu\\", \\"-hwaccel\\"/\\"-hwaccel\\"/g" server.js',
+                '  sed -i "s/scale: \\"scale_cuda\\"/scale: !1/g" server.js',
+                '  sed -i "s/wrapSwFilters: \\[ \\"hwdownload\\", \\"hwupload_cuda\\" \\]/wrapSwFilters: !1/g" server.js',
+                '  echo "NVENC patches applied to server.js"',
+                'fi',
+                'SETTINGS=/root/.stremio-server/server-settings.json',
+                'if [ -f "$SETTINGS" ]; then',
+                '  sed -i "s/\\"transcodeHardwareAccel\\": false/\\"transcodeHardwareAccel\\": true/g" "$SETTINGS"',
+                '  sed -i "s/\\"transcodeProfile\\": null/\\"transcodeProfile\\": \\"nvenc-linux\\"/g" "$SETTINGS"',
+                '  sed -i "s/\\"allTranscodeProfiles\\": \\[\\]/\\"allTranscodeProfiles\\": [\\"nvenc-linux\\"]/g" "$SETTINGS"',
+                'fi',
+              ].join(' && '),
+            ],
+            AttachStdout: true,
+            AttachStderr: true,
+          })
+          const patchStream = await patchExec.start({})
+          let patchOutput = ''
+          patchStream.on('data', (chunk: Buffer) => {
+            patchOutput += chunk.toString()
+          })
+          await new Promise<void>((resolve) => {
+            patchStream.on('end', () => resolve())
+            patchStream.on('error', () => resolve())
+            setTimeout(() => {
+              try {
+                patchStream.destroy()
+              } catch {}
+              resolve()
+            }, 30000)
+          })
+
+          ctx.broadcast(
+            service.service_name,
+            'nvenc-ready',
+            `NVENC ffmpeg installed and server.js patched. Restarting Stremio to apply...`
+          )
+
+          await container.restart({ t: 5 }).catch(() => {})
+        } catch (nvencErr) {
+          ctx.broadcast(
+            service.service_name,
+            'nvenc-failed',
+            `NVENC setup failed: ${nvencErr instanceof Error ? nvencErr.message : String(nvencErr)}. Falling back to CPU transcoding.`
+          )
+        }
+      }
+    }
 
     ctx.broadcast(
       service.service_name,
