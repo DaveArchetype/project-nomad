@@ -518,7 +518,12 @@ async function createContainer(
       ) {
         const slug = service.ui_path.replace(/^\/+/, '')
         if (slug) {
-          appEnv.push(`SERVER_URL=https://${slug}.${baseDomain.trim()}/`)
+          const host = `${slug}.${baseDomain.trim()}`
+          appEnv.push(`SERVER_URL=https://${host}/`)
+          gpuHostConfig = {
+            ...gpuHostConfig,
+            ExtraHosts: [...(gpuHostConfig.ExtraHosts || []), `127.0.0.1 ${host}`],
+          }
         }
       }
     }
