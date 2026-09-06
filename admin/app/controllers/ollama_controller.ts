@@ -13,6 +13,7 @@ import { chatSchema, getAvailableModelsSchema, unloadChatModelsSchema } from '#v
 import { assertNotCloudMetadataUrl } from '#validators/common'
 import { inject } from '@adonisjs/core'
 import type { HttpContext } from '@adonisjs/core/http'
+import { DateTime } from 'luxon'
 import { RAG_CONTEXT_LIMITS, SYSTEM_PROMPTS } from '../../constants/ollama.js'
 import { SERVICE_NAMES } from '../../constants/service_names.js'
 import logger from '@adonisjs/core/services/logger'
@@ -123,6 +124,14 @@ export default class OllamaController {
     }
 
     try {
+      // Inject the current date as a system message so the model always knows
+      // the current year/date without needing to call the current_time tool.
+      const currentDate = DateTime.now().toFormat('yyyy-MM-dd')
+      reqData.messages.unshift({
+        role: 'system' as const,
+        content: `Current date: ${currentDate}. Always use this current year in search queries and time-sensitive answers — never use hardcoded or guessed years.`,
+      })
+
       // If there are no system messages in the chat inject system prompts
       const hasSystemMessage = reqData.messages.some((msg) => msg.role === 'system')
       if (!hasSystemMessage) {
@@ -382,10 +391,12 @@ export default class OllamaController {
 
         // Build the message list for the agent (text-only — images are not passed to the agent).
         // Strip leading system messages that are already incorporated into the agent system
-        // prompt (NOMAD.md, default formatting) so they aren't duplicated in the message list.
+        // prompt (current date, NOMAD.md, default formatting) so they aren't duplicated.
         const strippedSystemContents = new Set<string>()
         if (nomadPrompt) strippedSystemContents.add(nomadPrompt)
         strippedSystemContents.add(SYSTEM_PROMPTS.default)
+        const currentDateContent = `Current date: ${DateTime.now().toFormat('yyyy-MM-dd')}. Always use this current year in search queries and time-sensitive answers — never use hardcoded or guessed years.`
+        strippedSystemContents.add(currentDateContent)
         const agentMessages = reqData.messages
           .filter((m) => {
             if (m.role !== 'system') return true

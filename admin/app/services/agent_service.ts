@@ -262,20 +262,23 @@ export class AgentService {
 
   buildSystemPrompt(enabledTools: AgentToolName[], nomadPrompt?: string): string {
     const base = this._defaultSystemPrompt(enabledTools)
+    const now = DateTime.now().toFormat('yyyy-MM-dd')
+    const dateLine = `Current date: ${now}. Always use this current year in search queries — never use hardcoded or guessed years.`
+    const sections = [dateLine, base]
     if (nomadPrompt && nomadPrompt.trim()) {
-      return `${base}\n\n=== USER INSTRUCTIONS (NOMAD.md) ===\n${nomadPrompt.trim()}`
+      sections.push(`=== USER INSTRUCTIONS (NOMAD.md) ===\n${nomadPrompt.trim()}`)
     }
-    return base
+    return sections.join('\n\n')
   }
 
   private _defaultSystemPrompt(enabledTools: AgentToolName[]): string {
     const parts: string[] = [
       'You are a helpful AI assistant with access to tools. Use tools when the user asks about current information that requires live data, calculations, the current time, or asks you to create, generate, draw, or make an image or picture. For general knowledge questions, answer directly without tools.',
-      'You may also receive local knowledge base context as system messages. ALWAYS read and use any local knowledge base context provided. When answering, combine local knowledge base information with web search results whenever both are available. Try to include at least some information from local sources when relevant, and cite both local and web sources. If context from Calibre-Web books is available and relevant, prefer it over other sources — books in the knowledge base are curated reference material.',
+      "You may also receive local knowledge base context as system messages. You MUST read and use any local knowledge base context provided — this is not optional. When local knowledge base context is available and relevant to the user's question, you MUST incorporate it into your answer BEFORE considering web search results. Cite local sources with their titles. If context from Calibre-Web books (labeled [Calibre Book]) is available and relevant, PREFER it over web search results — books in the knowledge base are curated reference material and should be your primary source. Only use web search to supplement or fill gaps that local knowledge base context does not cover.",
     ]
     if (enabledTools.includes('web_search') || enabledTools.includes('web_fetch')) {
       parts.push(
-        'WEB SEARCH RULES: (1) ALWAYS call current_time first before web_search to know the current date and time — this helps you formulate time-aware search queries and interpret results correctly. (2) Make exactly ONE web_search call — it automatically fetches the full content of the top results, so you do NOT need to call web_fetch separately. (3) After the search returns, you MUST immediately write your final answer using the provided data — do NOT call any more tools. (4) Never repeat a search. (5) The search results include full page content with real numbers — use that data directly in your answer. (6) Always cite sources with their URLs.'
+        "WEB SEARCH RULES: (1) The current date is already provided in your system prompt — use it directly when formulating search queries. Do NOT hardcode or guess years. (2) Make exactly ONE web_search call — it automatically fetches the full content of the top results, so you do NOT need to call web_fetch separately. (3) After the search returns, you MUST immediately write your final answer using the provided data — do NOT call any more tools. (4) Never repeat a search. (5) The search results include full page content with real numbers — use that data directly in your answer. (6) Always cite sources with their URLs. (7) Before calling web_search, check if the local knowledge base context already answers the user's question — if it does, use it and skip the web search entirely."
       )
     }
     if (enabledTools.includes('generate_image')) {
