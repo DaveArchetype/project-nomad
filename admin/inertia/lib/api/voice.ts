@@ -84,7 +84,10 @@ export function uploadTtsVoice(client: AxiosInstance, onnxFile: File, jsonFile: 
     const response = await client.post<{ success: boolean; message: string; voice: string }>(
       '/voice/tts/voices/upload',
       form,
-      { timeout: 120_000 }
+      {
+        timeout: 120_000,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }
     )
     return response.data
   })()
@@ -108,7 +111,10 @@ export function cloneXttsVoice(client: AxiosInstance, name: string, file: File) 
     const response = await client.post<{ success: boolean; message: string; voice: string }>(
       '/voice/tts/xtts/voices/clone',
       form,
-      { timeout: 120_000 }
+      {
+        timeout: 120_000,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }
     )
     return response.data
   })()
