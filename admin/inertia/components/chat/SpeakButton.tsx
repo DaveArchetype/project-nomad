@@ -49,7 +49,11 @@ export default function SpeakButton({
   }, [unmute])
 
   const stop = () => {
-    audioRef.current?.pause()
+    if (audioRef.current) {
+      audioRef.current.pause()
+      const src = audioRef.current.src
+      if (src) URL.revokeObjectURL(src)
+    }
     audioRef.current = null
     setState('idle')
     unmute()
@@ -72,34 +76,30 @@ export default function SpeakButton({
         throw new Error('No audio returned')
       }
       const typedBlob = blob.type ? blob : new Blob([blob], { type: 'audio/wav' })
-      const url = URL.createObjectURL(typedBlob)
-      const audio = new Audio(url)
-      audioRef.current = audio
-      audio.onended = () => {
+      const arrayBuffer = await typedBlob.arrayBuffer()
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const decoded = await audioCtx.decodeAudioData(arrayBuffer)
+      const source = audioCtx.createBufferSource()
+      source.buffer = decoded
+      source.connect(audioCtx.destination)
+      source.onended = () => {
         setState('idle')
         unmute()
+        audioCtx.close()
       }
-      audio.onerror = (e) => {
-        console.error(
-          '[SpeakButton] Audio playback error:',
-          e,
-          'blob type:',
-          typedBlob.type,
-          'size:',
-          typedBlob.size
-        )
-        addNotification({
-          message: `Audio playback failed (${typedBlob.type || 'unknown type'}, ${typedBlob.size} bytes)`,
-          type: 'error',
-        })
-        setState('idle')
-        unmute()
-      }
-      await audio.play()
+      source.start()
+      audioRef.current = {
+        pause: () => {
+          source.stop()
+          audioCtx.close()
+        },
+        src: '',
+      } as any
       setState('playing')
     } catch (err) {
+      console.error('[SpeakButton] Playback failed:', err)
       addNotification({
-        message: 'Failed to synthesize speech. Is the Text-to-Speech service installed?',
+        message: `Failed to play audio: ${err instanceof Error ? err.message : 'unknown error'}`,
         type: 'error',
       })
       setState('idle')
