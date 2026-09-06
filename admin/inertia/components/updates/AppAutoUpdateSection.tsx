@@ -104,7 +104,7 @@ export default function AppAutoUpdateSection() {
               value={cooloff}
               onChange={(e) => setCooloff(Number(e.target.value))}
               disabled={!enabled}
-              className="mt-1.5 block w-full rounded-md bg-surface-primary px-3 py-2 text-base text-text-primary border border-border-default focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6 disabled:opacity-50"
+              className="mt-1.5 block w-full rounded-md bg-surface-primary px-3 py-2 text-base text-text-primary border border-border-default focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6 disabled:opacity-50"
             >
               {COOLOFF_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>

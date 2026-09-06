@@ -139,7 +139,7 @@ export default function ContentAutoUpdateSection() {
               value={cooloff}
               onChange={(e) => setCooloff(Number(e.target.value))}
               disabled={!enabled}
-              className="mt-1.5 block w-full rounded-md bg-surface-primary px-3 py-2 text-base text-text-primary border border-border-default focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6 disabled:opacity-50"
+              className="mt-1.5 block w-full rounded-md bg-surface-primary px-3 py-2 text-base text-text-primary border border-border-default focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6 disabled:opacity-50"
             >
               {COOLOFF_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -162,7 +162,12 @@ export default function ContentAutoUpdateSection() {
         </div>
 
         <div className="mt-4 flex justify-end">
-          <StyledButton variant="primary" size="sm" onClick={handleSaveSchedule} disabled={!enabled}>
+          <StyledButton
+            variant="primary"
+            size="sm"
+            onClick={handleSaveSchedule}
+            disabled={!enabled}
+          >
             Save Schedule
           </StyledButton>
         </div>
@@ -228,14 +233,17 @@ export default function ContentAutoUpdateSection() {
                       )}
                     </div>
                     <span
-                      className={`shrink-0 text-xs font-medium ${resource.exceeds_cap
+                      className={`shrink-0 text-xs font-medium ${
+                        resource.exceeds_cap
                           ? 'text-desert-red'
                           : resource.eligible
                             ? 'text-desert-green'
                             : 'text-desert-stone'
-                        }`}
+                      }`}
                     >
-                      {resource.exceeds_cap ? 'Skipped — exceeds data cap, update manually' : resource.reason}
+                      {resource.exceeds_cap
+                        ? 'Skipped — exceeds data cap, update manually'
+                        : resource.reason}
                     </span>
                   </li>
                 ))}
