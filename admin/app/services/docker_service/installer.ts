@@ -452,39 +452,6 @@ async function createContainer(
       }
     }
 
-    if (service.service_name === SERVICE_NAMES.MEDIAFLOW) {
-      const gpuResult = await ctx.detectGPUType()
-      if (gpuResult.type === 'nvidia') {
-        ctx.broadcast(
-          service.service_name,
-          'gpu-config',
-          `NVIDIA container runtime detected. Configuring MediaFlow with NVENC transcoding...`
-        )
-        gpuHostConfig = {
-          ...gpuHostConfig,
-          DeviceRequests: [
-            {
-              Driver: 'nvidia',
-              Count: -1,
-              Capabilities: [['gpu', 'video', 'compute', 'utility']],
-            },
-          ],
-        }
-      } else if (gpuResult.toolkitMissing) {
-        ctx.broadcast(
-          service.service_name,
-          'gpu-config',
-          `NVIDIA GPU detected but NVIDIA Container Toolkit is not installed. MediaFlow will use CPU transcoding.`
-        )
-      } else {
-        ctx.broadcast(
-          service.service_name,
-          'gpu-config',
-          `No NVIDIA GPU detected. MediaFlow will use CPU transcoding.`
-        )
-      }
-    }
-
     const memoryLimitBytes = await resolveMemoryLimitBytes(service.service_name, async (k) => {
       const v = await KVStore.getValue(k as any)
       return v == null ? null : String(v)
@@ -539,12 +506,6 @@ async function createContainer(
       const vpnCountries = await KVStore.getValue('vpn.countries')
       if (vpnCountries) {
         appEnv.push(`SERVER_COUNTRIES=${vpnCountries}`)
-      }
-    }
-    if (service.service_name === SERVICE_NAMES.MEDIAFLOW) {
-      const apiPassword = await KVStore.getValue('mediaflow.apiPassword')
-      if (apiPassword && typeof apiPassword === 'string' && apiPassword.trim() !== '') {
-        appEnv.push(`API_PASSWORD=${apiPassword.trim()}`)
       }
     }
     if (service.service_name === SERVICE_NAMES.N8N) {

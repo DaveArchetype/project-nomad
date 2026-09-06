@@ -20,7 +20,6 @@ export const SERVICE_NAMES = {
   JELLYFIN: 'nomad_jellyfin',
   STREMIO: 'nomad_stremio',
   VPN: 'nomad_vpn',
-  MEDIAFLOW: 'nomad_mediaflow',
   CODE_SERVER: 'nomad_code_server',
   // Voice Assistant — CPU-only ambient STT/wake-word/TTS pipeline
   VOICE_GATEWAY: 'nomad_voice_gateway',
