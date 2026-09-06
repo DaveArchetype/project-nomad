@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Head } from '@inertiajs/react'
 import {
   IconCheck,
@@ -27,26 +28,33 @@ export default function AppearancePage() {
     setPreviewDensity,
   } = useAppearanceContext()
 
-  function handleThemeChange(id: typeof theme) {
-    setTheme(id)
-    addNotification({
-      message: `Theme set to ${THEMES.find((t) => t.id === id)?.name}`,
-      type: 'success',
-    })
+  const [selectedTheme, setSelectedTheme] = useState(theme)
+  const [selectedAccent, setSelectedAccent] = useState<AccentValue>(accentColor)
+  const [selectedDensity, setSelectedDensity] = useState(density)
+
+  function handleThemeSelect(id: typeof theme) {
+    setSelectedTheme(id)
   }
 
-  function handleAccentChange(value: AccentValue) {
-    setAccentColor(value)
-    if (value === 'default') {
-      addNotification({ message: 'Accent color reset to theme default.', type: 'success' })
-    } else {
-      addNotification({ message: 'Accent color updated.', type: 'success' })
-    }
+  function handleAccentSelect(value: AccentValue) {
+    setSelectedAccent(value)
   }
 
-  function handleDensityChange(id: typeof density) {
-    setDensity(id)
-    addNotification({ message: `Density set to ${id}.`, type: 'success' })
+  function handleDensitySelect(id: typeof density) {
+    setSelectedDensity(id)
+  }
+
+  function handlePreview() {
+    setPreviewTheme(selectedTheme)
+    setPreviewAccent(selectedAccent)
+    setPreviewDensity(selectedDensity)
+  }
+
+  function handleSave() {
+    setTheme(selectedTheme)
+    setAccentColor(selectedAccent)
+    setDensity(selectedDensity)
+    addNotification({ message: 'Appearance saved.', type: 'success' })
   }
 
   return (
@@ -62,29 +70,27 @@ export default function AppearancePage() {
           <div className="mb-10 flex items-center gap-2 text-sm text-text-muted bg-surface-primary border border-border-subtle rounded-lg px-4 py-2.5">
             <IconEye className="size-4 shrink-0" />
             <span>
-              Hover any option to preview it live across the app — click to apply and save.
+              Pick any combination of theme, accent, and density below. Click Preview to see it
+              live, or Save to keep it.
             </span>
           </div>
 
           <StyledSectionHeader title="Theme" className="mt-8 mb-4" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {THEMES.map((t) => {
-              const isActive = theme === t.id
+              const isSelected = selectedTheme === t.id
+              const isSaved = theme === t.id
               return (
                 <button
                   key={t.id}
-                  onClick={() => handleThemeChange(t.id)}
-                  onMouseEnter={() => setPreviewTheme(t.id)}
-                  onMouseLeave={() => setPreviewTheme(null)}
-                  onFocus={() => setPreviewTheme(t.id)}
-                  onBlur={() => setPreviewTheme(null)}
+                  onClick={() => handleThemeSelect(t.id)}
                   className={classNames(
                     'group relative flex flex-col rounded-lg border-2 p-4 text-left transition-all cursor-pointer',
-                    isActive
+                    isSelected
                       ? 'border-desert-orange ring-2 ring-desert-orange/30'
                       : 'border-border-subtle hover:border-border-default hover:shadow-md'
                   )}
-                  aria-pressed={isActive}
+                  aria-pressed={isSelected}
                 >
                   <div className="flex gap-1.5 mb-3">
                     {t.swatches.map((color, i) => (
@@ -100,7 +106,7 @@ export default function AppearancePage() {
                       <p className="font-semibold text-text-primary">{t.name}</p>
                       <p className="text-xs text-text-muted">{t.description}</p>
                     </div>
-                    {isActive && <IconCheck className="size-5 text-desert-orange shrink-0" />}
+                    {isSaved && <IconCheck className="size-5 text-desert-orange shrink-0" />}
                   </div>
                   <span
                     className={classNames(
@@ -125,14 +131,10 @@ export default function AppearancePage() {
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <button
-                onClick={() => handleAccentChange('default')}
-                onMouseEnter={() => setPreviewAccent('default')}
-                onMouseLeave={() => setPreviewAccent(null)}
-                onFocus={() => setPreviewAccent('default')}
-                onBlur={() => setPreviewAccent(null)}
+                onClick={() => handleAccentSelect('default')}
                 className={classNames(
                   'flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm font-medium transition-all cursor-pointer',
-                  accentColor === 'default'
+                  selectedAccent === 'default'
                     ? 'border-desert-orange ring-2 ring-desert-orange/30 text-text-primary'
                     : 'border-border-subtle hover:border-border-default text-text-secondary'
                 )}
@@ -142,18 +144,15 @@ export default function AppearancePage() {
                 {accentColor === 'default' && <IconCheck className="size-4 text-desert-orange" />}
               </button>
               {ACCENT_PRESETS.map((preset) => {
-                const isActive = accentColor === preset.id
+                const isSelected = selectedAccent === preset.id
+                const isSaved = accentColor === preset.id
                 return (
                   <button
                     key={preset.id}
-                    onClick={() => handleAccentChange(preset.id)}
-                    onMouseEnter={() => setPreviewAccent(preset.id)}
-                    onMouseLeave={() => setPreviewAccent(null)}
-                    onFocus={() => setPreviewAccent(preset.id)}
-                    onBlur={() => setPreviewAccent(null)}
+                    onClick={() => handleAccentSelect(preset.id)}
                     className={classNames(
                       'flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm font-medium transition-all cursor-pointer',
-                      isActive
+                      isSelected
                         ? 'border-desert-orange ring-2 ring-desert-orange/30 text-text-primary'
                         : 'border-border-subtle hover:border-border-default text-text-secondary'
                     )}
@@ -163,7 +162,7 @@ export default function AppearancePage() {
                       style={{ backgroundColor: preset.swatch }}
                     />
                     {preset.name}
-                    {isActive && <IconCheck className="size-4 text-desert-orange" />}
+                    {isSaved && <IconCheck className="size-4 text-desert-orange" />}
                   </button>
                 )
               })}
@@ -171,7 +170,7 @@ export default function AppearancePage() {
                 <label
                   className={classNames(
                     'flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm font-medium transition-all cursor-pointer',
-                    /^#[0-9a-fA-F]{6}$/.test(accentColor)
+                    /^#[0-9a-fA-F]{6}$/.test(selectedAccent)
                       ? 'border-desert-orange ring-2 ring-desert-orange/30 text-text-primary'
                       : 'border-border-subtle hover:border-border-default text-text-secondary'
                   )}
@@ -180,11 +179,8 @@ export default function AppearancePage() {
                   Custom
                   <input
                     type="color"
-                    value={/^#[0-9a-fA-F]{6}$/.test(accentColor) ? accentColor : '#a84a12'}
-                    onInput={(e) =>
-                      setPreviewAccent((e.target as HTMLInputElement).value as AccentValue)
-                    }
-                    onChange={(e) => handleAccentChange(e.target.value as AccentValue)}
+                    value={/^#[0-9a-fA-F]{6}$/.test(selectedAccent) ? selectedAccent : '#a84a12'}
+                    onChange={(e) => handleAccentSelect(e.target.value as AccentValue)}
                     className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent p-0"
                     aria-label="Custom accent color"
                   />
@@ -201,18 +197,15 @@ export default function AppearancePage() {
             </p>
             <div className="flex gap-3">
               {DENSITY_OPTIONS.map((opt) => {
-                const isActive = density === opt.id
+                const isSelected = selectedDensity === opt.id
+                const isSaved = density === opt.id
                 return (
                   <button
                     key={opt.id}
-                    onClick={() => handleDensityChange(opt.id)}
-                    onMouseEnter={() => setPreviewDensity(opt.id)}
-                    onMouseLeave={() => setPreviewDensity(null)}
-                    onFocus={() => setPreviewDensity(opt.id)}
-                    onBlur={() => setPreviewDensity(null)}
+                    onClick={() => handleDensitySelect(opt.id)}
                     className={classNames(
                       'flex flex-1 flex-col items-start rounded-lg border-2 p-4 text-left transition-all cursor-pointer',
-                      isActive
+                      isSelected
                         ? 'border-desert-orange ring-2 ring-desert-orange/30'
                         : 'border-border-subtle hover:border-border-default'
                     )}
@@ -220,7 +213,7 @@ export default function AppearancePage() {
                     <div className="flex items-center gap-2 mb-1">
                       <IconSpacingVertical className="size-4 text-text-secondary" />
                       <span className="font-semibold text-text-primary">{opt.name}</span>
-                      {isActive && <IconCheck className="size-4 text-desert-orange" />}
+                      {isSaved && <IconCheck className="size-4 text-desert-orange" />}
                     </div>
                     <p className="text-xs text-text-muted">{opt.description}</p>
                   </button>
@@ -229,9 +222,27 @@ export default function AppearancePage() {
             </div>
           </div>
 
-          <div className="mt-10 flex items-center gap-2 text-sm text-text-muted">
-            <IconPalette className="size-4" />
-            <span>Preferences are saved automatically and synced across your devices.</span>
+          <div className="mt-10 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm text-text-muted">
+              <IconPalette className="size-4" />
+              <span>Click Preview to try a combination, or Save to keep it.</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handlePreview}
+                className="rounded-lg border-2 border-border-default px-4 py-2 text-sm font-medium text-text-primary hover:bg-surface-secondary transition-colors"
+              >
+                Preview
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                className="rounded-lg bg-desert-orange px-4 py-2 text-sm font-semibold text-white hover:bg-desert-orange-dark transition-colors"
+              >
+                Save
+              </button>
+            </div>
           </div>
         </main>
       </div>
