@@ -607,6 +607,95 @@ async function createContainer(
     )
     await container.start()
 
+    if (service.service_name === SERVICE_NAMES.STREMIO) {
+      const baseDomain = await KVStore.getValue('ui.reverseProxyBaseDomain')
+      if (
+        baseDomain &&
+        typeof baseDomain === 'string' &&
+        baseDomain.trim() !== '' &&
+        service.ui_path
+      ) {
+        const slug = service.ui_path.replace(/^\/+/, '')
+        if (slug) {
+          const host = `${slug}.${baseDomain.trim()}`
+          ctx.broadcast(
+            service.service_name,
+            'ffprobe-wrapper',
+            `Creating ffprobe/ffmpeg URL rewrite wrappers for ${host}...`
+          )
+          try {
+            const createWrapperScript = (realName: string) => {
+              const script = [
+                '#!/bin/sh',
+                `REAL="$(dirname "$0")/${realName}"`,
+                'newargs=""',
+                'for arg in "$@"; do',
+                `  arg=$(echo "$arg" | sed 's|https://${host}|http://127.0.0.1:8080|g')`,
+                '  newargs="$newargs \\"$arg\\""',
+                'done',
+                'eval exec "$REAL" $newargs',
+                '',
+              ].join('\n')
+              return Buffer.from(script).toString('base64')
+            }
+
+            const ffprobeB64 = createWrapperScript('ffprobe-real')
+            const ffmpegB64 = createWrapperScript('ffmpeg-real')
+
+            const wrapperCmd = [
+              'sh',
+              '-c',
+              [
+                'FFPROBE=$(command -v ffprobe 2>/dev/null || echo /usr/bin/ffprobe)',
+                'FFMPEG=$(command -v ffmpeg 2>/dev/null || echo /usr/bin/ffmpeg)',
+                'FFPROBE_DIR=$(dirname "$FFPROBE")',
+                'FFMPEG_DIR=$(dirname "$FFMPEG")',
+                `if [ -f "$FFPROBE" ] && [ ! -f "$FFPROBE_DIR/ffprobe-real" ]; then`,
+                `  mv "$FFPROBE" "$FFPROBE_DIR/ffprobe-real"`,
+                `  echo '${ffprobeB64}' | base64 -d > "$FFPROBE"`,
+                `  chmod +x "$FFPROBE"`,
+                `fi`,
+                `if [ -f "$FFMPEG" ] && [ ! -f "$FFMPEG_DIR/ffmpeg-real" ]; then`,
+                `  mv "$FFMPEG" "$FFMPEG_DIR/ffmpeg-real"`,
+                `  echo '${ffmpegB64}' | base64 -d > "$FFMPEG"`,
+                `  chmod +x "$FFMPEG"`,
+                `fi`,
+              ].join(' && '),
+            ]
+
+            const wrapperExec = await container.exec({
+              Cmd: wrapperCmd,
+              AttachStdout: true,
+              AttachStderr: true,
+            })
+            const wrapperStream = await wrapperExec.start({})
+            await new Promise<void>((resolve) => {
+              wrapperStream.on('end', () => resolve())
+              wrapperStream.on('error', () => resolve())
+              setTimeout(() => {
+                try {
+                  wrapperStream.destroy()
+                } catch {}
+                resolve()
+              }, 30000)
+            })
+
+            ctx.broadcast(
+              service.service_name,
+              'ffprobe-wrapper-done',
+              `ffprobe/ffmpeg wrappers installed. Internal probes will use http://127.0.0.1:8080 instead of https://${host}`
+            )
+          } catch (wrapperErr) {
+            ctx.broadcast(
+              service.service_name,
+              'ffprobe-wrapper-failed',
+              `Failed to create ffprobe/ffmpeg wrappers: ${wrapperErr instanceof Error ? wrapperErr.message : String(wrapperErr)}`
+            )
+          }
+        }
+      }
+    }
+
     ctx.broadcast(
       service.service_name,
       'finalizing',
