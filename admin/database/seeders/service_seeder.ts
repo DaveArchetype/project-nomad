@@ -835,12 +835,13 @@ export default class ServiceSeeder extends BaseSeeder {
       await Service.createMany([...newServices])
     }
 
-    // Keep curated services in sync with the catalog. Custom services are user-defined and must
-    // never be overwritten. User-modified curated services (a user edited their config) are
-    // likewise left alone so the edit survives reboots. ui_location/ui_path/display_order are
-    // synced too so a catalog change to an app's link/scheme/port (e.g. Vaultwarden moving to
-    // https:8480, or a corrected internal port), its reverse-proxy subdomain slug, or its home
-    // page position reaches existing non-modified installs on update, not just fresh ones.
+    const defaultServiceNames = new Set(ServiceSeeder.DEFAULT_SERVICES.map((s) => s.service_name))
+    for (const existing of existingServices) {
+      if (!existing.is_custom && !defaultServiceNames.has(existing.service_name)) {
+        await Service.query().where('service_name', existing.service_name).delete()
+      }
+    }
+
     for (const service of ServiceSeeder.DEFAULT_SERVICES) {
       const existing = existingServiceMap.get(service.service_name)
       if (existing && !existing.is_custom && !existing.is_user_modified) {

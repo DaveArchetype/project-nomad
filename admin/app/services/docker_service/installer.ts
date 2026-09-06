@@ -518,7 +518,7 @@ async function createContainer(
       ) {
         const slug = service.ui_path.replace(/^\/+/, '')
         if (slug) {
-          appEnv.push(`SERVER_URL=http://${slug}.${baseDomain.trim()}/`)
+          appEnv.push(`SERVER_URL=https://${slug}.${baseDomain.trim()}/`)
         }
       }
     }

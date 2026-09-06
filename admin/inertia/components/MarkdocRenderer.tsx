@@ -1,5 +1,6 @@
-import React from 'react'
+import React, { useState } from 'react'
 import Markdoc from '@markdoc/markdoc'
+import { IconCopy, IconCheck } from '@tabler/icons-react'
 import { Heading } from './markdoc/Heading'
 import { List } from './markdoc/List'
 import { ListItem } from './markdoc/ListItem'
@@ -53,14 +54,38 @@ const CodeBlock = ({
   language?: string
   children?: React.ReactNode
 }) => {
+  const [copied, setCopied] = useState(false)
   const code = content || (typeof children === 'string' ? children : '')
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(code)
+    } catch {
+      const textarea = document.createElement('textarea')
+      textarea.value = code
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+    }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
-    <div className="my-6 overflow-hidden rounded-lg border border-desert-green-dark/20">
+    <div className="my-6 overflow-hidden rounded-lg border border-desert-green-dark/20 relative group">
       {language && (
         <div className="bg-desert-green-dark px-4 py-1.5 text-xs font-mono text-desert-green-lighter uppercase tracking-wider">
           {language}
         </div>
       )}
+      <button
+        onClick={handleCopy}
+        className="absolute top-2 right-2 p-1.5 rounded-md bg-desert-green-dark/40 hover:bg-desert-green-dark/70 text-desert-green-lighter opacity-0 group-hover:opacity-100 transition-opacity"
+        title="Copy to clipboard"
+      >
+        {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
+      </button>
       <pre className="bg-desert-green-darker overflow-x-auto p-4">
         <code className="text-sm font-mono text-desert-green-lighter leading-relaxed whitespace-pre">
           {code}
@@ -128,7 +153,9 @@ interface MarkdocRendererProps {
 
 const MarkdocRenderer: React.FC<MarkdocRendererProps> = ({ content }) => {
   return (
-    <div className="text-base tracking-wide">{Markdoc.renderers.react(content, React, { components })}</div>
+    <div className="text-base tracking-wide">
+      {Markdoc.renderers.react(content, React, { components })}
+    </div>
   )
 }
 
