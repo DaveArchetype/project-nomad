@@ -46,17 +46,17 @@ export async function createContainerPreflight(
   }
 
   if (service.installation_status === 'installing') {
-    return {
-      success: false,
-      message: `Service ${serviceName} installation is already in progress`,
+    if (ctx.activeInstallations.has(serviceName)) {
+      return {
+        success: false,
+        message: `Service ${serviceName} installation is already in progress`,
+      }
     }
-  }
-
-  if (ctx.activeInstallations.has(serviceName)) {
-    return {
-      success: false,
-      message: `Service ${serviceName} installation is already in progress`,
-    }
+    logger.warn(
+      `[DockerService] Service ${serviceName} has installation_status='installing' but no active installation in memory — resetting (likely admin restart).`
+    )
+    service.installation_status = 'idle'
+    await service.save()
   }
 
   ctx.activeInstallations.add(serviceName)
@@ -409,6 +409,44 @@ async function createContainer(
           ctx.broadcast(service.service_name, 'pulling', `Pulling Docker image ${finalImage}...`)
           await ctx.pullImage(finalImage)
         }
+      }
+    }
+
+    if (service.service_name === SERVICE_NAMES.XTTS) {
+      const gpuResult = await ctx.detectGPUType()
+      if (gpuResult.type === 'nvidia') {
+        ctx.broadcast(
+          service.service_name,
+          'gpu-config',
+          `NVIDIA GPU detected. Configuring XTTS for GPU-accelerated voice cloning...`
+        )
+        gpuHostConfig = {
+          ...gpuHostConfig,
+          DeviceRequests: [
+            {
+              Driver: 'nvidia',
+              Count: -1,
+              Capabilities: [['gpu', 'compute', 'utility']],
+            },
+          ],
+        }
+      } else if (gpuResult.type === 'amd') {
+        ctx.broadcast(
+          service.service_name,
+          'gpu-config',
+          `AMD GPU detected. Configuring XTTS with ROCm device passthrough...`
+        )
+        const amdDevices = await ctx.discoverAMDDevices()
+        gpuHostConfig = {
+          ...gpuHostConfig,
+          Devices: amdDevices,
+        }
+      } else {
+        ctx.broadcast(
+          service.service_name,
+          'gpu-config',
+          `No NVIDIA/AMD GPU detected. XTTS will run on CPU — voice cloning will be significantly slower...`
+        )
       }
     }
 
