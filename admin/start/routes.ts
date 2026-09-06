@@ -59,7 +59,6 @@ import {
 import {
   installServiceValidator,
   affectServiceValidator,
-  subscribeToReleaseNotesValidator,
   updateServiceValidator,
   preflightValidator,
   setServiceAutoUpdateValidator,
@@ -824,14 +823,6 @@ router
       {
         summary: 'Get content auto-update status',
         tags: ['system'],
-      }
-    )
-    documented(
-      router.post('/subscribe-release-notes', [SystemController, 'subscribeToReleaseNotes']),
-      {
-        summary: 'Subscribe to release notes',
-        tags: ['system'],
-        request: subscribeToReleaseNotesValidator,
       }
     )
     documented(router.get('/settings', [SettingsController, 'getSetting']), {

@@ -130,16 +130,6 @@ export function installService(client: AxiosInstance, service_name: string) {
   })()
 }
 
-export function subscribeToReleaseNotes(client: AxiosInstance, email: string) {
-  return catchInternal(async () => {
-    const response = await client.post<{ success: boolean; message: string }>(
-      '/system/subscribe-release-notes',
-      { email }
-    )
-    return response.data
-  })()
-}
-
 export function getSetting(client: AxiosInstance, key: string) {
   return catchInternal(async () => {
     const response = await client.get<{ key: string; value: any }>('/system/settings', {

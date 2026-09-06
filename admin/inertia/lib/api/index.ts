@@ -36,7 +36,6 @@ class API {
     system.setServiceAutoUpdate(this.client, serviceName, enabled)
   healthCheck = () => system.healthCheck(this.client)
   installService = (service_name: string) => system.installService(this.client, service_name)
-  subscribeToReleaseNotes = (email: string) => system.subscribeToReleaseNotes(this.client, email)
   getSetting = (key: string) => system.getSetting(this.client, key)
   updateSetting = (key: string, value: any) => system.updateSetting(this.client, key, value)
   getVpnCountries = () => system.getVpnCountries(this.client)

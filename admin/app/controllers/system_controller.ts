@@ -14,7 +14,6 @@ import {
   preflightCustomValidator,
   preflightValidator,
   serviceLogsValidator,
-  subscribeToReleaseNotesValidator,
   uninstallServiceValidator,
   updateCustomAppValidator,
   updateServiceValidator,
@@ -132,11 +131,6 @@ export default class SystemController {
     await service.save()
 
     return response.send({ success: true, message: 'App auto-update preference updated' })
-  }
-
-  async subscribeToReleaseNotes({ request }: HttpContext) {
-    const reqData = await request.validateUsing(subscribeToReleaseNotesValidator)
-    return await this.systemService.subscribeToReleaseNotes(reqData.email)
   }
 
   async getDebugInfo({}: HttpContext) {

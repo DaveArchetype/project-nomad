@@ -13,12 +13,6 @@ export const affectServiceValidator = vine.compile(
   })
 )
 
-export const subscribeToReleaseNotesValidator = vine.compile(
-  vine.object({
-    email: vine.string().email().trim(),
-  })
-)
-
 export const updateServiceValidator = vine.compile(
   vine.object({
     service_name: vine.string().trim(),
