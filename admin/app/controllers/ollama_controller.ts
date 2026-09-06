@@ -367,8 +367,13 @@ export default class OllamaController {
           })
         }
 
+        const agentTools = [...requestTools]
+        if (agentTools.includes('web_search') && !agentTools.includes('current_time')) {
+          agentTools.push('current_time')
+        }
+
         logger.debug(
-          `[OllamaController] Agent branch: model="${reqData.model}", tools=[${requestTools.join(', ')}]`
+          `[OllamaController] Agent branch: model="${reqData.model}", tools=[${agentTools.join(', ')}]`
         )
 
         // Build the message list for the agent (text-only — images are not passed to the agent).
@@ -388,7 +393,7 @@ export default class OllamaController {
           const result = await this.agentService.runAgent({
             model: reqData.model,
             messages: agentMessages,
-            enabledTools: requestTools as AgentToolName[],
+            enabledTools: agentTools as AgentToolName[],
             callbacks: {
               signal: abortController.signal,
               onToolStep: (step) => {
@@ -416,16 +421,16 @@ export default class OllamaController {
           })
 
           if (reqData.stream) {
-            // Emit web sources as a final SSE event (same shape as RAG sources)
-            if (result.webSources.length > 0) {
-              const webRagSources: RagSource[] = result.webSources.map((s) => ({
-                source: s.url,
-                title: s.title,
-                contentType: 'web',
-                snippet: s.snippet || '',
-                url: s.url,
-              }))
-              response.response.write(`data: ${JSON.stringify({ sources: webRagSources })}\n\n`)
+            const webRagSources: RagSource[] = result.webSources.map((s) => ({
+              source: s.url,
+              title: s.title,
+              contentType: 'web',
+              snippet: s.snippet || '',
+              url: s.url,
+            }))
+            const allSources = [...ragSources, ...webRagSources]
+            if (allSources.length > 0) {
+              response.response.write(`data: ${JSON.stringify({ sources: allSources })}\n\n`)
             }
             // Final done event
             response.response.write(
@@ -440,22 +445,23 @@ export default class OllamaController {
 
           // Persist assistant message + sources + tool steps
           if (sessionId && result.content) {
-            const webSourcesForDb =
-              result.webSources.length > 0
-                ? result.webSources.map((s) => ({
-                    source: s.url,
-                    title: s.title,
-                    contentType: 'web',
-                    snippet: s.snippet || '',
-                    url: s.url,
-                  }))
+            const webRagSourcesForDb: RagSource[] = result.webSources.map((s) => ({
+              source: s.url,
+              title: s.title,
+              contentType: 'web',
+              snippet: s.snippet || '',
+              url: s.url,
+            }))
+            const allSourcesForDb =
+              ragSources.length > 0 || webRagSourcesForDb.length > 0
+                ? [...ragSources, ...webRagSourcesForDb]
                 : null
             await this.chatService.addMessage(
               sessionId,
               'assistant',
               result.content,
               result.generatedImages.length > 0 ? result.generatedImages : null,
-              webSourcesForDb,
+              allSourcesForDb,
               collectedToolSteps.length > 0 ? collectedToolSteps : null
             )
             const messageCount = await this.chatService.getMessageCount(sessionId)
@@ -478,11 +484,12 @@ export default class OllamaController {
               snippet: s.snippet || '',
               url: s.url,
             }))
+            const allSources = [...ragSources, ...webRagSources]
             return {
               message: { content: result.content },
               done: true,
               model: reqData.model,
-              sources: webRagSources.length > 0 ? webRagSources : undefined,
+              sources: allSources.length > 0 ? allSources : undefined,
               images: result.generatedImages.length > 0 ? result.generatedImages : undefined,
               toolSteps: collectedToolSteps,
             }

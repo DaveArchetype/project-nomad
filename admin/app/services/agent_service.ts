@@ -263,10 +263,11 @@ export class AgentService {
   private _defaultSystemPrompt(enabledTools: AgentToolName[]): string {
     const parts: string[] = [
       'You are a helpful AI assistant with access to tools. Use tools when the user asks about current information that requires live data, calculations, the current time, or asks you to create, generate, draw, or make an image or picture. For general knowledge questions, answer directly without tools.',
+      'You may also receive local knowledge base context as system messages. ALWAYS read and use any local knowledge base context provided. When answering, combine local knowledge base information with web search results whenever both are available. Try to include at least some information from local sources when relevant, and cite both local and web sources.',
     ]
     if (enabledTools.includes('web_search') || enabledTools.includes('web_fetch')) {
       parts.push(
-        'WEB SEARCH RULES: (1) Make exactly ONE web_search call — it automatically fetches the full content of the top results, so you do NOT need to call web_fetch separately. (2) After the search returns, you MUST immediately write your final answer using the provided data — do NOT call any more tools. (3) Never repeat a search. (4) The search results include full page content with real numbers — use that data directly in your answer. (5) Always cite sources with their URLs.'
+        'WEB SEARCH RULES: (1) ALWAYS call current_time first before web_search to know the current date and time — this helps you formulate time-aware search queries and interpret results correctly. (2) Make exactly ONE web_search call — it automatically fetches the full content of the top results, so you do NOT need to call web_fetch separately. (3) After the search returns, you MUST immediately write your final answer using the provided data — do NOT call any more tools. (4) Never repeat a search. (5) The search results include full page content with real numbers — use that data directly in your answer. (6) Always cite sources with their URLs.'
       )
     }
     if (enabledTools.includes('generate_image')) {
