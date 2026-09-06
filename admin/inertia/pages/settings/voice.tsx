@@ -1,7 +1,7 @@
 import { Head } from '@inertiajs/react'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { IconDownload, IconTrash, IconLoader2, IconCheck } from '@tabler/icons-react'
+import { IconDownload, IconTrash, IconLoader2, IconCheck, IconUpload } from '@tabler/icons-react'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
 import StyledButton from '~/components/StyledButton'
@@ -23,14 +23,36 @@ interface VoiceSettings {
   vadSensitivity: string
   retentionDays: string
   ttsEnabled: boolean
+  ttsEngine: string
   ttsVoice: string
   ttsAutoReadReplies: boolean
   ttsSpeechRate: string
+  ttsXttsLanguage: string
   recapEnabled: boolean
   recapScheduleTime: string
   recapTimezone: string
   recapModel: string
 }
+
+const XTTS_LANGUAGES = [
+  { code: 'en', label: 'English' },
+  { code: 'es', label: 'Spanish' },
+  { code: 'fr', label: 'French' },
+  { code: 'de', label: 'German' },
+  { code: 'it', label: 'Italian' },
+  { code: 'pt', label: 'Portuguese' },
+  { code: 'pl', label: 'Polish' },
+  { code: 'tr', label: 'Turkish' },
+  { code: 'ru', label: 'Russian' },
+  { code: 'nl', label: 'Dutch' },
+  { code: 'cs', label: 'Czech' },
+  { code: 'ar', label: 'Arabic' },
+  { code: 'zh-cn', label: 'Chinese (Simplified)' },
+  { code: 'ja', label: 'Japanese' },
+  { code: 'ko', label: 'Korean' },
+  { code: 'hu', label: 'Hungarian' },
+  { code: 'hi', label: 'Hindi' },
+]
 
 export default function VoiceSettingsPage(props: { voice: { settings: VoiceSettings } }) {
   const { addNotification } = useNotifications()
@@ -45,13 +67,22 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
   const [vadSensitivity, setVadSensitivity] = useState(s.vadSensitivity)
   const [retentionDays, setRetentionDays] = useState(s.retentionDays)
   const [ttsEnabled, setTtsEnabled] = useState(s.ttsEnabled)
+  const [ttsEngine, setTtsEngine] = useState(s.ttsEngine || 'piper')
   const [ttsVoice, setTtsVoice] = useState(s.ttsVoice)
   const [ttsAutoReadReplies, setTtsAutoReadReplies] = useState(s.ttsAutoReadReplies)
   const [ttsSpeechRate, setTtsSpeechRate] = useState(s.ttsSpeechRate)
+  const [ttsXttsLanguage, setTtsXttsLanguage] = useState(s.ttsXttsLanguage || 'en')
   const [recapEnabled, setRecapEnabled] = useState(s.recapEnabled)
   const [recapScheduleTime, setRecapScheduleTime] = useState(s.recapScheduleTime)
   const [recapModel, setRecapModel] = useState(s.recapModel)
   const [isGeneratingRecap, setIsGeneratingRecap] = useState(false)
+
+  const [downloadingVoice, setDownloadingVoice] = useState<string | null>(null)
+  const [deletingVoice, setDeletingVoice] = useState<string | null>(null)
+  const [uploadingPiperVoice, setUploadingPiperVoice] = useState(false)
+  const [cloningXttsVoice, setCloningXttsVoice] = useState(false)
+  const [deletingXttsVoice, setDeletingXttsVoice] = useState<string | null>(null)
+  const [xttsCloneName, setXttsCloneName] = useState('')
 
   const { data: status } = useQuery({
     queryKey: ['voice', 'status'],
@@ -73,8 +104,11 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
     enabled: Boolean(status?.tts.online),
   })
 
-  const [downloadingVoice, setDownloadingVoice] = useState<string | null>(null)
-  const [deletingVoice, setDeletingVoice] = useState<string | null>(null)
+  const { data: xttsVoices } = useQuery({
+    queryKey: ['voice', 'xtts-voices'],
+    queryFn: () => api.getXttsVoices(),
+    enabled: Boolean(status?.xtts?.online),
+  })
 
   async function handleDownloadVoice(voice: string) {
     setDownloadingVoice(voice)
@@ -94,7 +128,7 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
   }
 
   async function handleDeleteVoice(voice: string) {
-    if (voice === ttsVoice) {
+    if (voice === ttsVoice && ttsEngine === 'piper') {
       addNotification({
         message: 'Cannot delete the currently selected voice. Switch to another first.',
         type: 'error',
@@ -114,6 +148,94 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
       addNotification({ message: 'Failed to delete voice.', type: 'error' })
     } finally {
       setDeletingVoice(null)
+    }
+  }
+
+  async function handleUploadPiperVoice(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files
+    if (!files || files.length < 2) {
+      addNotification({
+        message: 'Select both an .onnx and an .onnx.json file.',
+        type: 'error',
+      })
+      e.target.value = ''
+      return
+    }
+    const onnxFile = Array.from(files).find((f) => f.name.endsWith('.onnx'))
+    const jsonFile = Array.from(files).find((f) => f.name.endsWith('.json'))
+    if (!onnxFile || !jsonFile) {
+      addNotification({
+        message: 'Please select one .onnx file and one .onnx.json config file.',
+        type: 'error',
+      })
+      e.target.value = ''
+      return
+    }
+    setUploadingPiperVoice(true)
+    try {
+      const res = await api.uploadTtsVoice(onnxFile, jsonFile)
+      if (res?.success) {
+        addNotification({ message: res.message, type: 'success' })
+        queryClient.invalidateQueries({ queryKey: ['voice', 'tts-voices'] })
+      } else {
+        addNotification({ message: res?.message || 'Upload failed.', type: 'error' })
+      }
+    } catch {
+      addNotification({ message: 'Failed to upload voice.', type: 'error' })
+    } finally {
+      setUploadingPiperVoice(false)
+      e.target.value = ''
+    }
+  }
+
+  async function handleCloneXttsVoice(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const name = xttsCloneName.trim()
+    if (!name) {
+      addNotification({ message: 'Enter a name for the cloned voice first.', type: 'error' })
+      e.target.value = ''
+      return
+    }
+    setCloningXttsVoice(true)
+    try {
+      const res = await api.cloneXttsVoice(name, file)
+      if (res?.success) {
+        addNotification({ message: res.message, type: 'success' })
+        setXttsCloneName('')
+        queryClient.invalidateQueries({ queryKey: ['voice', 'xtts-voices'] })
+      } else {
+        addNotification({ message: res?.message || 'Clone failed.', type: 'error' })
+      }
+    } catch {
+      addNotification({ message: 'Failed to clone voice.', type: 'error' })
+    } finally {
+      setCloningXttsVoice(false)
+      e.target.value = ''
+    }
+  }
+
+  async function handleDeleteXttsVoice(voice: string) {
+    if (voice === ttsVoice && ttsEngine === 'xtts') {
+      addNotification({
+        message: 'Cannot delete the currently selected voice. Switch to another first.',
+        type: 'error',
+      })
+      return
+    }
+    setDeletingXttsVoice(voice)
+    try {
+      const res = await api.deleteXttsVoice(voice)
+      if (res?.success) {
+        addNotification({ message: res.message, type: 'success' })
+        queryClient.invalidateQueries({ queryKey: ['voice', 'xtts-voices'] })
+      } else {
+        addNotification({ message: res?.message || 'Delete failed.', type: 'error' })
+      }
+    } catch {
+      addNotification({ message: 'Failed to delete voice.', type: 'error' })
+    } finally {
+      setDeletingXttsVoice(null)
     }
   }
 
@@ -180,6 +302,7 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
 
   const gatewayOnline = status?.gateway.online ?? false
   const ttsOnline = status?.tts.online ?? false
+  const xttsOnline = status?.xtts?.online ?? false
 
   return (
     <SettingsLayout>
@@ -189,8 +312,9 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
           <div>
             <h1 className="text-4xl font-semibold mb-2">Voice Assistant</h1>
             <p className="text-text-secondary">
-              CPU-only ambient listening, wake-word detection, and text-to-speech. Nothing here runs
-              on the GPU, so it won&apos;t compete with chat or embeddings.
+              Ambient listening, wake-word detection, and text-to-speech. The default Piper TTS runs
+              on CPU; the optional Voice Cloning TTS (XTTSv2) uses your GPU to clone any voice from
+              a short audio sample.
             </p>
           </div>
 
@@ -205,7 +329,7 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
             <Alert
               type="warning"
               title="Text-to-Speech unavailable"
-              message="Add the `tts` service from install/management_compose.yaml to your docker-compose.yml, then run `docker compose up -d tts` to enable read-aloud replies and recap narration."
+              message="Install the Text-to-Speech service from the Supply Depot to enable read-aloud replies and recap narration."
             />
           )}
 
@@ -409,6 +533,95 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
                 description="Play each assistant reply as soon as it finishes streaming, without clicking the speaker button."
                 disabled={!ttsEnabled}
               />
+
+              <div className="border-t border-border-subtle pt-4">
+                <label className="block text-base font-medium text-text-primary mb-1.5">
+                  TTS Engine
+                </label>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <label
+                    className={`flex-1 rounded-md border-2 p-3 cursor-pointer transition-colors ${
+                      ttsEngine === 'piper'
+                        ? 'border-desert-green bg-desert-green/5'
+                        : 'border-border-subtle hover:border-border-default'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="ttsEngine"
+                      value="piper"
+                      checked={ttsEngine === 'piper'}
+                      onChange={(e) => {
+                        setTtsEngine(e.target.value)
+                        save('tts.engine', e.target.value)
+                      }}
+                      className="sr-only"
+                    />
+                    <div className="text-sm font-medium text-text-primary">Piper (CPU)</div>
+                    <div className="text-xs text-text-muted mt-0.5">
+                      Lightweight, offline, ~100+ voices. No GPU needed.
+                    </div>
+                  </label>
+                  <label
+                    className={`flex-1 rounded-md border-2 p-3 cursor-pointer transition-colors ${
+                      ttsEngine === 'xtts'
+                        ? 'border-desert-green bg-desert-green/5'
+                        : 'border-border-subtle hover:border-border-default'
+                    } ${!xttsOnline ? 'opacity-50' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="ttsEngine"
+                      value="xtts"
+                      checked={ttsEngine === 'xtts'}
+                      onChange={(e) => {
+                        setTtsEngine(e.target.value)
+                        save('tts.engine', e.target.value)
+                      }}
+                      disabled={!xttsOnline}
+                      className="sr-only"
+                    />
+                    <div className="text-sm font-medium text-text-primary">
+                      XTTSv2 Voice Cloning (GPU)
+                    </div>
+                    <div className="text-xs text-text-muted mt-0.5">
+                      Clone any voice from a short audio sample. Requires GPU.
+                    </div>
+                  </label>
+                </div>
+                {!xttsOnline && (
+                  <p className="text-sm text-text-muted mt-2">
+                    Voice Cloning TTS is not installed. Install it from the Supply Depot (requires
+                    an NVIDIA GPU with ~4-6GB VRAM).
+                  </p>
+                )}
+              </div>
+
+              {ttsEngine === 'xtts' && (
+                <div>
+                  <label className="block text-base font-medium text-text-primary mb-1.5">
+                    XTTS Language
+                  </label>
+                  <select
+                    value={ttsXttsLanguage}
+                    onChange={(e) => {
+                      setTtsXttsLanguage(e.target.value)
+                      save('tts.xttsLanguage', e.target.value)
+                    }}
+                    className="w-full sm:w-64 px-3 py-2 border border-border-default rounded-md bg-surface-primary text-sm"
+                  >
+                    {XTTS_LANGUAGES.map((lang) => (
+                      <option key={lang.code} value={lang.code}>
+                        {lang.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-sm text-text-muted mt-1">
+                    Language for synthesis. The cloned voice sample can be in any language.
+                  </p>
+                </div>
+              )}
+
               <div>
                 <label className="block text-base font-medium text-text-primary mb-1.5">
                   Voice
@@ -421,14 +634,24 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
                   }}
                   className="w-full sm:w-64 px-3 py-2 border border-border-default rounded-md bg-surface-primary text-sm"
                 >
-                  {(ttsVoices?.downloaded ?? ['en_US-lessac-medium']).map((v) => (
-                    <option key={v} value={v}>
-                      {v.replace(/_/g, ' ')}
-                    </option>
-                  ))}
+                  {ttsEngine === 'piper'
+                    ? (ttsVoices?.downloaded ?? ['en_US-lessac-medium']).map((v) => (
+                        <option key={v} value={v}>
+                          {v.replace(/_/g, ' ')}
+                        </option>
+                      ))
+                    : (xttsVoices?.voices ?? []).map((v) => (
+                        <option key={v} value={v}>
+                          {v.replace(/_/g, ' ')}
+                        </option>
+                      ))}
                 </select>
                 <p className="text-sm text-text-muted mt-1">
-                  Only downloaded voices appear here. Download more below.
+                  {ttsEngine === 'piper'
+                    ? 'Only downloaded voices appear here. Download more below.'
+                    : xttsVoices && xttsVoices.voices.length > 0
+                      ? 'Cloned voices appear here. Clone more below.'
+                      : 'No cloned voices yet. Upload an audio sample below to create one.'}
                 </p>
               </div>
               <div>
@@ -448,44 +671,202 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
                 />
               </div>
 
-              <div className="border-t border-border-subtle pt-4">
-                <h3 className="text-sm font-semibold text-text-primary mb-2">Voice library</h3>
-                <p className="text-sm text-text-muted mb-3">
-                  Download additional Piper voices. Downloaded voices appear in the selector above.
-                  Files are ~50-100MB each.
-                </p>
-                <div className="max-h-72 overflow-y-auto rounded-md border border-border-subtle divide-y divide-border-subtle">
-                  {(ttsVoices?.voices ?? []).map((voice) => {
-                    const isDownloaded = (ttsVoices?.downloaded ?? []).includes(voice)
-                    const isSelected = voice === ttsVoice
-                    const isDownloading = downloadingVoice === voice
-                    const isDeleting = deletingVoice === voice
-                    return (
-                      <div
-                        key={voice}
-                        className="flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-surface-secondary/50 transition-colors"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-text-primary truncate">
-                              {voice.replace(/_/g, ' ')}
-                            </span>
-                            {isDownloaded && (
-                              <IconCheck className="size-4 text-desert-green shrink-0" />
-                            )}
-                            {isSelected && (
-                              <span className="text-xs text-desert-green font-medium shrink-0">
-                                (selected)
+              {ttsEngine === 'piper' ? (
+                <div className="border-t border-border-subtle pt-4">
+                  <h3 className="text-sm font-semibold text-text-primary mb-2">
+                    Piper voice library
+                  </h3>
+                  <p className="text-sm text-text-muted mb-3">
+                    Download additional Piper voices (100+ available across 35 languages) or upload
+                    your own .onnx + .onnx.json files. Downloaded voices appear in the selector
+                    above. Files are ~50-100MB each.
+                  </p>
+                  <div className="max-h-72 overflow-y-auto rounded-md border border-border-subtle divide-y divide-border-subtle">
+                    {(ttsVoices?.voices ?? []).map((voice) => {
+                      const isDownloaded = (ttsVoices?.downloaded ?? []).includes(voice)
+                      const isCustom = (ttsVoices?.custom ?? []).includes(voice)
+                      const isSelected = voice === ttsVoice
+                      const isDownloading = downloadingVoice === voice
+                      const isDeleting = deletingVoice === voice
+                      return (
+                        <div
+                          key={voice}
+                          className="flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-surface-secondary/50 transition-colors"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-text-primary truncate">
+                                {voice.replace(/_/g, ' ')}
                               </span>
+                              {isDownloaded && (
+                                <IconCheck className="size-4 text-desert-green shrink-0" />
+                              )}
+                              {isSelected && (
+                                <span className="text-xs text-desert-green font-medium shrink-0">
+                                  (selected)
+                                </span>
+                              )}
+                              {isCustom && (
+                                <span className="text-xs text-blue-500 font-medium shrink-0">
+                                  custom
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-xs text-text-muted">
+                              {voice.split('-').slice(-1)[0]} quality
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {isDownloaded ? (
+                              <>
+                                <SpeakButton
+                                  text="Hello, this is a voice preview."
+                                  voice={voice}
+                                  className="text-text-muted hover:text-desert-green"
+                                />
+                                {!isSelected && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteVoice(voice)}
+                                    disabled={isDeleting}
+                                    className="text-text-muted hover:text-red-500 transition-colors disabled:opacity-50 cursor-pointer"
+                                    title="Delete voice"
+                                  >
+                                    {isDeleting ? (
+                                      <IconLoader2 className="size-4 animate-spin" />
+                                    ) : (
+                                      <IconTrash className="size-4" />
+                                    )}
+                                  </button>
+                                )}
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadVoice(voice)}
+                                disabled={isDownloading}
+                                className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium bg-desert-green/10 text-desert-green hover:bg-desert-green/20 transition-colors disabled:opacity-50 cursor-pointer"
+                              >
+                                {isDownloading ? (
+                                  <IconLoader2 className="size-3.5 animate-spin" />
+                                ) : (
+                                  <IconDownload className="size-3.5" />
+                                )}
+                                {isDownloading ? 'Downloading…' : 'Download'}
+                              </button>
                             )}
                           </div>
-                          <span className="text-xs text-text-muted">
-                            {voice.split('-').slice(-1)[0]} quality
-                          </span>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {isDownloaded ? (
-                            <>
+                      )
+                    })}
+                    {ttsVoices && ttsVoices.voices.length === 0 && (
+                      <div className="px-3 py-4 text-sm text-text-muted text-center">
+                        No voices available. Make sure the TTS service is running.
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-4">
+                    <h4 className="text-sm font-semibold text-text-primary mb-2">
+                      Upload custom Piper voice
+                    </h4>
+                    <p className="text-sm text-text-muted mb-2">
+                      Select both the <code className="text-xs">.onnx</code> model file and its{' '}
+                      <code className="text-xs">.onnx.json</code> config file together (hold
+                      Ctrl/Cmd to multi-select).
+                    </p>
+                    <label className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium bg-desert-green/10 text-desert-green hover:bg-desert-green/20 transition-colors cursor-pointer disabled:opacity-50">
+                      {uploadingPiperVoice ? (
+                        <IconLoader2 className="size-4 animate-spin" />
+                      ) : (
+                        <IconUpload className="size-4" />
+                      )}
+                      <span>{uploadingPiperVoice ? 'Uploading…' : 'Upload .onnx + .json'}</span>
+                      <input
+                        type="file"
+                        accept=".onnx,.json"
+                        multiple
+                        onChange={handleUploadPiperVoice}
+                        disabled={uploadingPiperVoice}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </div>
+              ) : (
+                <div className="border-t border-border-subtle pt-4">
+                  <h3 className="text-sm font-semibold text-text-primary mb-2">
+                    Voice cloning (XTTSv2)
+                  </h3>
+                  <Alert
+                    type="info"
+                    title="Audio sample best practices"
+                    message="For best results: 6-30 seconds of clean, flowing speech. Mono 22050Hz WAV is ideal. Avoid background music, long pauses, or breathy sounds at the start/end. The AI will pick up background noise, so clean audio is key."
+                  />
+
+                  <div className="mt-4">
+                    <h4 className="text-sm font-semibold text-text-primary mb-2">
+                      Clone a new voice
+                    </h4>
+                    <div className="flex flex-col sm:flex-row gap-3 items-start">
+                      <Input
+                        name="xttsCloneName"
+                        label="Voice name"
+                        helpText="e.g. morgan_freeman, narrator, my_voice"
+                        value={xttsCloneName}
+                        onChange={(e) => setXttsCloneName(e.target.value)}
+                        className="sm:w-48"
+                      />
+                      <div className="flex flex-col gap-1 pt-6">
+                        <label className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium bg-desert-green/10 text-desert-green hover:bg-desert-green/20 transition-colors cursor-pointer disabled:opacity-50">
+                          {cloningXttsVoice ? (
+                            <IconLoader2 className="size-4 animate-spin" />
+                          ) : (
+                            <IconUpload className="size-4" />
+                          )}
+                          <span>{cloningXttsVoice ? 'Cloning…' : 'Upload audio sample'}</span>
+                          <input
+                            type="file"
+                            accept=".wav,.mp3,.flac,.ogg,.m4a"
+                            onChange={handleCloneXttsVoice}
+                            disabled={cloningXttsVoice || !xttsCloneName.trim()}
+                            className="hidden"
+                          />
+                        </label>
+                        {!xttsCloneName.trim() && (
+                          <span className="text-xs text-text-muted">
+                            Enter a name first to enable upload.
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <h4 className="text-sm font-semibold text-text-primary mb-2">Cloned voices</h4>
+                    <div className="max-h-72 overflow-y-auto rounded-md border border-border-subtle divide-y divide-border-subtle">
+                      {(xttsVoices?.voices ?? []).map((voice) => {
+                        const isSelected = voice === ttsVoice
+                        const isDeleting = deletingXttsVoice === voice
+                        return (
+                          <div
+                            key={voice}
+                            className="flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-surface-secondary/50 transition-colors"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-text-primary truncate">
+                                  {voice.replace(/_/g, ' ')}
+                                </span>
+                                {isSelected && (
+                                  <span className="text-xs text-desert-green font-medium shrink-0">
+                                    (selected)
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-xs text-text-muted">Cloned voice</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
                               <SpeakButton
                                 text="Hello, this is a voice preview."
                                 voice={voice}
@@ -494,7 +875,7 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
                               {!isSelected && (
                                 <button
                                   type="button"
-                                  onClick={() => handleDeleteVoice(voice)}
+                                  onClick={() => handleDeleteXttsVoice(voice)}
                                   disabled={isDeleting}
                                   className="text-text-muted hover:text-red-500 transition-colors disabled:opacity-50 cursor-pointer"
                                   title="Delete voice"
@@ -506,33 +887,19 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
                                   )}
                                 </button>
                               )}
-                            </>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleDownloadVoice(voice)}
-                              disabled={isDownloading}
-                              className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium bg-desert-green/10 text-desert-green hover:bg-desert-green/20 transition-colors disabled:opacity-50 cursor-pointer"
-                            >
-                              {isDownloading ? (
-                                <IconLoader2 className="size-3.5 animate-spin" />
-                              ) : (
-                                <IconDownload className="size-3.5" />
-                              )}
-                              {isDownloading ? 'Downloading…' : 'Download'}
-                            </button>
-                          )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                      {(!xttsVoices || xttsVoices.voices.length === 0) && (
+                        <div className="px-3 py-4 text-sm text-text-muted text-center">
+                          No cloned voices yet. Upload an audio sample above to create one.
                         </div>
-                      </div>
-                    )
-                  })}
-                  {ttsVoices && ttsVoices.voices.length === 0 && (
-                    <div className="px-3 py-4 text-sm text-text-muted text-center">
-                      No voices available. Make sure the TTS service is running.
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </section>
 

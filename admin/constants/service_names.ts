@@ -24,6 +24,7 @@ export const SERVICE_NAMES = {
   // Voice Assistant — CPU-only ambient STT/wake-word/TTS pipeline
   VOICE_GATEWAY: 'nomad_voice_gateway',
   TTS: 'nomad_tts',
+  XTTS: 'nomad_xtts',
   SEARXNG: 'nomad_searxng',
   COMFYUI: 'nomad_comfyui',
   N8N: 'nomad_n8n',

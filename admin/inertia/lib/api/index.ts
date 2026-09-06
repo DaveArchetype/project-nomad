@@ -262,6 +262,11 @@ class API {
   getTtsVoices = () => voice.getTtsVoices(this.client)
   downloadTtsVoice = (voiceName: string) => voice.downloadTtsVoice(this.client, voiceName)
   deleteTtsVoice = (voiceName: string) => voice.deleteTtsVoice(this.client, voiceName)
+  uploadTtsVoice = (onnxFile: File, jsonFile: File) =>
+    voice.uploadTtsVoice(this.client, onnxFile, jsonFile)
+  getXttsVoices = () => voice.getXttsVoices(this.client)
+  cloneXttsVoice = (name: string, file: File) => voice.cloneXttsVoice(this.client, name, file)
+  deleteXttsVoice = (voiceName: string) => voice.deleteXttsVoice(this.client, voiceName)
   synthesizeSpeech = (text: string, voiceName?: string, speed?: number) =>
     voice.synthesizeSpeech(this.client, text, voiceName, speed)
   listRecaps = (limit = 30) => voice.listRecaps(this.client, limit)

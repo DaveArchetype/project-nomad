@@ -5,6 +5,8 @@ export const synthesizeSchema = vine.compile(
     text: vine.string().trim().minLength(1).maxLength(5000),
     voice: vine.string().trim().optional(),
     speed: vine.number().min(0.5).max(2.0).optional(),
+    engine: vine.string().in(['piper', 'xtts']).optional(),
+    language: vine.string().trim().optional(),
   })
 )
 

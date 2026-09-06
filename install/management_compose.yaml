@@ -278,6 +278,36 @@ services:
   #     interval: 30s
   #     timeout: 10s
   #     retries: 3
+  # xtts:
+  #   # Voice Assistant — OPTIONAL GPU-accelerated voice cloning (XTTSv2). Installed as a
+  #   # Supply Depot app ("Voice Cloning TTS") via the admin UI's dynamic installer, which
+  #   # pulls versioned images from the private Gitea registry. This block is a manual
+  #   # fallback for building from source — point the build URL at a repo/branch YOU control.
+  #   # Requires an NVIDIA GPU (~4-6GB VRAM). The XTTSv2 model (~1.8GB) downloads on first use.
+  #   build: https://github.com/DaveArchetype/project-nomad.git#main:install/xtts
+  #   image: project-nomad-xtts
+  #   container_name: nomad_xtts
+  #   restart: unless-stopped
+  #   # ports:
+  #   #   - "8612:8611"
+  #   volumes:
+  #     - /mnt/main2tb/project-nomad/storage/xtts:/data
+  #   environment:
+  #     - COQUI_TOS_AGREED=1
+  #     - DEVICE=cuda
+  #     - DEFAULT_LANGUAGE=en
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: all
+  #             capabilities: [gpu]
+  #   healthcheck:
+  #     test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8611/health')"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
 
 volumes:
   nomad-update-shared:

@@ -384,6 +384,22 @@ router
       summary: 'Delete a downloaded Piper TTS voice model',
       tags: ['voice'],
     })
+    documented(router.post('/tts/voices/upload', [VoiceController, 'uploadTtsVoice']), {
+      summary: 'Upload a custom Piper TTS voice model (.onnx + .onnx.json)',
+      tags: ['voice'],
+    })
+    documented(router.get('/tts/xtts/voices', [VoiceController, 'xttsVoices']), {
+      summary: 'List cloned XTTS voices',
+      tags: ['voice'],
+    })
+    documented(router.post('/tts/xtts/voices/clone', [VoiceController, 'cloneXttsVoice']), {
+      summary: 'Clone a voice from an audio sample (XTTSv2)',
+      tags: ['voice'],
+    })
+    documented(router.delete('/tts/xtts/voices/:voice', [VoiceController, 'deleteXttsVoice']), {
+      summary: 'Delete a cloned XTTS voice',
+      tags: ['voice'],
+    })
     documented(router.post('/tts/synthesize', [VoiceController, 'synthesize']), {
       summary: 'Synthesize speech from text via Piper',
       tags: ['voice'],

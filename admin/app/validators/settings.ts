@@ -206,6 +206,19 @@ export function validateSettingValue(key: KVStoreKey, value: unknown): string | 
       }
       return null
     }
+    case 'tts.engine': {
+      const allowed = ['piper', 'xtts']
+      if (!allowed.includes(String(value))) {
+        return 'TTS engine must be "piper" or "xtts".'
+      }
+      return null
+    }
+    case 'tts.xttsLanguage': {
+      if (typeof value !== 'string' || value.trim().length === 0) {
+        return 'XTTS language must be a non-empty string.'
+      }
+      return null
+    }
     case 'recap.scheduleTime': {
       if (typeof value !== 'string' || !HHMM_PATTERN.test(value)) {
         return 'Recap schedule time must be in 24-hour HH:MM format (e.g. "23:55").'

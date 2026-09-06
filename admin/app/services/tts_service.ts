@@ -1,5 +1,6 @@
 import { inject } from '@adonisjs/core'
 import axios from 'axios'
+import FormData from 'form-data'
 import logger from '@adonisjs/core/services/logger'
 import KVStore from '#models/kv_store'
 
@@ -40,7 +41,12 @@ export class TtsService {
     }
   }
 
-  async listVoices(): Promise<{ voices: string[]; downloaded: string[]; default: string } | null> {
+  async listVoices(): Promise<{
+    voices: string[]
+    downloaded: string[]
+    custom: string[]
+    default: string
+  } | null> {
     const url = await this.getUrl()
     if (!url) return null
     try {
@@ -78,6 +84,33 @@ export class TtsService {
     } catch (err: any) {
       const message = err?.response?.data?.detail || err?.message || 'Delete failed.'
       logger.error(`[TtsService] Delete voice failed: ${message}`)
+      return { success: false, message }
+    }
+  }
+
+  async uploadVoice(
+    onnxBuffer: Buffer,
+    onnxFilename: string,
+    jsonBuffer: Buffer,
+    jsonFilename: string
+  ): Promise<{ success: boolean; message: string }> {
+    const url = await this.getUrl()
+    if (!url) return { success: false, message: 'Text-to-Speech service is not installed.' }
+    try {
+      const form = new FormData()
+      form.append('onnx', onnxBuffer, {
+        filename: onnxFilename,
+        contentType: 'application/octet-stream',
+      })
+      form.append('config', jsonBuffer, { filename: jsonFilename, contentType: 'application/json' })
+      const res = await axios.post(`${url}/voices/upload`, form, {
+        headers: form.getHeaders(),
+        timeout: 60_000,
+      })
+      return res.data
+    } catch (err: any) {
+      const message = err?.response?.data?.detail || err?.message || 'Upload failed.'
+      logger.error(`[TtsService] Upload voice failed: ${message}`)
       return { success: false, message }
     }
   }

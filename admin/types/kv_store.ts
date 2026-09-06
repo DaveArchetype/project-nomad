@@ -137,11 +137,15 @@ export const KV_STORE_SCHEMA = {
   // Days of ambient transcript retention before pruning. 0 = keep forever.
   'voice.retentionDays': 'string',
   'tts.enabled': 'boolean',
-  // Piper voice id (e.g. "en_US-lessac-medium").
+  // TTS engine: "piper" (CPU, default) or "xtts" (GPU voice cloning).
+  'tts.engine': 'string',
+  // Piper voice id (e.g. "en_US-lessac-medium") or XTTS cloned voice name.
   'tts.voice': 'string',
   'tts.autoReadReplies': 'boolean',
   // 0.5-2.0 playback/synthesis rate multiplier.
   'tts.speechRate': 'string',
+  // XTTS synthesis language (BCP-47 code, e.g. "en", "es", "fr").
+  'tts.xttsLanguage': 'string',
   'recap.enabled': 'boolean',
   // 24h HH:MM, local server time, when the nightly recap job should run.
   'recap.scheduleTime': 'string',
