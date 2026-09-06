@@ -60,7 +60,6 @@ import {
   installServiceValidator,
   affectServiceValidator,
   subscribeToReleaseNotesValidator,
-  checkLatestVersionValidator,
   updateServiceValidator,
   preflightValidator,
   setServiceAutoUpdateValidator,
@@ -835,27 +834,6 @@ router
         request: subscribeToReleaseNotesValidator,
       }
     )
-    documented(router.get('/latest-version', [SystemController, 'checkLatestVersion']), {
-      summary: 'Check the latest available version',
-      tags: ['system'],
-      query: checkLatestVersionValidator,
-    })
-    documented(router.post('/update', [SystemController, 'requestSystemUpdate']), {
-      summary: 'Request a system update',
-      tags: ['system'],
-    })
-    documented(router.get('/update/status', [SystemController, 'getSystemUpdateStatus']), {
-      summary: 'Get system update status',
-      tags: ['system'],
-    })
-    documented(router.get('/update/logs', [SystemController, 'getSystemUpdateLogs']), {
-      summary: 'Get system update logs',
-      tags: ['system'],
-    })
-    documented(router.get('/auto-update/status', [SystemController, 'getAutoUpdateStatus']), {
-      summary: 'Get system auto-update status',
-      tags: ['system'],
-    })
     documented(router.get('/settings', [SettingsController, 'getSetting']), {
       summary: 'Get a system setting',
       tags: ['system'],

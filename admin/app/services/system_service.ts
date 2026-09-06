@@ -20,7 +20,6 @@ import axios from 'axios'
 import env from '#start/env'
 import KVStore from '#models/kv_store'
 import { KV_STORE_SCHEMA, KVStoreKey } from '../../types/kv_store.js'
-import { isNewerVersion } from '../utils/version.js'
 import { invalidateAssistantNameCache } from '../../config/inertia.js'
 import { KiwixLibraryService } from '#services/kiwix_library_service'
 
@@ -693,77 +692,6 @@ export class SystemService {
     }
   }
 
-  async checkLatestVersion(force?: boolean): Promise<{
-    success: boolean
-    updateAvailable: boolean
-    currentVersion: string
-    latestVersion: string
-    message?: string
-  }> {
-    try {
-      const currentVersion = SystemService.getAppVersion()
-      const cachedUpdateAvailable = await KVStore.getValue('system.updateAvailable')
-      const cachedLatestVersion = await KVStore.getValue('system.latestVersion')
-
-      // Use cached values if not forcing a fresh check.
-      // the CheckUpdateJob will update these values every 12 hours
-      if (!force) {
-        return {
-          success: true,
-          updateAvailable: cachedUpdateAvailable ?? false,
-          currentVersion,
-          latestVersion: cachedLatestVersion || '',
-        }
-      }
-
-      const earlyAccess = (await KVStore.getValue('system.earlyAccess')) ?? false
-
-      let latestVersion: string
-      if (earlyAccess) {
-        const response = await axios.get(
-          'https://api.github.com/repos/Crosstalk-Solutions/project-nomad/releases',
-          { headers: { Accept: 'application/vnd.github+json' }, timeout: 5000 }
-        )
-        if (!response?.data?.length) throw new Error('No releases found')
-        latestVersion = response.data[0].tag_name.replace(/^v/, '').trim()
-      } else {
-        const response = await axios.get(
-          'https://api.github.com/repos/Crosstalk-Solutions/project-nomad/releases/latest',
-          { headers: { Accept: 'application/vnd.github+json' }, timeout: 5000 }
-        )
-        if (!response?.data?.tag_name) throw new Error('Invalid response from GitHub API')
-        latestVersion = response.data.tag_name.replace(/^v/, '').trim()
-      }
-
-      logger.info(`Current version: ${currentVersion}, Latest version: ${latestVersion}`)
-
-      const updateAvailable =
-        process.env.NODE_ENV === 'development'
-          ? false
-          : isNewerVersion(latestVersion, currentVersion.trim(), earlyAccess)
-
-      // Cache the results in KVStore for frontend checks
-      await KVStore.setValue('system.updateAvailable', updateAvailable)
-      await KVStore.setValue('system.latestVersion', latestVersion)
-
-      return {
-        success: true,
-        updateAvailable,
-        currentVersion,
-        latestVersion,
-      }
-    } catch (error) {
-      logger.error('Error checking latest version:', error)
-      return {
-        success: false,
-        updateAvailable: false,
-        currentVersion: '',
-        latestVersion: '',
-        message: `Failed to check latest version: ${error instanceof Error ? error.message : error}`,
-      }
-    }
-  }
-
   async subscribeToReleaseNotes(email: string): Promise<{ success: boolean; message: string }> {
     try {
       const response = await axios.post(
@@ -796,11 +724,10 @@ export class SystemService {
     const appVersion = SystemService.getAppVersion()
     const environment = process.env.NODE_ENV || 'unknown'
 
-    const [systemInfo, services, internetStatus, versionCheck] = await Promise.all([
+    const [systemInfo, services, internetStatus] = await Promise.all([
       this.getSystemInfo(),
       this.getServices({ installedOnly: false }),
       this.getInternetStatus().catch(() => null),
-      this.checkLatestVersion().catch(() => null),
     ])
 
     // Diagnostics tied to common support cases: storage relocation (#1050),
@@ -816,13 +743,10 @@ export class SystemService {
       new KiwixLibraryService().getBookCount().catch(() => null),
       KVStore.getValue('gpu.type').catch(() => null),
     ])
-    const [autoUpdateCore, autoUpdateApps, autoUpdateContent, autoDisabledReason] =
-      await Promise.all([
-        KVStore.getValue('autoUpdate.enabled').catch(() => null),
-        KVStore.getValue('appAutoUpdate.enabled').catch(() => null),
-        KVStore.getValue('contentAutoUpdate.enabled').catch(() => null),
-        KVStore.getValue('autoUpdate.autoDisabledReason').catch(() => null),
-      ])
+    const [autoUpdateApps, autoUpdateContent] = await Promise.all([
+      KVStore.getValue('appAutoUpdate.enabled').catch(() => null),
+      KVStore.getValue('contentAutoUpdate.enabled').catch(() => null),
+    ])
     const isEnabled = (v: any) => v === true || v === 'true'
 
     const lines: string[] = [
@@ -917,21 +841,10 @@ export class SystemService {
       lines.push(`Internet Status: ${internetStatus ? 'Online' : 'Offline'}`)
     }
 
-    if (versionCheck?.success) {
-      const updateMsg = versionCheck.updateAvailable
-        ? `Yes (${versionCheck.latestVersion} available)`
-        : `No (${versionCheck.currentVersion} is latest)`
-      lines.push(`Update Available: ${updateMsg}`)
-    }
-
     lines.push('')
     lines.push('Auto-Update:')
-    lines.push(`  Core: ${isEnabled(autoUpdateCore) ? 'Enabled' : 'Disabled'}`)
     lines.push(`  Apps: ${isEnabled(autoUpdateApps) ? 'Enabled' : 'Disabled'}`)
     lines.push(`  Content: ${isEnabled(autoUpdateContent) ? 'Enabled' : 'Disabled'}`)
-    if (autoDisabledReason) {
-      lines.push(`  Auto-disabled reason: ${autoDisabledReason}`)
-    }
 
     return lines.join('\n')
   }
@@ -964,12 +877,6 @@ export class SystemService {
     }
     if (key === 'ai.assistantCustomName') {
       invalidateAssistantNameCache()
-    }
-    // Re-enabling auto-update after a backoff-driven auto-disable clears the
-    // failure state so it gets a fresh start instead of immediately re-tripping.
-    if (key === 'autoUpdate.enabled' && (value === true || value === 'true')) {
-      await KVStore.setValue('autoUpdate.consecutiveFailures', '0')
-      await KVStore.clearValue('autoUpdate.autoDisabledReason')
     }
     // Re-enabling the global app auto-update master switch clears every app's
     // per-app failure backoff so previously self-disabled apps get a fresh start.

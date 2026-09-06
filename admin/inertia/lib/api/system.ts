@@ -2,11 +2,8 @@ import { AxiosError, AxiosInstance } from 'axios'
 import { ServiceSlim } from '../../../types/services'
 import {
   AppAutoUpdateStatus,
-  AutoUpdateStatus,
-  CheckLatestVersionResult,
   ContentAutoUpdateStatus,
   SystemInformationResponse,
-  SystemUpdateStatus,
 } from '../../../types/system'
 import { catchInternal } from '../util'
 
@@ -20,15 +17,6 @@ export function affectService(
       '/system/services/affect',
       { service_name, action }
     )
-    return response.data
-  })()
-}
-
-export function checkLatestVersion(client: AxiosInstance, force: boolean = false) {
-  return catchInternal(async () => {
-    const response = await client.get<CheckLatestVersionResult>('/system/latest-version', {
-      params: { force },
-    })
     return response.data
   })()
 }
@@ -99,27 +87,6 @@ export function getSystemServices(client: AxiosInstance) {
   })()
 }
 
-export function getSystemUpdateStatus(client: AxiosInstance) {
-  return catchInternal(async () => {
-    const response = await client.get<SystemUpdateStatus>('/system/update/status')
-    return response.data
-  })()
-}
-
-export function getSystemUpdateLogs(client: AxiosInstance) {
-  return catchInternal(async () => {
-    const response = await client.get<{ logs: string }>('/system/update/logs')
-    return response.data
-  })()
-}
-
-export function getAutoUpdateStatus(client: AxiosInstance) {
-  return catchInternal(async () => {
-    const response = await client.get<AutoUpdateStatus>('/system/auto-update/status')
-    return response.data
-  })()
-}
-
 export function getAppAutoUpdateStatus(client: AxiosInstance) {
   return catchInternal(async () => {
     const response = await client.get<AppAutoUpdateStatus>('/system/apps/auto-update/status')
@@ -159,13 +126,6 @@ export function installService(client: AxiosInstance, service_name: string) {
       '/system/services/install',
       { service_name }
     )
-    return response.data
-  })()
-}
-
-export function startSystemUpdate(client: AxiosInstance) {
-  return catchInternal(async () => {
-    const response = await client.post<{ success: boolean; message: string }>('/system/update')
     return response.data
   })()
 }

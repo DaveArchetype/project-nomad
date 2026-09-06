@@ -7,9 +7,7 @@ import { RunDownloadJob } from '#jobs/run_download_job'
 import { RunExtractPmtilesJob } from '#jobs/run_extract_pmtiles_job'
 import { DownloadModelJob } from '#jobs/download_model_job'
 import { EmbedFileJob } from '#jobs/embed_file_job'
-import { CheckUpdateJob } from '#jobs/check_update_job'
 import { CheckServiceUpdatesJob } from '#jobs/check_service_updates_job'
-import { AutoUpdateJob } from '#jobs/auto_update_job'
 import { AppAutoUpdateJob } from '#jobs/app_auto_update_job'
 import { ContentAutoUpdateJob } from '#jobs/content_auto_update_job'
 import { DownloadDrugDataJob } from '#jobs/download_drug_data_job'
@@ -145,9 +143,7 @@ export default class QueueWork extends BaseCommand {
     }
 
     // Schedule nightly update checks (idempotent, will persist over restarts)
-    await CheckUpdateJob.scheduleNightly()
     await CheckServiceUpdatesJob.scheduleNightly()
-    await AutoUpdateJob.schedule()
     await AppAutoUpdateJob.schedule()
     await ContentAutoUpdateJob.schedule()
     await DailyRecapJob.schedule()
@@ -178,9 +174,7 @@ export default class QueueWork extends BaseCommand {
     handlers.set(RunExtractPmtilesJob.key, new RunExtractPmtilesJob())
     handlers.set(DownloadModelJob.key, new DownloadModelJob())
     handlers.set(EmbedFileJob.key, new EmbedFileJob())
-    handlers.set(CheckUpdateJob.key, new CheckUpdateJob())
     handlers.set(CheckServiceUpdatesJob.key, new CheckServiceUpdatesJob())
-    handlers.set(AutoUpdateJob.key, new AutoUpdateJob())
     handlers.set(AppAutoUpdateJob.key, new AppAutoUpdateJob())
     handlers.set(ContentAutoUpdateJob.key, new ContentAutoUpdateJob())
     handlers.set(DownloadDrugDataJob.key, new DownloadDrugDataJob())
@@ -191,9 +185,7 @@ export default class QueueWork extends BaseCommand {
     queues.set(RunExtractPmtilesJob.key, RunExtractPmtilesJob.queue)
     queues.set(DownloadModelJob.key, DownloadModelJob.queue)
     queues.set(EmbedFileJob.key, EmbedFileJob.queue)
-    queues.set(CheckUpdateJob.key, CheckUpdateJob.queue)
     queues.set(CheckServiceUpdatesJob.key, CheckServiceUpdatesJob.queue)
-    queues.set(AutoUpdateJob.key, AutoUpdateJob.queue)
     queues.set(AppAutoUpdateJob.key, AppAutoUpdateJob.queue)
     queues.set(ContentAutoUpdateJob.key, ContentAutoUpdateJob.queue)
     queues.set(DownloadDrugDataJob.key, DownloadDrugDataJob.queue)
@@ -241,7 +233,6 @@ export default class QueueWork extends BaseCommand {
       [RunExtractPmtilesJob.queue]: 2,
       [DownloadModelJob.queue]: 2, // Lower concurrency for resource-intensive model downloads
       [EmbedFileJob.queue]: 2, // Lower concurrency for embedding jobs, can be resource intensive
-      [CheckUpdateJob.queue]: 1, // No need to run more than one update check at a time
       // Drug download: one part at a time — a ~150 MB resumable HTTP pull per
       // part, no benefit to parallelism and easier on the storage volume.
       [DownloadDrugDataJob.queue]: 1,

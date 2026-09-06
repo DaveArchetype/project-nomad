@@ -19,7 +19,6 @@ class API {
   // System / services / settings
   affectService = (service_name: string, action: 'start' | 'stop' | 'restart') =>
     system.affectService(this.client, service_name, action)
-  checkLatestVersion = (force: boolean = false) => system.checkLatestVersion(this.client, force)
   checkServiceUpdates = () => system.checkServiceUpdates(this.client)
   getAvailableVersions = (serviceName: string) =>
     system.getAvailableVersions(this.client, serviceName)
@@ -31,16 +30,12 @@ class API {
   getInternetStatus = () => system.getInternetStatus(this.client)
   getSystemInfo = () => system.getSystemInfo(this.client)
   getSystemServices = () => system.getSystemServices(this.client)
-  getSystemUpdateStatus = () => system.getSystemUpdateStatus(this.client)
-  getSystemUpdateLogs = () => system.getSystemUpdateLogs(this.client)
-  getAutoUpdateStatus = () => system.getAutoUpdateStatus(this.client)
   getAppAutoUpdateStatus = () => system.getAppAutoUpdateStatus(this.client)
   getContentAutoUpdateStatus = () => system.getContentAutoUpdateStatus(this.client)
   setServiceAutoUpdate = (serviceName: string, enabled: boolean) =>
     system.setServiceAutoUpdate(this.client, serviceName, enabled)
   healthCheck = () => system.healthCheck(this.client)
   installService = (service_name: string) => system.installService(this.client, service_name)
-  startSystemUpdate = () => system.startSystemUpdate(this.client)
   subscribeToReleaseNotes = (email: string) => system.subscribeToReleaseNotes(this.client, email)
   getSetting = (key: string) => system.getSetting(this.client, key)
   updateSetting = (key: string, value: any) => system.updateSetting(this.client, key, value)

@@ -72,42 +72,6 @@ export type NomadDiskInfo = {
   }[]
 }
 
-export type SystemUpdateStatus = {
-  stage: 'idle' | 'starting' | 'pulling' | 'pulled' | 'recreating' | 'complete' | 'error'
-  progress: number
-  message: string
-  timestamp: string
-}
-
-export type CheckLatestVersionResult = {
-  success: boolean
-  updateAvailable: boolean
-  currentVersion: string
-  latestVersion: string
-  message?: string
-}
-
-export type AutoUpdateEligibleTarget = {
-  version: string
-  tag: string
-  publishedAt: string
-}
-
-export type AutoUpdateStatus = {
-  enabled: boolean
-  windowStart: string
-  windowEnd: string
-  cooloffHours: number
-  currentVersion: string
-  withinWindow: boolean
-  eligibleTarget: AutoUpdateEligibleTarget | null
-  lastAttemptAt: string | null
-  lastResult: string | null
-  lastError: string | null
-  consecutiveFailures: number
-  autoDisabledReason: string | null
-}
-
 export type AppAutoUpdateAppStatus = {
   service_name: string
   friendly_name: string | null

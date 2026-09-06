@@ -56,7 +56,6 @@ export default defineConfig({
     () => import('#providers/map_static_provider'),
     () => import('#providers/kiwix_migration_provider'),
     () => import('#providers/qdrant_restart_policy_provider'),
-    () => import('#providers/version_check_provider'),
     () => import('#providers/gpu_passthrough_remediation_provider'),
     () => import('#providers/tei_idle_stop_provider'),
     () => import('#providers/container_watchdog_provider'),
