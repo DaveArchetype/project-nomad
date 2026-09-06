@@ -147,12 +147,15 @@ export default class VoiceController {
 
     let result
     if (engine === 'xtts') {
-      if (!data.voice) {
+      const voice = data.voice || (await KVStore.getValue('tts.voice')) || undefined
+      if (!voice) {
         return response.status(400).json({ error: 'voice is required for XTTS engine.' })
       }
-      result = await this.xttsService.synthesize(data.text, data.voice, data.language, data.speed)
+      const language = data.language || (await KVStore.getValue('tts.xttsLanguage')) || undefined
+      result = await this.xttsService.synthesize(data.text, voice, language, data.speed)
     } else {
-      result = await this.ttsService.synthesize(data.text, data.voice)
+      const voice = data.voice || (await KVStore.getValue('tts.voice')) || undefined
+      result = await this.ttsService.synthesize(data.text, voice)
     }
 
     if (!result.success) {
