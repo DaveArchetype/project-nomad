@@ -714,7 +714,7 @@ export default class ServiceSeeder extends BaseSeeder {
       powered_by: 'XTTSv2 (Coqui)',
       display_order: 31,
       description:
-        'GPU-accelerated voice cloning — create custom voices (e.g. celebrity voices) from short audio samples. Optional add-on to the Piper TTS service.',
+        'CPU-based voice cloning — create custom voices from short audio samples without consuming GPU resources. Optional add-on to the Piper TTS service.',
       icon: 'IconVoice',
       container_image: 'registry.dasaroff.com/davearchetype/project-nomad-xtts:1.0.0',
       source_repo: 'https://github.com/DaveArchetype/project-nomad',
@@ -724,7 +724,13 @@ export default class ServiceSeeder extends BaseSeeder {
           RestartPolicy: { Name: 'unless-stopped' },
           Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/xtts:/data`],
         },
-        Env: ['COQUI_TOS_AGREED=1', 'DEVICE=cuda', 'DEFAULT_LANGUAGE=en'],
+        Env: [
+          'COQUI_TOS_AGREED=1',
+          'DEVICE=cpu',
+          'TTS_HOME=/data/models',
+          'HF_HOME=/data/hf_cache',
+          'DEFAULT_LANGUAGE=en',
+        ],
       }),
       ui_location: '/settings/voice',
       ui_path: null,
@@ -734,7 +740,7 @@ export default class ServiceSeeder extends BaseSeeder {
       is_custom: false,
       category: 'ai',
       depends_on: null,
-      metadata: JSON.stringify({ minMemoryMB: 8192, minDiskMB: 5120, requiresGPU: true }),
+      metadata: JSON.stringify({ minMemoryMB: 8192, minDiskMB: 5120, requiresGPU: false }),
     },
     {
       service_name: SERVICE_NAMES.SEARXNG,

@@ -358,9 +358,8 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
           <div>
             <h1 className="text-4xl font-semibold mb-2">Voice Assistant</h1>
             <p className="text-text-secondary">
-              Ambient listening, wake-word detection, and text-to-speech. The default Piper TTS runs
-              on CPU; the optional Voice Cloning TTS (XTTSv2) uses your GPU to clone any voice from
-              a short audio sample.
+              Ambient listening, wake-word detection, and text-to-speech. Piper and the optional
+              Voice Cloning TTS (XTTSv2) run on CPU so they do not compete with other GPU workloads.
             </p>
           </div>
 
@@ -638,17 +637,17 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
                       className="sr-only"
                     />
                     <div className="text-sm font-medium text-text-primary">
-                      XTTSv2 Voice Cloning (GPU)
+                      XTTSv2 Voice Cloning (CPU)
                     </div>
                     <div className="text-xs text-text-muted mt-0.5">
-                      Clone any voice from a short audio sample. Requires GPU.
+                      Clone any voice from a short audio sample without using the GPU.
                     </div>
                   </label>
                 </div>
                 {!xttsOnline && (
                   <p className="text-sm text-text-muted mt-2">
-                    Voice Cloning TTS is not installed. Install it from the Supply Depot (requires
-                    an NVIDIA GPU with ~4-6GB VRAM).
+                    Voice Cloning TTS is not installed. Install it from the Supply Depot to create
+                    cloned voices locally on the CPU.
                   </p>
                 )}
                 {ttsEngine === 'xtts' && (

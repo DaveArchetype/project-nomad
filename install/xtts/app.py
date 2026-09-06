@@ -2,25 +2,27 @@
 Project NOMAD XTTS Voice Cloning service
 =========================================
 
-A GPU-accelerated FastAPI wrapper around Coqui XTTSv2
+A CPU-based FastAPI wrapper around Coqui XTTSv2
 (https://github.com/coqui-ai/TTS), used for voice cloning from short audio
 samples (6-30s). Cloned voices are stored as .wav files under SPEAKERS_DIR.
-The XTTSv2 model (~1.8GB) is downloaded from HuggingFace on first use and
-cached under MODELS_DIR.
+The XTTSv2 model (~1.8GB) is downloaded from HuggingFace during startup,
+cached under MODELS_DIR, and retained in memory.
 
 This is an OPTIONAL Supply Depot service — install it from Supply Depot >
-"Voice Cloning TTS" if you have a GPU. It complements the CPU-only Piper TTS
-service, which remains the default.
+"Voice Cloning TTS" for higher-quality cloned voices. It complements the
+lighter Piper TTS service, which remains the default.
 """
 
 from __future__ import annotations
 
+import asyncio
 import io
 import logging
 import os
 import re
 import tempfile
 import wave
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
@@ -32,15 +34,17 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [xtts] %(message)s")
 logger = logging.getLogger("xtts")
 
 MODELS_DIR = Path(os.environ.get("MODELS_DIR", "/data"))
+TTS_HOME = Path(os.environ.setdefault("TTS_HOME", str(MODELS_DIR / "models")))
+HF_HOME = Path(os.environ.setdefault("HF_HOME", str(MODELS_DIR / "hf_cache")))
 SPEAKERS_DIR = Path(os.environ.get("SPEAKERS_DIR", "/data/speakers"))
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
+TTS_HOME.mkdir(parents=True, exist_ok=True)
+HF_HOME.mkdir(parents=True, exist_ok=True)
 SPEAKERS_DIR.mkdir(parents=True, exist_ok=True)
 
-DEVICE = os.environ.get("DEVICE", "cuda")
+DEVICE = os.environ.get("DEVICE", "cpu")
 DEFAULT_LANGUAGE = os.environ.get("DEFAULT_LANGUAGE", "en")
 MAX_TEXT_LENGTH = int(os.environ.get("MAX_TEXT_LENGTH", "5000"))
-
-app = FastAPI(title="Project NOMAD XTTS Voice Cloning")
 
 _loaded_model = None
 _model_loading = False
@@ -55,11 +59,10 @@ def _get_model():
 
     _model_loading = True
     try:
-        import torch
         from TTS.api import TTS
 
         logger.info(f"Loading XTTSv2 model on device '{DEVICE}'...")
-        tts = TTS(model_name="tts_models/multilingual/xtts_v2", gpu=(DEVICE.startswith("cuda")))
+        tts = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2").to(DEVICE)
         _loaded_model = tts
         logger.info("XTTSv2 model loaded successfully.")
         return tts
@@ -69,6 +72,15 @@ def _get_model():
         raise HTTPException(status_code=500, detail=f"Failed to load XTTSv2 model: {exc}")
     finally:
         _model_loading = False
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    await asyncio.to_thread(_get_model)
+    yield
+
+
+app = FastAPI(title="Project NOMAD XTTS Voice Cloning", lifespan=lifespan)
 
 
 def _sanitize_name(name: str) -> str:

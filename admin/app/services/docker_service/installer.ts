@@ -412,44 +412,6 @@ async function createContainer(
       }
     }
 
-    if (service.service_name === SERVICE_NAMES.XTTS) {
-      const gpuResult = await ctx.detectGPUType()
-      if (gpuResult.type === 'nvidia') {
-        ctx.broadcast(
-          service.service_name,
-          'gpu-config',
-          `NVIDIA GPU detected. Configuring XTTS for GPU-accelerated voice cloning...`
-        )
-        gpuHostConfig = {
-          ...gpuHostConfig,
-          DeviceRequests: [
-            {
-              Driver: 'nvidia',
-              Count: -1,
-              Capabilities: [['gpu', 'compute', 'utility']],
-            },
-          ],
-        }
-      } else if (gpuResult.type === 'amd') {
-        ctx.broadcast(
-          service.service_name,
-          'gpu-config',
-          `AMD GPU detected. Configuring XTTS with ROCm device passthrough...`
-        )
-        const amdDevices = await ctx.discoverAMDDevices()
-        gpuHostConfig = {
-          ...gpuHostConfig,
-          Devices: amdDevices,
-        }
-      } else {
-        ctx.broadcast(
-          service.service_name,
-          'gpu-config',
-          `No NVIDIA/AMD GPU detected. XTTS will run on CPU — voice cloning will be significantly slower...`
-        )
-      }
-    }
-
     if (service.service_name === SERVICE_NAMES.STREMIO) {
       const gpuResult = await ctx.detectGPUType()
 

@@ -8,7 +8,7 @@ const XTTS_CONTAINER_NAME = 'nomad_xtts'
 const XTTS_PORT = '8611'
 
 /**
- * Thin proxy to the XTTSv2-based `nomad_xtts` container. OPTIONAL GPU-only
+ * Thin proxy to the XTTSv2-based `nomad_xtts` container. OPTIONAL CPU-based
  * voice cloning service — installed from Supply Depot ("Voice Cloning TTS").
  * Complements the CPU-only Piper TTS service. Used when `tts.engine` = 'xtts'.
  */
@@ -27,8 +27,7 @@ export class XttsService {
     } catch {
       return {
         online: false,
-        message:
-          'Voice Cloning TTS service is not running. Install it from the Supply Depot (requires GPU).',
+        message: 'Voice Cloning TTS service is not running. Install it from the Supply Depot.',
       }
     }
   }
