@@ -68,17 +68,30 @@ export default function SpeakButton({
     mute()
     try {
       const blob = await api.synthesizeSpeech(text, voice, undefined, engine, language)
-      if (!blob) {
+      if (!blob || blob.size === 0) {
         throw new Error('No audio returned')
       }
-      const url = URL.createObjectURL(blob)
+      const typedBlob = blob.type ? blob : new Blob([blob], { type: 'audio/wav' })
+      const url = URL.createObjectURL(typedBlob)
       const audio = new Audio(url)
       audioRef.current = audio
       audio.onended = () => {
         setState('idle')
         unmute()
       }
-      audio.onerror = () => {
+      audio.onerror = (e) => {
+        console.error(
+          '[SpeakButton] Audio playback error:',
+          e,
+          'blob type:',
+          typedBlob.type,
+          'size:',
+          typedBlob.size
+        )
+        addNotification({
+          message: `Audio playback failed (${typedBlob.type || 'unknown type'}, ${typedBlob.size} bytes)`,
+          type: 'error',
+        })
         setState('idle')
         unmute()
       }
