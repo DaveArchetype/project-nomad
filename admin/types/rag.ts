@@ -60,6 +60,8 @@ export type RAGResult = {
   document_id?: string
   content_type?: string
   source?: string
+  calibre_book_id?: number
+  calibre_format?: string
 }
 
 export type RerankedRAGResult = Omit<RAGResult, 'keywords'> & {

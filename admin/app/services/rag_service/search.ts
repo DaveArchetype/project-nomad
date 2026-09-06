@@ -106,6 +106,8 @@ export async function searchSimilarDocuments(
       document_id: result.payload?.document_id as string | undefined,
       content_type: result.payload?.content_type as string | undefined,
       source: result.payload?.source as string | undefined,
+      calibre_book_id: result.payload?.calibre_book_id as number | undefined,
+      calibre_format: result.payload?.calibre_format as string | undefined,
     }))
 
     const rerankedResults = rerankResults(resultsWithMetadata, keywords, query)
@@ -134,6 +136,8 @@ export async function searchSimilarDocuments(
         document_id: result.document_id,
         content_type: result.content_type,
         source: result.source,
+        calibre_book_id: result.calibre_book_id,
+        calibre_format: result.calibre_format,
       },
     }))
   } catch (error) {

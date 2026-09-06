@@ -164,7 +164,7 @@ export default class OllamaController {
         const relevantDocs = await this.ragService.searchSimilarDocuments(
           rewrittenQuery,
           5, // Top 5 most relevant chunks
-          0.3, // Minimum similarity score of 0.3
+          0.25, // Minimum similarity score (lowered for OCR'd PDF content)
           collectionFilter ?? undefined
         )
 
@@ -201,8 +201,13 @@ export default class OllamaController {
           const contextText = trimmedDocs
             .map((doc, idx) => {
               const title = doc.metadata?.full_title || doc.metadata?.article_title
-              const isCalibre = doc.metadata?.content_type === 'calibre_book'
-              const sourceTag = isCalibre ? ' [Calibre Book]' : ''
+              const contentType = doc.metadata?.content_type as string | undefined
+              let sourceTag = ''
+              if (contentType === 'calibre_book') sourceTag = ' [Calibre Book]'
+              else if (contentType === 'pdf') sourceTag = ' [PDF]'
+              else if (contentType === 'epub') sourceTag = ' [EPUB]'
+              else if (contentType === 'docx') sourceTag = ' [DOCX]'
+              else if (contentType === 'zim_article') sourceTag = ' [ZIM]'
               const label = title
                 ? `[Context ${idx + 1} — ${title}${sourceTag}]`
                 : `[Context ${idx + 1}${sourceTag}]`

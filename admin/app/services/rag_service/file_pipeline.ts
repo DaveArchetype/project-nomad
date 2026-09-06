@@ -148,7 +148,8 @@ export async function processAndEmbedFile(
     const scaledProgress = onProgress ? (p: number) => onProgress(15 + p * 0.85) : undefined
 
     const calibreMetadata = await resolveCalibreMetadata(filepath)
-    const mergedMetadata = calibreMetadata ?? undefined
+    const fileTypeMetadata: Record<string, any> = { content_type: fileType }
+    const mergedMetadata = calibreMetadata ?? fileTypeMetadata
 
     return await embedTextAndCleanup(
       ctx,
