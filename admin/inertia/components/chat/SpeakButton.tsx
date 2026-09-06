@@ -3,6 +3,7 @@ import { IconVolume, IconPlayerStop, IconLoader2 } from '@tabler/icons-react'
 import api from '~/lib/api'
 import { useNotifications } from '~/context/NotificationContext'
 import { useVoice } from '~/context/VoiceContext'
+import { createSpeechSource, stripMarkdownForHighlighting, unlockAudioPlayback } from '~/lib/voice'
 
 interface SpeakButtonProps {
   text: string
@@ -34,27 +35,33 @@ export default function SpeakButton({
   onStopAutoReading,
 }: SpeakButtonProps) {
   const [state, setState] = useState<'idle' | 'loading' | 'playing'>('idle')
-  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const sourceRef = useRef<AudioBufferSourceNode | null>(null)
   const { addNotification } = useNotifications()
   const { mute, unmute } = useVoice()
 
   useEffect(() => {
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause()
-        audioRef.current = null
+      if (sourceRef.current) {
+        sourceRef.current.onended = null
+        try {
+          sourceRef.current.stop()
+        } catch {}
+        sourceRef.current.disconnect()
+        sourceRef.current = null
         unmute()
       }
     }
   }, [unmute])
 
   const stop = () => {
-    if (audioRef.current) {
-      audioRef.current.pause()
-      const src = audioRef.current.src
-      if (src) URL.revokeObjectURL(src)
+    if (sourceRef.current) {
+      sourceRef.current.onended = null
+      try {
+        sourceRef.current.stop()
+      } catch {}
+      sourceRef.current.disconnect()
     }
-    audioRef.current = null
+    sourceRef.current = null
     setState('idle')
     unmute()
   }
@@ -71,33 +78,31 @@ export default function SpeakButton({
     setState('loading')
     mute()
     try {
-      const blob = await api.synthesizeSpeech(text, voice, undefined, engine, language)
-      if (!blob || blob.size === 0) {
-        throw new Error('No audio returned')
-      }
-      const typedBlob = blob.type ? blob : new Blob([blob], { type: 'audio/wav' })
-      const arrayBuffer = await typedBlob.arrayBuffer()
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
-      const decoded = await audioCtx.decodeAudioData(arrayBuffer)
-      const source = audioCtx.createBufferSource()
-      source.buffer = decoded
-      source.connect(audioCtx.destination)
+      await unlockAudioPlayback()
+      const spokenText = stripMarkdownForHighlighting(text)
+      if (!spokenText) throw new Error('No readable text to speak')
+
+      const blob = await api.synthesizeSpeech(spokenText, voice, undefined, engine, language)
+      if (!blob || blob.size === 0) throw new Error('No audio returned')
+
+      const { source } = await createSpeechSource(blob)
+      sourceRef.current = source
       source.onended = () => {
+        if (sourceRef.current !== source) return
+        source.disconnect()
+        sourceRef.current = null
         setState('idle')
         unmute()
-        audioCtx.close()
       }
       source.start()
-      audioRef.current = {
-        pause: () => {
-          source.stop()
-          audioCtx.close()
-        },
-        src: '',
-      } as any
       setState('playing')
     } catch (err) {
       console.error('[SpeakButton] Playback failed:', err)
+      if (sourceRef.current) {
+        sourceRef.current.onended = null
+        sourceRef.current.disconnect()
+        sourceRef.current = null
+      }
       addNotification({
         message: `Failed to play audio: ${err instanceof Error ? err.message : 'unknown error'}`,
         type: 'error',

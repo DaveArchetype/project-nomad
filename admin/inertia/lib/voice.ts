@@ -1,3 +1,36 @@
+let playbackAudioContext: AudioContext | null = null
+
+export async function unlockAudioPlayback(): Promise<AudioContext> {
+  if (typeof window === 'undefined') throw new Error('Audio playback is unavailable.')
+
+  const AudioContextConstructor =
+    window.AudioContext ||
+    (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+  if (!AudioContextConstructor) throw new Error('Audio playback is not supported by this browser.')
+
+  if (!playbackAudioContext || playbackAudioContext.state === 'closed') {
+    playbackAudioContext = new AudioContextConstructor()
+  }
+  if (playbackAudioContext.state !== 'running') await playbackAudioContext.resume()
+  if (playbackAudioContext.state !== 'running') {
+    throw new Error('Audio playback is blocked. Click or press a key, then try again.')
+  }
+  return playbackAudioContext
+}
+
+export async function createSpeechSource(blob: Blob): Promise<{
+  context: AudioContext
+  source: AudioBufferSourceNode
+  duration: number
+}> {
+  const context = await unlockAudioPlayback()
+  const audioBuffer = await context.decodeAudioData(await blob.arrayBuffer())
+  const source = context.createBufferSource()
+  source.buffer = audioBuffer
+  source.connect(context.destination)
+  return { context, source, duration: audioBuffer.duration }
+}
+
 export function stripMarkdownForHighlighting(text: string): string {
   let s = text
   s = s.replace(/```[\s\S]*?```/g, ' ')

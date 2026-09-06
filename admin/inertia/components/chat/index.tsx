@@ -15,10 +15,13 @@ import { useChatModels } from './hooks/useChatModels'
 import { useChatStream } from './hooks/useChatStream'
 import { useVoice } from '~/context/VoiceContext'
 import {
-  stripMarkdownForHighlighting,
+  createSpeechSource,
   getSentencesWithOffsets,
+  stripMarkdownForHighlighting,
+  unlockAudioPlayback,
   type SentenceChunk,
 } from '~/lib/voice'
+import { useNotifications } from '~/context/NotificationContext'
 
 interface ChatProps {
   enabled: boolean
@@ -59,11 +62,13 @@ export default function Chat({
   const [selectedModel, setSelectedModel] = useState<string>('')
   const effectiveThinkingRef = useRef<(model: string) => boolean>(() => false)
   const voice = useVoice()
+  const { addNotification } = useNotifications()
   const voiceRef = useRef(voice)
   voiceRef.current = voice
   const lastAutoReadMessageIdRef = useRef<string | null>(null)
   const suppressAutoReadRef = useRef(false)
-  const currentAudioRef = useRef<HTMLAudioElement | null>(null)
+  const currentSourceRef = useRef<AudioBufferSourceNode | null>(null)
+  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const playingMessageIdRef = useRef<string | null>(null)
   const sentenceQueueRef = useRef<SentenceChunk[]>([])
   const playedSentenceCountRef = useRef(0)
@@ -76,9 +81,17 @@ export default function Chat({
 
   const stopSpeaking = useCallback(() => {
     isStoppedRef.current = true
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause()
-      currentAudioRef.current = null
+    if (progressTimerRef.current) {
+      clearInterval(progressTimerRef.current)
+      progressTimerRef.current = null
+    }
+    if (currentSourceRef.current) {
+      currentSourceRef.current.onended = null
+      try {
+        currentSourceRef.current.stop()
+      } catch {}
+      currentSourceRef.current.disconnect()
+      currentSourceRef.current = null
     }
     playingMessageIdRef.current = null
     sentenceQueueRef.current = []
@@ -91,94 +104,107 @@ export default function Chat({
     voiceRef.current.unmute()
   }, [])
 
-  const processSentenceQueue = useCallback(async (messageId: string) => {
-    if (isProcessingQueueRef.current) return
-    if (isStoppedRef.current) return
-    const next = sentenceQueueRef.current.shift()
-    if (!next) {
-      isProcessingQueueRef.current = false
-      playingMessageIdRef.current = null
-      setIsSpeaking(false)
-      setSpeakingMessageId(null)
-      setSpeakingWordIndex(-1)
-      voiceRef.current.unmute()
-      return
-    }
-    isProcessingQueueRef.current = true
-
-    try {
-      let blob: Blob | undefined
-      for (let attempt = 0; attempt < 3; attempt++) {
-        if (isStoppedRef.current || playingMessageIdRef.current !== messageId) break
-        try {
-          blob = await api.synthesizeSpeech(next.text)
-          if (blob) break
-        } catch {
-          // retry after delay
-        }
-        if (attempt < 2) await new Promise((r) => setTimeout(r, 800))
-      }
-      if (!blob || isStoppedRef.current || playingMessageIdRef.current !== messageId) {
-        playedSentenceCountRef.current++
+  const processSentenceQueue = useCallback(
+    async (messageId: string) => {
+      if (isProcessingQueueRef.current || isStoppedRef.current) return
+      const next = sentenceQueueRef.current.shift()
+      if (!next) {
         isProcessingQueueRef.current = false
-        if (sentenceQueueRef.current.length > 0 && !isStoppedRef.current) {
-          processSentenceQueue(messageId)
-        } else if (sentenceQueueRef.current.length === 0) {
-          playingMessageIdRef.current = null
-          setIsSpeaking(false)
-          setSpeakingMessageId(null)
-          setSpeakingWordIndex(-1)
-          voiceRef.current.unmute()
-        }
+        playingMessageIdRef.current = null
+        setIsSpeaking(false)
+        setSpeakingMessageId(null)
+        setSpeakingWordIndex(-1)
+        voiceRef.current.unmute()
         return
       }
+      isProcessingQueueRef.current = true
 
-      const audio = new Audio(URL.createObjectURL(blob))
-      currentAudioRef.current = audio
-      const sentenceWords = next.text.split(/\s+/).filter(Boolean)
-      const sentenceWordCount = sentenceWords.length
+      try {
+        let blob: Blob | undefined
+        for (let attempt = 0; attempt < 3; attempt++) {
+          if (isStoppedRef.current || playingMessageIdRef.current !== messageId) break
+          try {
+            blob = await api.synthesizeSpeech(next.text)
+            if (blob) break
+          } catch {
+            // retry after delay
+          }
+          if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 800))
+        }
 
-      audio.ontimeupdate = () => {
-        if (!audio.duration || sentenceWordCount === 0) return
-        const progress = audio.currentTime / audio.duration
-        const localIdx = Math.min(sentenceWordCount - 1, Math.floor(progress * sentenceWordCount))
-        setSpeakingWordIndex(next.startWordOffset + localIdx)
-      }
+        if (isStoppedRef.current || playingMessageIdRef.current !== messageId) {
+          isProcessingQueueRef.current = false
+          return
+        }
+        if (!blob) {
+          addNotification({ message: 'Failed to generate speech for this reply.', type: 'error' })
+          stopSpeaking()
+          return
+        }
 
-      audio.onended = () => {
-        playedSentenceCountRef.current++
-        currentAudioRef.current = null
-        isProcessingQueueRef.current = false
+        const { context, source, duration } = await createSpeechSource(blob)
+        if (isStoppedRef.current || playingMessageIdRef.current !== messageId) {
+          source.disconnect()
+          isProcessingQueueRef.current = false
+          return
+        }
+
+        currentSourceRef.current = source
+        const startedAt = context.currentTime
+        setSpeakingWordIndex(next.startWordOffset)
+        progressTimerRef.current = setInterval(() => {
+          if (duration <= 0 || next.wordCount === 0) return
+          const progress = Math.min(1, (context.currentTime - startedAt) / duration)
+          const localIndex = Math.min(next.wordCount - 1, Math.floor(progress * next.wordCount))
+          setSpeakingWordIndex(next.startWordOffset + localIndex)
+        }, 100)
+
+        source.onended = () => {
+          if (progressTimerRef.current) {
+            clearInterval(progressTimerRef.current)
+            progressTimerRef.current = null
+          }
+          source.disconnect()
+          if (currentSourceRef.current !== source) return
+          currentSourceRef.current = null
+          playedSentenceCountRef.current++
+          isProcessingQueueRef.current = false
+          if (!isStoppedRef.current && playingMessageIdRef.current === messageId) {
+            processSentenceQueue(messageId)
+          }
+        }
+        source.start()
+      } catch (error) {
         if (!isStoppedRef.current && playingMessageIdRef.current === messageId) {
-          processSentenceQueue(messageId)
+          addNotification({
+            message: `Failed to play speech: ${error instanceof Error ? error.message : 'unknown error'}`,
+            type: 'error',
+          })
+          stopSpeaking()
         }
       }
+    },
+    [addNotification, stopSpeaking]
+  )
 
-      audio.onerror = () => {
-        currentAudioRef.current = null
-        playedSentenceCountRef.current++
-        isProcessingQueueRef.current = false
-        if (!isStoppedRef.current && playingMessageIdRef.current === messageId) {
-          processSentenceQueue(messageId)
-        }
-      }
-
-      await audio.play().catch(() => {
-        currentAudioRef.current = null
-        playedSentenceCountRef.current++
-        isProcessingQueueRef.current = false
-        if (!isStoppedRef.current && playingMessageIdRef.current === messageId) {
-          processSentenceQueue(messageId)
-        }
-      })
-    } catch {
-      playedSentenceCountRef.current++
-      isProcessingQueueRef.current = false
-      if (!isStoppedRef.current && playingMessageIdRef.current === messageId) {
-        processSentenceQueue(messageId)
-      }
+  useEffect(() => {
+    const handleUnlock = () => {
+      void unlockAudioPlayback()
+        .then(() => {
+          window.removeEventListener('pointerdown', handleUnlock)
+          window.removeEventListener('keydown', handleUnlock)
+        })
+        .catch(() => {})
+    }
+    window.addEventListener('pointerdown', handleUnlock)
+    window.addEventListener('keydown', handleUnlock)
+    return () => {
+      window.removeEventListener('pointerdown', handleUnlock)
+      window.removeEventListener('keydown', handleUnlock)
     }
   }, [])
+
+  useEffect(() => () => stopSpeaking(), [stopSpeaking])
 
   useEffect(() => {
     if (!isMobileSidebarOpen) return
