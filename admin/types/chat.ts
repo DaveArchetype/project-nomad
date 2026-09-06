@@ -28,6 +28,11 @@ export interface ChatRagSource {
   // Full URL for web sources (live internet results from the agent's web_search/web_fetch
   // tools). Present only for contentType: 'web' sources.
   url?: string
+  // Calibre-Web book id for contentType: 'calibre_book' sources. The frontend
+  // builds the reader URL as <calibreWebBaseUrl>/read/<calibreBookId>/<calibreFormat>.
+  calibreBookId?: number
+  // Lowercase format extension (e.g. "epub", "pdf") for Calibre-Web book sources.
+  calibreFormat?: string
 }
 
 export interface ChatToolStep {

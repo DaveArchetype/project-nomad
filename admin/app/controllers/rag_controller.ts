@@ -14,6 +14,7 @@ import {
   fileSourceSchema,
   getJobStatusSchema,
   sourcePreviewImageSchema,
+  webPreviewSchema,
 } from '#validators/rag'
 import logger from '@adonisjs/core/services/logger'
 import { sanitizeCollectionName } from '../../constants/kb_collections.js'
@@ -306,6 +307,20 @@ export default class RagController {
     response.header('Cache-Control', 'private, max-age=300')
     response.header('Content-Disposition', 'inline')
     return response.send(result.buffer)
+  }
+
+  public async webPreview({ request, response }: HttpContext) {
+    const { url } = await request.validateUsing(webPreviewSchema)
+    const result = await this.ragService.webPreview(url)
+    if (!result) {
+      return response.status(502).json({ error: 'Failed to fetch the page for preview' })
+    }
+    response.header('Content-Type', 'text/html; charset=utf-8')
+    response.header('Cache-Control', 'private, max-age=60')
+    response.header('X-Frame-Options', 'ALLOWALL')
+    response.removeHeader('Content-Security-Policy')
+    response.removeHeader('Content-Security-Policy-Report-Only')
+    return response.send(result.html)
   }
 
   public async downloadFile({ request, response }: HttpContext) {

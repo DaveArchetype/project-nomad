@@ -1,3 +1,4 @@
+import { IconBook } from '@tabler/icons-react'
 import StyledButton from '~/components/StyledButton'
 import StyledTable from '~/components/StyledTable'
 import CollectionCombobox from '../CollectionCombobox'
@@ -43,9 +44,20 @@ export default function KbFileTable({
             const hasZeroChunks = warnings.some((w) => w.kind === 'zero_chunks')
             const pill = hasZeroChunks ? renderNoContentPill() : renderStatePill(record)
             const visibleWarnings = warnings.filter((w) => w.kind !== 'zero_chunks')
+            const isCalibre = record.bucket === 'calibre_book'
             return (
               <div className="flex flex-col gap-1.5 min-w-0">
-                <span className="text-text-primary break-words">{record.displayName}</span>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {isCalibre && (
+                    <IconBook className="h-4 w-4 shrink-0 text-desert-green" aria-hidden="true" />
+                  )}
+                  <span className="text-text-primary break-words">{record.displayName}</span>
+                </div>
+                {isCalibre && record.calibreAuthor && (
+                  <span className="text-xs text-text-muted truncate">
+                    by {record.calibreAuthor}
+                  </span>
+                )}
                 {(pill || visibleWarnings.length > 0) && (
                   <div className="flex flex-wrap items-center gap-1.5">
                     {pill}

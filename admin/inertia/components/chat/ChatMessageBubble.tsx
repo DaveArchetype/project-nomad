@@ -10,6 +10,7 @@ import {
   IconAlertTriangle,
   IconPhoto,
   IconAutomation,
+  IconBook,
 } from '@tabler/icons-react'
 import classNames from '~/lib/classNames'
 import ReactMarkdown from 'react-markdown'
@@ -19,7 +20,10 @@ import { ChatMessage, ChatToolStep } from '../../../types/chat'
 import FileViewerModal from './knowledge-base/FileViewerModal'
 import ImageViewerModal, { type ImageViewerImage } from './ImageViewerModal'
 import KiwixPreviewModal from './knowledge-base/KiwixPreviewModal'
+import BookPreviewModal from './knowledge-base/BookPreviewModal'
+import WebPreviewModal from './knowledge-base/WebPreviewModal'
 import { useKiwixBaseUrl } from '../../hooks/useKiwixBaseUrl'
+import { useCalibreWebBaseUrl } from '../../hooks/use_calibre_web_base_url'
 import SpeakButton from './SpeakButton'
 import { stripMarkdownForHighlighting } from '~/lib/voice'
 
@@ -100,6 +104,10 @@ type SelectedSource = {
   title?: string
   snippet?: string
   kiwixPath?: string
+  contentType?: string
+  url?: string
+  calibreBookId?: number
+  calibreFormat?: string
 }
 
 function SpeakingText({ text, currentIndex }: { text: string; currentIndex: number }) {
@@ -143,6 +151,7 @@ export default function ChatMessageBubble({
   const [failedPreviews, setFailedPreviews] = useState<Set<number>>(new Set())
   const [readingExpanded, setReadingExpanded] = useState(false)
   const kiwixBaseUrl = useKiwixBaseUrl()
+  const calibreWebBaseUrl = useCalibreWebBaseUrl()
 
   const sortedSources =
     message.role === 'assistant' && message.sources && message.sources.length > 0
@@ -433,17 +442,51 @@ export default function ChatMessageBubble({
               const isWebSource = src.contentType === 'web' && src.url
               if (isWebSource) {
                 return (
-                  <a
+                  <button
                     key={`${src.source}-${idx}`}
-                    href={src.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    type="button"
+                    onClick={() =>
+                      setViewingSource({
+                        source: src.source,
+                        title: src.title,
+                        snippet: src.snippet,
+                        contentType: src.contentType,
+                        url: src.url,
+                      })
+                    }
                     title={src.url}
                     className="inline-flex items-center gap-1.5 max-w-full rounded-md border border-border-subtle bg-surface px-2 py-1 text-xs text-text-primary hover:border-desert-green hover:text-desert-green transition-colors"
                   >
                     <IconWorldSearch className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">{src.title}</span>
-                  </a>
+                  </button>
+                )
+              }
+              const isCalibreBook =
+                src.contentType === 'calibre_book' &&
+                typeof src.calibreBookId === 'number' &&
+                typeof src.calibreFormat === 'string'
+              if (isCalibreBook) {
+                return (
+                  <button
+                    key={`${src.source}-${idx}`}
+                    type="button"
+                    onClick={() =>
+                      setViewingSource({
+                        source: src.source,
+                        title: src.title,
+                        snippet: src.snippet,
+                        contentType: src.contentType,
+                        calibreBookId: src.calibreBookId,
+                        calibreFormat: src.calibreFormat,
+                      })
+                    }
+                    title={src.source}
+                    className="inline-flex items-center gap-1.5 max-w-full rounded-md border border-border-subtle bg-surface px-2 py-1 text-xs text-text-primary hover:border-desert-green hover:text-desert-green transition-colors"
+                  >
+                    <IconBook className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{src.title}</span>
+                  </button>
                 )
               }
               return (
@@ -470,7 +513,24 @@ export default function ChatMessageBubble({
         </div>
       )}
       {viewingSource &&
-        (viewingSource.kiwixPath && kiwixBaseUrl ? (
+        (viewingSource.contentType === 'web' && viewingSource.url ? (
+          <WebPreviewModal
+            url={viewingSource.url}
+            title={viewingSource.title ?? viewingSource.url}
+            onClose={() => setViewingSource(null)}
+          />
+        ) : viewingSource.contentType === 'calibre_book' &&
+          typeof viewingSource.calibreBookId === 'number' &&
+          typeof viewingSource.calibreFormat === 'string' &&
+          calibreWebBaseUrl ? (
+          <BookPreviewModal
+            calibreWebUrl={calibreWebBaseUrl}
+            bookId={viewingSource.calibreBookId}
+            format={viewingSource.calibreFormat}
+            title={viewingSource.title ?? 'Calibre book'}
+            onClose={() => setViewingSource(null)}
+          />
+        ) : viewingSource.kiwixPath && kiwixBaseUrl ? (
           (() => {
             const fullUrl = `${kiwixBaseUrl.replace(/\/+$/, '')}${viewingSource.kiwixPath}`
             return (

@@ -13,6 +13,7 @@ import { ContentAutoUpdateJob } from '#jobs/content_auto_update_job'
 import { DownloadDrugDataJob } from '#jobs/download_drug_data_job'
 import { IngestDrugDataJob } from '#jobs/ingest_drug_data_job'
 import { DailyRecapJob } from '#jobs/daily_recap_job'
+import { CalibreSyncJob } from '#jobs/calibre_sync_job'
 
 export default class QueueWork extends BaseCommand {
   static commandName = 'queue:work'
@@ -147,6 +148,7 @@ export default class QueueWork extends BaseCommand {
     await AppAutoUpdateJob.schedule()
     await ContentAutoUpdateJob.schedule()
     await DailyRecapJob.schedule()
+    await CalibreSyncJob.schedule()
 
     // Safety net: log unhandled rejections instead of crashing the worker process.
     // Individual job errors are already caught by BullMQ; this catches anything that
@@ -180,6 +182,7 @@ export default class QueueWork extends BaseCommand {
     handlers.set(DownloadDrugDataJob.key, new DownloadDrugDataJob())
     handlers.set(IngestDrugDataJob.key, new IngestDrugDataJob())
     handlers.set(DailyRecapJob.key, new DailyRecapJob())
+    handlers.set(CalibreSyncJob.key, new CalibreSyncJob())
 
     queues.set(RunDownloadJob.key, RunDownloadJob.queue)
     queues.set(RunExtractPmtilesJob.key, RunExtractPmtilesJob.queue)
@@ -191,6 +194,7 @@ export default class QueueWork extends BaseCommand {
     queues.set(DownloadDrugDataJob.key, DownloadDrugDataJob.queue)
     queues.set(IngestDrugDataJob.key, IngestDrugDataJob.queue)
     queues.set(DailyRecapJob.key, DailyRecapJob.queue)
+    queues.set(CalibreSyncJob.key, CalibreSyncJob.queue)
 
     return [handlers, queues]
   }

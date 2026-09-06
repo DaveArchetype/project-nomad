@@ -12,11 +12,12 @@ import type { StoredFileInfo } from '../../types/rag.js'
  * server-emitted absolute paths work regardless of which Linux mount the admin
  * container uses.
  */
-export type KbFileBucket = 'zim' | 'upload' | 'admin_docs' | 'other'
+export type KbFileBucket = 'zim' | 'upload' | 'calibre_book' | 'admin_docs' | 'other'
 
 const ADMIN_DOCS_PREFIXES = ['/app/docs/', '/app/README.md']
 const ZIM_PREFIX = '/app/storage/zim/'
 const UPLOADS_PREFIX = '/app/storage/kb_uploads/'
+const BOOKS_PREFIX = '/app/storage/books/'
 
 export function classifyKbFile(source: string): KbFileBucket {
   if (ADMIN_DOCS_PREFIXES.some((p) => (p.endsWith('/') ? source.startsWith(p) : source === p))) {
@@ -24,6 +25,7 @@ export function classifyKbFile(source: string): KbFileBucket {
   }
   if (source.startsWith(ZIM_PREFIX)) return 'zim'
   if (source.startsWith(UPLOADS_PREFIX)) return 'upload'
+  if (source.startsWith(BOOKS_PREFIX)) return 'calibre_book'
   return 'other'
 }
 
@@ -60,9 +62,17 @@ export interface KbFileGroup {
   /** Subject/category tag, or null if uncategorized. Always null for the
    * collapsed admin_docs group. */
   collection: string | null
+  /** Calibre-Web book title, present only for calibre_book bucket rows. */
+  calibreTitle: string | null
+  /** Calibre-Web author sort string, present only for calibre_book bucket rows. */
+  calibreAuthor: string | null
+  /** Calibre-Web book id, present only for calibre_book bucket rows. */
+  calibreBookId: number | null
+  /** Lowercase format extension (e.g. "epub"), present only for calibre_book bucket rows. */
+  calibreFormat: string | null
 }
 
-const BUCKET_SORT_ORDER: KbFileBucket[] = ['zim', 'upload', 'admin_docs', 'other']
+const BUCKET_SORT_ORDER: KbFileBucket[] = ['zim', 'upload', 'calibre_book', 'admin_docs', 'other']
 
 export type KbFileSortKey = 'name' | 'size' | 'uploadedAt'
 export type KbFileSortDirection = 'asc' | 'desc'
@@ -112,6 +122,7 @@ export function groupAndSortKbFiles(
   const buckets: Record<KbFileBucket, StoredFileInfo[]> = {
     zim: [],
     upload: [],
+    calibre_book: [],
     admin_docs: [],
     other: [],
   }
@@ -138,6 +149,10 @@ export function groupAndSortKbFiles(
         uploadedAt: null,
         isUserUpload: false,
         collection: null,
+        calibreTitle: null,
+        calibreAuthor: null,
+        calibreBookId: null,
+        calibreFormat: null,
       })
       continue
     }
@@ -149,10 +164,13 @@ export function groupAndSortKbFiles(
       if (!aNoContent && bNoContent) return -1
       return compareForSort(a, b, sort)
     })) {
+      const isCalibre = bucket === 'calibre_book'
+      const displayName =
+        isCalibre && file.calibreTitle ? file.calibreTitle : sourceToDisplayName(file.source)
       groups.push({
         bucket,
         source: file.source,
-        displayName: sourceToDisplayName(file.source),
+        displayName,
         count: 1,
         members: [],
         state: file.state,
@@ -161,6 +179,10 @@ export function groupAndSortKbFiles(
         uploadedAt: file.uploadedAt,
         isUserUpload: file.isUserUpload,
         collection: file.collection,
+        calibreTitle: file.calibreTitle ?? null,
+        calibreAuthor: file.calibreAuthor ?? null,
+        calibreBookId: file.calibreBookId ?? null,
+        calibreFormat: file.calibreFormat ?? null,
       })
     }
   }

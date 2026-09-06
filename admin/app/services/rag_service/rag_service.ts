@@ -27,6 +27,7 @@ import {
 } from './stored_files.js'
 import { readFileContent, resolveDownloadPath } from './file_viewer.js'
 import { getSourcePreviewImage } from './preview_images.js'
+import { fetchPageForIframe, isValidHttpUrl } from './web_preview.js'
 import { computeFileWarnings, getPolicyPromptState } from './warnings.js'
 import { deleteFileBySource, removeKnowledgeArtifacts } from './artifacts.js'
 import { reconcileReplacedContentFile } from './reindex.js'
@@ -368,5 +369,10 @@ export class RagService {
 
   public async resetAndRebuild() {
     return resetAndRebuild(this.ctx)
+  }
+
+  public async webPreview(url: string): Promise<{ html: string; contentType: string } | null> {
+    if (!isValidHttpUrl(url)) return null
+    return fetchPageForIframe(url)
   }
 }

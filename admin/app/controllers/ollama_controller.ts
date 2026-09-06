@@ -39,6 +39,11 @@ export type RagSource = {
   /** Full URL for web sources (live internet results from the agent's web_search/web_fetch
    *  tools). Present only for `contentType: 'web'` sources. */
   url?: string
+  /** Calibre-Web book id for `contentType: 'calibre_book'` sources. The frontend
+   *  builds the reader URL as `<calibreWebBaseUrl>/read/<calibreBookId>/<calibreFormat>`. */
+  calibreBookId?: number
+  /** Lowercase format extension (e.g. "epub", "pdf") for Calibre-Web book sources. */
+  calibreFormat?: string
 }
 
 @inject()
@@ -859,6 +864,10 @@ export default class OllamaController {
       const snippet = doc.text.slice(0, 2500)
 
       const kiwixPath = this._buildKiwixPath(source, contentType, doc.metadata?.article_path)
+      const calibreBookId =
+        typeof doc.metadata?.calibre_book_id === 'number' ? doc.metadata.calibre_book_id : undefined
+      const calibreFormat =
+        typeof doc.metadata?.calibre_format === 'string' ? doc.metadata.calibre_format : undefined
 
       const existing = bySource.get(source)
       if (
@@ -867,7 +876,16 @@ export default class OllamaController {
           score !== undefined &&
           (existing.score === null || existing.score === undefined || score > existing.score))
       ) {
-        bySource.set(source, { source, title, contentType, score, snippet, kiwixPath })
+        bySource.set(source, {
+          source,
+          title,
+          contentType,
+          score,
+          snippet,
+          kiwixPath,
+          ...(calibreBookId !== undefined ? { calibreBookId } : {}),
+          ...(calibreFormat !== undefined ? { calibreFormat } : {}),
+        })
       }
     }
     return [...bySource.values()]

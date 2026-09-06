@@ -1,5 +1,12 @@
+import { join } from 'node:path'
 import logger from '@adonisjs/core/services/logger'
-import { deleteFileIfExists, determineFileType, getFile } from '../../utils/fs.js'
+import {
+  BOOKS_STORAGE_PATH,
+  deleteFileIfExists,
+  determineFileType,
+  getFile,
+} from '../../utils/fs.js'
+import { CalibreService } from '../calibre_service.js'
 import type { ProcessAndEmbedFileResponse } from '../../../types/rag.js'
 import type { RagCtx } from './types.js'
 import { embedAndStoreText } from './embedding.js'
@@ -12,13 +19,39 @@ import {
   processTextFile,
 } from './file_processors.js'
 
+function isUnderBooksStorage(filepath: string): boolean {
+  const booksAbsPath = join(process.cwd(), BOOKS_STORAGE_PATH)
+  return filepath.startsWith(booksAbsPath + '/') || filepath === booksAbsPath
+}
+
+async function resolveCalibreMetadata(filepath: string): Promise<Record<string, any> | null> {
+  if (!isUnderBooksStorage(filepath)) return null
+  try {
+    const calibre = new CalibreService()
+    const info = await calibre.lookupByFilePath(filepath)
+    if (!info) return null
+    return {
+      content_type: 'calibre_book',
+      full_title: info.title,
+      calibre_book_id: info.bookId,
+      calibre_format: info.format,
+    }
+  } catch (error) {
+    logger.warn(
+      `[RAG] Calibre metadata lookup failed for ${filepath}: ${error instanceof Error ? error.message : String(error)}`
+    )
+    return null
+  }
+}
+
 export async function embedTextAndCleanup(
   ctx: RagCtx,
   extractedText: string,
   filepath: string,
   deleteAfterEmbedding: boolean = false,
   onProgress?: (percent: number) => Promise<void>,
-  collection?: string
+  collection?: string,
+  metadata?: Record<string, any>
 ): Promise<{ success: boolean; message: string; chunks?: number }> {
   if (!extractedText || extractedText.trim().length === 0) {
     return {
@@ -33,6 +66,7 @@ export async function embedTextAndCleanup(
     {
       source: filepath,
       ...(collection ? { collection } : {}),
+      ...(metadata ?? {}),
     },
     onProgress
   )
@@ -113,13 +147,17 @@ export async function processAndEmbedFile(
     if (onProgress) await onProgress(15)
     const scaledProgress = onProgress ? (p: number) => onProgress(15 + p * 0.85) : undefined
 
+    const calibreMetadata = await resolveCalibreMetadata(filepath)
+    const mergedMetadata = calibreMetadata ?? undefined
+
     return await embedTextAndCleanup(
       ctx,
       extractedText,
       filepath,
       deleteAfterEmbedding,
       scaledProgress,
-      collection
+      collection,
+      mergedMetadata
     )
   } catch (error) {
     logger.error('[RAG] Error processing and embedding file:', error)

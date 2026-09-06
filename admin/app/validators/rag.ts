@@ -46,3 +46,9 @@ export const estimateBatchSchema = vine.compile(
       .maxLength(500),
   })
 )
+
+export const webPreviewSchema = vine.compile(
+  vine.object({
+    url: vine.string().minLength(1),
+  })
+)

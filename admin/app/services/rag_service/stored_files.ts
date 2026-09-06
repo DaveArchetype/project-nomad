@@ -1,7 +1,8 @@
 import { join, resolve, sep } from 'node:path'
 import logger from '@adonisjs/core/services/logger'
 import KbIngestState from '#models/kb_ingest_state'
-import { getFileStatsIfExists } from '../../utils/fs.js'
+import { BOOKS_STORAGE_PATH, getFileStatsIfExists } from '../../utils/fs.js'
+import { CalibreService } from '../calibre_service.js'
 import type { KbIngestStateValue } from '../../../types/kb_ingest_state.js'
 import type { StoredFileInfo } from '../../../types/rag.js'
 import {
@@ -64,12 +65,34 @@ export async function getStoredFiles(ctx: RagCtx): Promise<StoredFileInfo[]> {
     }
 
     const uploadsAbsPath = resolve(join(process.cwd(), UPLOADS_STORAGE_PATH))
+    const booksAbsPath = resolve(join(process.cwd(), BOOKS_STORAGE_PATH))
+    const calibre = new CalibreService()
     return await Promise.all(
       Array.from(sources).map(async (source) => {
         const row = stateByPath.get(source)
         const fileName = source.split(/[/\\]/).at(-1) ?? source
         const isUserUpload = resolve(source).startsWith(uploadsAbsPath + sep)
+        const isCalibreBook = resolve(source).startsWith(booksAbsPath + sep)
         const stats = await getFileStatsIfExists(source)
+
+        let calibreTitle: string | null = null
+        let calibreAuthor: string | null = null
+        let calibreBookId: number | null = null
+        let calibreFormat: string | null = null
+        if (isCalibreBook) {
+          try {
+            const info = await calibre.lookupByFilePath(source)
+            if (info) {
+              calibreTitle = info.title
+              calibreAuthor = info.authorSort
+              calibreBookId = info.bookId
+              calibreFormat = info.format
+            }
+          } catch {
+            // metadata.db may not exist or lookup may fail — leave fields null
+          }
+        }
+
         return {
           source,
           state: row?.state ?? null,
@@ -77,8 +100,12 @@ export async function getStoredFiles(ctx: RagCtx): Promise<StoredFileInfo[]> {
           fileName,
           size: stats?.size ?? null,
           uploadedAt: stats?.modifiedTime.toISOString() ?? null,
-          isUserUpload,
+          isUserUpload: isUserUpload || isCalibreBook,
           collection: row?.collection ?? null,
+          calibreTitle,
+          calibreAuthor,
+          calibreBookId,
+          calibreFormat,
         }
       })
     )

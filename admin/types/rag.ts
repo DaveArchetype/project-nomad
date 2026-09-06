@@ -91,6 +91,15 @@ export type StoredFileInfo = {
   isUserUpload: boolean
   /** Subject/category tag, or null if uncategorized. */
   collection: string | null
+  /** Calibre-Web book title, present only for files under /storage/books that
+   * have a matching row in metadata.db. */
+  calibreTitle?: string | null
+  /** Calibre-Web author sort string, present only for Calibre book files. */
+  calibreAuthor?: string | null
+  /** Calibre-Web book id, present only for Calibre book files. */
+  calibreBookId?: number | null
+  /** Lowercase format extension (e.g. "epub"), present only for Calibre book files. */
+  calibreFormat?: string | null
 }
 
 /**

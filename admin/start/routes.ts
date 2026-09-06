@@ -55,6 +55,7 @@ import {
   fileSourceSchema,
   sourcePreviewImageSchema,
   estimateBatchSchema,
+  webPreviewSchema,
 } from '#validators/rag'
 import {
   installServiceValidator,
@@ -581,6 +582,11 @@ router
       summary: 'Get a preview image for a RAG source',
       tags: ['rag'],
       query: sourcePreviewImageSchema,
+    })
+    documented(router.get('/web-preview', [RagController, 'webPreview']), {
+      summary: 'Proxy a web page for in-app iframe preview',
+      tags: ['rag'],
+      query: webPreviewSchema,
     })
     documented(router.get('/files/download', [RagController, 'downloadFile']), {
       summary: 'Download a RAG file',

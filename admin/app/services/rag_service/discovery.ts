@@ -1,7 +1,8 @@
-import { join } from 'node:path'
+import { extname, join } from 'node:path'
 import logger from '@adonisjs/core/services/logger'
 import KVStore from '#models/kv_store'
 import {
+  BOOKS_STORAGE_PATH,
   determineFileType,
   getFileStatsIfExists,
   listDirectoryContentsRecursive,
@@ -9,6 +10,8 @@ import {
 } from '../../utils/fs.js'
 import type { FileEntry } from '../../../types/files.js'
 import { UPLOADS_STORAGE_PATH } from './constants.js'
+
+const BOOK_EXTENSIONS: ReadonlySet<string> = new Set(['.epub', '.pdf', '.txt', '.md', '.docx'])
 
 export async function discoverNomadDocs(
   force?: boolean
@@ -72,16 +75,23 @@ export async function discoverNomadDocs(
 export async function discoverKbFiles(): Promise<string[]> {
   const KB_UPLOADS_PATH = join(process.cwd(), UPLOADS_STORAGE_PATH)
   const ZIM_PATH = join(process.cwd(), ZIM_STORAGE_PATH)
+  const BOOKS_PATH = join(process.cwd(), BOOKS_STORAGE_PATH)
   const filesInStorage: string[] = []
 
-  for (const [label, dirPath] of [
-    [UPLOADS_STORAGE_PATH, KB_UPLOADS_PATH] as const,
-    [ZIM_STORAGE_PATH, ZIM_PATH] as const,
+  for (const [label, dirPath, isBooksDir] of [
+    [UPLOADS_STORAGE_PATH, KB_UPLOADS_PATH, false] as const,
+    [ZIM_STORAGE_PATH, ZIM_PATH, false] as const,
+    [BOOKS_STORAGE_PATH, BOOKS_PATH, true] as const,
   ]) {
     try {
       const contents = await listDirectoryContentsRecursive(dirPath)
       contents.forEach((entry: FileEntry) => {
-        if (entry.type === 'file') filesInStorage.push(entry.key)
+        if (entry.type !== 'file') return
+        if (isBooksDir) {
+          const ext = extname(entry.key).toLowerCase()
+          if (!BOOK_EXTENSIONS.has(ext)) return
+        }
+        filesInStorage.push(entry.key)
       })
       logger.debug(`[RAG] Found ${contents.length} files in ${label}`)
     } catch (error) {
