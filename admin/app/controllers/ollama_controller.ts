@@ -159,6 +159,7 @@ export default class OllamaController {
 
       logger.debug(`[OllamaController] Rewritten query for RAG: "${rewrittenQuery}"`)
       let ragSources: RagSource[] = []
+      let ragContextText: string | null = null
       if (rewrittenQuery) {
         const collectionFilter: string | null = request.input('collection', null)
         const relevantDocs = await this.ragService.searchSimilarDocuments(
@@ -215,6 +216,7 @@ export default class OllamaController {
             })
             .join('\n\n')
 
+          ragContextText = contextText
           const systemMessage = {
             role: 'system' as const,
             content: SYSTEM_PROMPTS.rag_context(contextText),
@@ -396,12 +398,15 @@ export default class OllamaController {
 
         // Build the message list for the agent (text-only — images are not passed to the agent).
         // Strip leading system messages that are already incorporated into the agent system
-        // prompt (current date, NOMAD.md, default formatting) so they aren't duplicated.
+        // prompt (current date, NOMAD.md, default formatting, RAG context) so they aren't duplicated.
         const strippedSystemContents = new Set<string>()
         if (nomadPrompt) strippedSystemContents.add(nomadPrompt)
         strippedSystemContents.add(SYSTEM_PROMPTS.default)
         const currentDateContent = `Current date: ${DateTime.now().toFormat('yyyy-MM-dd')}. Always use this current year in search queries and time-sensitive answers — never use hardcoded or guessed years.`
         strippedSystemContents.add(currentDateContent)
+        if (ragContextText) {
+          strippedSystemContents.add(SYSTEM_PROMPTS.rag_context(ragContextText))
+        }
         const agentMessages = reqData.messages
           .filter((m) => {
             if (m.role !== 'system') return true
@@ -414,7 +419,12 @@ export default class OllamaController {
 
         const agentSystemPrompt = this.agentService.buildSystemPrompt(
           agentTools as AgentToolName[],
-          nomadPrompt ?? undefined
+          nomadPrompt ?? undefined,
+          ragContextText ?? undefined
+        )
+
+        logger.debug(
+          `[OllamaController] Agent branch: RAG context ${ragContextText ? `injected (${ragContextText.length} chars, ${ragSources.length} sources)` : 'not available'}, system prompt ${agentSystemPrompt.length} chars`
         )
 
         const abortController = new AbortController()

@@ -209,7 +209,7 @@ export class AgentService {
       const synthesisMessages = [
         {
           role: 'system' as const,
-          content: `${systemPrompt}\n\nYou just performed a web search and fetched the actual web pages. The results below contain REAL, CURRENT data extracted from live websites — including full page content with actual numbers, temperatures, forecasts, etc. Your job is to answer the user's question using ALL of this data combined with your own knowledge. Compare data from ALL available sources to build the most complete answer. NEVER say you cannot access the internet, cannot pull real-time data, that data is missing, or suggest the user check sources themselves — you already have the real data in the results below. Write a confident, complete answer using the actual numbers and facts from the results. Cite sources inline with their URLs. If the user asks for a table, build a table with the actual data from the results.${isRetry ? `\n\nThe user's original question was: "${firstUserQuestion}" — they asked you to try again, so answer that original question.` : ''}\n\nWeb search results:\n${sourcesContext}\n\n=== FULL PAGE CONTENT FROM FETCHED SOURCES (use this for actual data) ===\n${pageContentContext}`,
+          content: `${systemPrompt}\n\nYou just performed a web search and fetched the actual web pages. The results below contain REAL, CURRENT data extracted from live websites. Your job is to answer the user's question using ALL available data: the local knowledge base context above AND the web search results below. Combine information from both local and web sources. PREFER local knowledge base sources (especially Calibre books and user-uploaded files) over web sources when both cover the same topic. Cite local sources by their titles and web sources by their URLs. NEVER say you cannot access the internet, cannot pull real-time data, that data is missing, or suggest the user check sources themselves. Write a confident, complete answer using the actual numbers and facts from all sources.${isRetry ? `\n\nThe user's original question was: "${firstUserQuestion}" — they asked you to try again, so answer that original question.` : ''}\n\nWeb search results:\n${sourcesContext}\n\n=== FULL PAGE CONTENT FROM FETCHED SOURCES (use this for actual data) ===\n${pageContentContext}`,
         },
         ...messages,
       ]
@@ -260,11 +260,20 @@ export class AgentService {
     }
   }
 
-  buildSystemPrompt(enabledTools: AgentToolName[], nomadPrompt?: string): string {
+  buildSystemPrompt(
+    enabledTools: AgentToolName[],
+    nomadPrompt?: string,
+    ragContextText?: string
+  ): string {
     const base = this._defaultSystemPrompt(enabledTools)
     const now = DateTime.now().toFormat('yyyy-MM-dd')
     const dateLine = `Current date: ${now}. Always use this current year in search queries — never use hardcoded or guessed years.`
     const sections = [dateLine, base]
+    if (ragContextText && ragContextText.trim()) {
+      sections.push(
+        `=== LOCAL KNOWLEDGE BASE CONTEXT (already retrieved — use this as your primary source) ===\n${ragContextText}\n\nIMPORTANT: The above knowledge base context is your PRIMARY source of information. Use it BEFORE calling any tool. If it answers the user's question, do NOT call web_search — answer directly from this context and cite the sources by their titles.`
+      )
+    }
     if (nomadPrompt && nomadPrompt.trim()) {
       sections.push(`=== USER INSTRUCTIONS (NOMAD.md) ===\n${nomadPrompt.trim()}`)
     }
