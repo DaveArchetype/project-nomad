@@ -50,7 +50,7 @@ const Input: React.FC<InputProps> = ({
               inputClassName,
               'block w-full rounded-md bg-surface-primary px-3 py-2 text-base text-text-primary border border-border-default placeholder:text-text-muted focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6',
               leftIcon ? 'pl-10' : 'pl-3',
-              error ? '!border-red-500 focus:outline-red-500 !bg-red-100' : ''
+              error ? 'border-red-500! focus:outline-red-500 bg-red-100!' : ''
             )}
             {...props}
           />

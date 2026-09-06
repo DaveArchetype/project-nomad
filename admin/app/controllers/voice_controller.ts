@@ -167,8 +167,8 @@ export default class VoiceController {
 
   async listRecaps({ request, response }: HttpContext) {
     const limit = Math.min(Number.parseInt(request.qs().limit ?? '30', 10) || 30, 90)
-    const DailyRecap = (await import('#models/daily_recap')).default
-    const recaps = await DailyRecap.query().orderBy('recap_date', 'desc').limit(limit)
+    const dailyRecapModule = await import('#models/daily_recap')
+    const recaps = await dailyRecapModule.default.query().orderBy('recap_date', 'desc').limit(limit)
     return response.status(200).json(recaps)
   }
 
