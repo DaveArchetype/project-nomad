@@ -81,7 +81,7 @@ const CodeBlock = ({
       )}
       <button
         onClick={handleCopy}
-        className="absolute top-2 right-2 p-1.5 rounded-md bg-desert-green-dark/40 hover:bg-desert-green-dark/70 text-desert-green-lighter opacity-0 group-hover:opacity-100 transition-opacity"
+        className="absolute top-2 right-2 p-1.5 rounded-md bg-desert-green-dark/60 hover:bg-desert-green-dark text-desert-green-lighter transition-colors"
         title="Copy to clipboard"
       >
         {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
