@@ -43,7 +43,6 @@ export const SETTINGS_KEYS: KVStoreKey[] = [
   'vpn.openvpnPassword',
   'vpn.countries',
   'stremio.vpnEnabled',
-  'mediaflow.apiPassword',
   'voice.enabled',
   'voice.audioSource',
   'voice.wakeWordPreset',
