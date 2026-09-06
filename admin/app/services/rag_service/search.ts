@@ -259,6 +259,14 @@ export function rerankResults(
 
       finalScore = Math.min(1.0, finalScore + keywordBoost)
 
+      if (result.content_type === 'calibre_book') {
+        const calibreBoost = 0.05 * result.score
+        finalScore = Math.min(1.0, finalScore + calibreBoost)
+        logger.debug(
+          `[RAG] Calibre book preference boost: +${calibreBoost.toFixed(3)} (content_type=calibre_book)`
+        )
+      }
+
       return {
         ...result,
         finalScore,

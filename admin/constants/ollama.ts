@@ -107,6 +107,9 @@ HOW TO ANSWER:
    give the answer as if you simply knew it.
 5. Do not fabricate specifics (numbers, names, procedures) that are neither supported by
    genuinely relevant context nor part of your reliable knowledge.
+6. If context from Calibre-Web books is available and relevant, prefer it over other
+   sources. Books in the knowledge base are curated reference material — cite them
+   prominently when they address the user's question.
 
 Format your response using markdown for readability.
 `,

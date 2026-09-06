@@ -309,12 +309,19 @@ export default function Chat({
   useEffect(() => {
     if (restoredRef.current || !activeSessionId || !enabled) return
     restoredRef.current = true
-    api
-      .getChatSession(activeSessionId)
-      .then((sessionData) => {
+    let pollTimer: ReturnType<typeof setTimeout> | null = null
+    let attempts = 0
+    const maxAttempts = 6
+
+    const restore = async () => {
+      try {
+        const sessionData = await api.getChatSession(activeSessionId)
         if (sessionData?.messages) {
+          const msgs = sessionData.messages
+          const lastMsg = msgs[msgs.length - 1]
+          const lastIsUser = lastMsg && lastMsg.role === 'user'
           setMessages(
-            sessionData.messages.map((m: any) => ({
+            msgs.map((m: any) => ({
               id: m.id,
               role: m.role,
               content: m.content,
@@ -324,11 +331,20 @@ export default function Chat({
               timestamp: new Date(m.timestamp),
             }))
           )
+          if (lastIsUser && attempts < maxAttempts) {
+            attempts++
+            pollTimer = setTimeout(restore, 2000)
+          }
         }
-      })
-      .catch(() => {
+      } catch {
         setActiveSessionId(null)
-      })
+      }
+    }
+    restore()
+
+    return () => {
+      if (pollTimer) clearTimeout(pollTimer)
+    }
   }, [enabled, activeSessionId, setMessages, setActiveSessionId])
 
   const { data: chatSuggestions, isLoading: chatSuggestionsLoading } = useQuery<string[]>({

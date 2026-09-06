@@ -343,7 +343,7 @@ export default function ChatMessageBubble({
                 if (isInline) {
                   return (
                     <code
-                      className="bg-gray-800 text-gray-100 px-2 py-0.5 rounded font-mono text-sm"
+                      className="md-code bg-gray-800 text-gray-100 px-2 py-0.5 rounded font-mono text-sm"
                       {...props}
                     >
                       {children}
@@ -352,22 +352,30 @@ export default function ChatMessageBubble({
                 }
                 return (
                   <code
-                    className="block bg-gray-800 text-gray-100 p-3 rounded-lg overflow-x-auto font-mono text-sm my-2"
+                    className="md-code-block block bg-gray-800 text-gray-100 p-3 rounded-lg overflow-x-auto font-mono text-sm my-2"
                     {...props}
                   >
                     {children}
                   </code>
                 )
               },
-              p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-              ul: ({ children }) => <ul className="list-disc pl-5 mb-2">{children}</ul>,
-              ol: ({ children }) => <ol className="list-decimal pl-5 mb-2">{children}</ol>,
-              li: ({ children }) => <li className="mb-1">{children}</li>,
-              h1: ({ children }) => <h1 className="text-xl font-bold mb-2">{children}</h1>,
-              h2: ({ children }) => <h2 className="text-lg font-bold mb-2">{children}</h2>,
-              h3: ({ children }) => <h3 className="text-base font-bold mb-2">{children}</h3>,
+              pre: ({ children }) => <pre className="md-pre">{children}</pre>,
+              p: ({ children }) => <p className="md-p mb-2 last:mb-0">{children}</p>,
+              ul: ({ children }) => <ul className="md-ul list-disc pl-5 mb-2">{children}</ul>,
+              ol: ({ children }) => <ol className="md-ol list-decimal pl-5 mb-2">{children}</ol>,
+              li: ({ children }) => <li className="md-li mb-1">{children}</li>,
+              h1: ({ children }) => <h1 className="md-h1 text-xl font-bold mb-2">{children}</h1>,
+              h2: ({ children }) => <h2 className="md-h2 text-lg font-bold mb-2">{children}</h2>,
+              h3: ({ children }) => <h3 className="md-h3 text-base font-bold mb-2">{children}</h3>,
+              h4: ({ children }) => <h4 className="md-h4 text-sm font-bold mb-2">{children}</h4>,
+              h5: ({ children }) => (
+                <h5 className="md-h5 text-sm font-semibold mb-1">{children}</h5>
+              ),
+              h6: ({ children }) => (
+                <h6 className="md-h6 text-xs font-semibold mb-1">{children}</h6>
+              ),
               blockquote: ({ children }) => (
-                <blockquote className="border-l-4 border-border-default pl-4 italic my-2">
+                <blockquote className="md-blockquote border-l-4 border-border-default pl-4 italic my-2">
                   {children}
                 </blockquote>
               ),
@@ -376,33 +384,42 @@ export default function ChatMessageBubble({
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-desert-green underline hover:text-desert-green/80"
+                  className="md-a text-desert-green underline hover:text-desert-green/80"
                 >
                   {children}
                 </a>
               ),
               table: ({ children }) => (
-                <div className="overflow-x-auto mb-6">
-                  <table className="w-full border-collapse text-sm">{children}</table>
+                <div className="md-table-wrapper overflow-x-auto mb-6">
+                  <table className="md-table w-full border-collapse text-sm">{children}</table>
                 </div>
               ),
               thead: ({ children }) => (
-                <thead className="bg-surface-secondary border-b-2 border-border-default">
+                <thead className="md-thead bg-surface-secondary border-b-2 border-border-default">
                   {children}
                 </thead>
               ),
               th: ({ children }) => (
-                <th className="px-4 py-2.5 text-left font-semibold border border-border-subtle text-text-primary whitespace-nowrap">
+                <th className="md-th px-4 py-2.5 text-left font-semibold border border-border-subtle text-text-primary whitespace-nowrap">
                   {children}
                 </th>
               ),
               td: ({ children }) => (
-                <td className="px-4 py-2 border border-border-subtle text-text-secondary">
+                <td className="md-td px-4 py-2 border border-border-subtle text-text-secondary">
                   {children}
                 </td>
               ),
-              tr: ({ children }) => <tr className="even:bg-surface-secondary/50">{children}</tr>,
-              hr: () => <hr className="my-4 border-border-subtle" />,
+              tr: ({ children }) => (
+                <tr className="md-tr even:bg-surface-secondary/50">{children}</tr>
+              ),
+              tbody: ({ children }) => <tbody className="md-tbody">{children}</tbody>,
+              hr: () => <hr className="md-hr my-4 border-border-subtle" />,
+              strong: ({ children }) => (
+                <strong className="md-strong font-semibold">{children}</strong>
+              ),
+              em: ({ children }) => <em className="md-em italic">{children}</em>,
+              img: ({ src, alt }) => <img src={src} alt={alt} className="md-img rounded-lg my-2" />,
+              del: ({ children }) => <del className="md-del line-through">{children}</del>,
             }}
           >
             {message.content}

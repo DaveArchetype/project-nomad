@@ -192,7 +192,11 @@ export default class OllamaController {
           const contextText = trimmedDocs
             .map((doc, idx) => {
               const title = doc.metadata?.full_title || doc.metadata?.article_title
-              const label = title ? `[Context ${idx + 1} — ${title}]` : `[Context ${idx + 1}]`
+              const isCalibre = doc.metadata?.content_type === 'calibre_book'
+              const sourceTag = isCalibre ? ' [Calibre Book]' : ''
+              const label = title
+                ? `[Context ${idx + 1} — ${title}${sourceTag}]`
+                : `[Context ${idx + 1}${sourceTag}]`
               return `${label}\n${doc.text}`
             })
             .join('\n\n')
@@ -377,10 +381,25 @@ export default class OllamaController {
         )
 
         // Build the message list for the agent (text-only — images are not passed to the agent).
-        const agentMessages = reqData.messages.map((m) => ({
-          role: m.role,
-          content: m.content,
-        }))
+        // Strip leading system messages that are already incorporated into the agent system
+        // prompt (NOMAD.md, default formatting) so they aren't duplicated in the message list.
+        const strippedSystemContents = new Set<string>()
+        if (nomadPrompt) strippedSystemContents.add(nomadPrompt)
+        strippedSystemContents.add(SYSTEM_PROMPTS.default)
+        const agentMessages = reqData.messages
+          .filter((m) => {
+            if (m.role !== 'system') return true
+            return !strippedSystemContents.has(m.content)
+          })
+          .map((m) => ({
+            role: m.role,
+            content: m.content,
+          }))
+
+        const agentSystemPrompt = this.agentService.buildSystemPrompt(
+          agentTools as AgentToolName[],
+          nomadPrompt ?? undefined
+        )
 
         const abortController = new AbortController()
         if (reqData.stream) {
@@ -394,6 +413,7 @@ export default class OllamaController {
             model: reqData.model,
             messages: agentMessages,
             enabledTools: agentTools as AgentToolName[],
+            systemPrompt: agentSystemPrompt,
             callbacks: {
               signal: abortController.signal,
               onToolStep: (step) => {
@@ -420,7 +440,7 @@ export default class OllamaController {
             },
           })
 
-          if (reqData.stream) {
+          if (reqData.stream && !abortController.signal.aborted) {
             const webRagSources: RagSource[] = result.webSources.map((s) => ({
               source: s.url,
               title: s.title,
@@ -441,9 +461,13 @@ export default class OllamaController {
               })}\n\n`
             )
             response.response.end()
+          } else if (reqData.stream && abortController.signal.aborted) {
+            try {
+              response.response.end()
+            } catch {}
           }
 
-          // Persist assistant message + sources + tool steps
+          // Persist assistant message + sources + tool steps (runs even on disconnect)
           if (sessionId && result.content) {
             const webRagSourcesForDb: RagSource[] = result.webSources.map((s) => ({
               source: s.url,
@@ -456,23 +480,30 @@ export default class OllamaController {
               ragSources.length > 0 || webRagSourcesForDb.length > 0
                 ? [...ragSources, ...webRagSourcesForDb]
                 : null
-            await this.chatService.addMessage(
-              sessionId,
-              'assistant',
-              result.content,
-              result.generatedImages.length > 0 ? result.generatedImages : null,
-              allSourcesForDb,
-              collectedToolSteps.length > 0 ? collectedToolSteps : null
-            )
-            const messageCount = await this.chatService.getMessageCount(sessionId)
-            if (messageCount <= 2 && userContent) {
-              this.chatService
-                .generateTitle(sessionId, userContent, result.content, reqData.model)
-                .catch((err) => {
-                  logger.error(
-                    `[OllamaController] Title generation failed: ${err instanceof Error ? err.message : err}`
-                  )
-                })
+            try {
+              await this.chatService.addMessage(
+                sessionId,
+                'assistant',
+                result.content,
+                result.generatedImages.length > 0 ? result.generatedImages : null,
+                allSourcesForDb,
+                collectedToolSteps.length > 0 ? collectedToolSteps : null
+              )
+              const messageCount = await this.chatService.getMessageCount(sessionId)
+              if (messageCount <= 2 && userContent) {
+                this.chatService
+                  .generateTitle(sessionId, userContent, result.content, reqData.model)
+                  .catch((err) => {
+                    logger.error(
+                      `[OllamaController] Title generation failed: ${err instanceof Error ? err.message : err}`
+                    )
+                  })
+              }
+            } catch (persistErr) {
+              logger.error(
+                '[OllamaController] Failed to persist assistant message: %s',
+                persistErr instanceof Error ? persistErr.message : String(persistErr)
+              )
             }
           }
 
@@ -498,7 +529,9 @@ export default class OllamaController {
         } catch (error: any) {
           if (abortController.signal.aborted) {
             logger.debug('[OllamaController] Agent run aborted by client disconnect')
-            if (reqData.stream) response.response.end()
+            try {
+              if (reqData.stream) response.response.end()
+            } catch {}
             return
           }
           logger.error(
@@ -551,6 +584,22 @@ export default class OllamaController {
             logger.debug(
               '[OllamaController] Client disconnected; aborted upstream Ollama generation'
             )
+            if (sessionId && fullContent) {
+              try {
+                await this.chatService.addMessage(
+                  sessionId,
+                  'assistant',
+                  fullContent,
+                  null,
+                  ragSources.length > 0 ? ragSources : null
+                )
+              } catch (persistErr) {
+                logger.error(
+                  '[OllamaController] Failed to persist partial assistant message on disconnect: %s',
+                  persistErr instanceof Error ? persistErr.message : String(persistErr)
+                )
+              }
+            }
             return
           }
           throw err
