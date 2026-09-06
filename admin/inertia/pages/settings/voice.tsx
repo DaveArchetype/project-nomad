@@ -1,7 +1,14 @@
 import { Head } from '@inertiajs/react'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { IconDownload, IconTrash, IconLoader2, IconCheck, IconUpload } from '@tabler/icons-react'
+import {
+  IconDownload,
+  IconTrash,
+  IconLoader2,
+  IconCheck,
+  IconUpload,
+  IconDeviceFloppy,
+} from '@tabler/icons-react'
 import SettingsLayout from '~/layouts/SettingsLayout'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
 import StyledButton from '~/components/StyledButton'
@@ -252,6 +259,45 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
 
   function save(key: string, value: boolean | string) {
     updateSettingMutation.mutate({ key, value })
+  }
+
+  const [forceSavingXtts, setForceSavingXtts] = useState(false)
+  async function forceSaveXtts() {
+    setForceSavingXtts(true)
+    try {
+      await Promise.all([
+        api.updateSetting('tts.engine', ttsEngine),
+        api.updateSetting('tts.voice', ttsVoice),
+        api.updateSetting('tts.xttsLanguage', ttsXttsLanguage),
+        api.updateSetting('tts.speechRate', ttsSpeechRate),
+        api.updateSetting('tts.enabled', ttsEnabled),
+        api.updateSetting('tts.autoReadReplies', ttsAutoReadReplies),
+      ])
+      addNotification({ message: 'XTTS settings saved.', type: 'success' })
+    } catch {
+      addNotification({ message: 'Failed to save XTTS settings.', type: 'error' })
+    } finally {
+      setForceSavingXtts(false)
+    }
+  }
+
+  const [forceSavingPiper, setForceSavingPiper] = useState(false)
+  async function forceSavePiper() {
+    setForceSavingPiper(true)
+    try {
+      await Promise.all([
+        api.updateSetting('tts.engine', ttsEngine),
+        api.updateSetting('tts.voice', ttsVoice),
+        api.updateSetting('tts.speechRate', ttsSpeechRate),
+        api.updateSetting('tts.enabled', ttsEnabled),
+        api.updateSetting('tts.autoReadReplies', ttsAutoReadReplies),
+      ])
+      addNotification({ message: 'Piper TTS settings saved.', type: 'success' })
+    } catch {
+      addNotification({ message: 'Failed to save Piper TTS settings.', type: 'error' })
+    } finally {
+      setForceSavingPiper(false)
+    }
   }
 
   async function handleUploadWakeWordModel(e: React.ChangeEvent<HTMLInputElement>) {
@@ -554,6 +600,11 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
                       onChange={(e) => {
                         setTtsEngine(e.target.value)
                         save('tts.engine', e.target.value)
+                        const piperVoices = ttsVoices?.downloaded ?? ['en_US-lessac-medium']
+                        if (piperVoices.length > 0 && !piperVoices.includes(ttsVoice)) {
+                          setTtsVoice(piperVoices[0])
+                          save('tts.voice', piperVoices[0])
+                        }
                       }}
                       className="sr-only"
                     />
@@ -577,6 +628,11 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
                       onChange={(e) => {
                         setTtsEngine(e.target.value)
                         save('tts.engine', e.target.value)
+                        const xttsVoiceList = xttsVoices?.voices ?? []
+                        if (xttsVoiceList.length > 0 && !xttsVoiceList.includes(ttsVoice)) {
+                          setTtsVoice(xttsVoiceList[0])
+                          save('tts.voice', xttsVoiceList[0])
+                        }
                       }}
                       disabled={!xttsOnline}
                       className="sr-only"
@@ -594,6 +650,40 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
                     Voice Cloning TTS is not installed. Install it from the Supply Depot (requires
                     an NVIDIA GPU with ~4-6GB VRAM).
                   </p>
+                )}
+                {ttsEngine === 'xtts' && (
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={forceSaveXtts}
+                      disabled={forceSavingXtts}
+                      className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium bg-desert-green/10 text-desert-green hover:bg-desert-green/20 transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      {forceSavingXtts ? (
+                        <IconLoader2 className="size-4 animate-spin" />
+                      ) : (
+                        <IconDeviceFloppy className="size-4" />
+                      )}
+                      <span>{forceSavingXtts ? 'Saving…' : 'Save XTTS settings'}</span>
+                    </button>
+                  </div>
+                )}
+                {ttsEngine === 'piper' && (
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={forceSavePiper}
+                      disabled={forceSavingPiper}
+                      className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium bg-desert-green/10 text-desert-green hover:bg-desert-green/20 transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      {forceSavingPiper ? (
+                        <IconLoader2 className="size-4 animate-spin" />
+                      ) : (
+                        <IconDeviceFloppy className="size-4" />
+                      )}
+                      <span>{forceSavingPiper ? 'Saving…' : 'Save Piper settings'}</span>
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -851,7 +941,13 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
                         return (
                           <div
                             key={voice}
-                            className="flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-surface-secondary/50 transition-colors"
+                            onClick={() => {
+                              setTtsVoice(voice)
+                              save('tts.voice', voice)
+                            }}
+                            className={`flex items-center justify-between gap-3 px-3 py-2.5 transition-colors cursor-pointer ${
+                              isSelected ? 'bg-desert-green/5' : 'hover:bg-surface-secondary/50'
+                            }`}
                           >
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
