@@ -716,7 +716,7 @@ export default class ServiceSeeder extends BaseSeeder {
       description:
         'CPU-based voice cloning — create custom voices from short audio samples without consuming GPU resources. Optional add-on to the Piper TTS service.',
       icon: 'IconVoice',
-      container_image: 'registry.dasaroff.com/davearchetype/project-nomad-xtts:1.0.0',
+      container_image: 'registry.dasaroff.com/davearchetype/project-nomad-xtts:1.1.0',
       source_repo: 'https://github.com/DaveArchetype/project-nomad',
       container_command: null,
       container_config: JSON.stringify({
