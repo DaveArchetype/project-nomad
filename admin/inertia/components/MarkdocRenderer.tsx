@@ -7,6 +7,45 @@ import { ListItem } from './markdoc/ListItem'
 import { Image } from './markdoc/Image'
 import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from './markdoc/Table'
 
+const DEBUG = true
+
+function DebugLabel({ name, props }: { name: string; props: Record<string, unknown> }) {
+  const propSummary = Object.entries(props)
+    .filter(([k]) => k !== 'children')
+    .map(([k, v]) => {
+      const val =
+        typeof v === 'string' ? `"${v.slice(0, 30)}${v.length > 30 ? '…' : ''}"` : String(v)
+      return `${k}=${val}`
+    })
+    .join(' ')
+  const childSummary = props.children
+    ? `children=${Array.isArray(props.children) ? `array[${(props.children as unknown[]).length}]` : typeof props.children}`
+    : ''
+  return (
+    <div className="bg-desert-red/80 px-2 py-0.5 text-[10px] font-mono text-white break-all">
+      [DEBUG {name}] {propSummary || 'no-props'} {childSummary}
+    </div>
+  )
+}
+
+function withDebug<P extends Record<string, unknown>>(
+  name: string,
+  Component: React.ComponentType<P>
+): React.ComponentType<P> {
+  if (!DEBUG) return Component
+  const Wrapped = (props: P) => {
+    console.log(`[${name}] props:`, props)
+    return (
+      <div className="outline-1 outline-dashed outline-desert-red/60 -outline-offset-1">
+        <DebugLabel name={name} props={props as Record<string, unknown>} />
+        <Component {...props} />
+      </div>
+    )
+  }
+  Wrapped.displayName = `withDebug(${name})`
+  return Wrapped
+}
+
 // Paragraph component
 const Paragraph = ({ children }: { children: React.ReactNode }) => {
   return <p className="mb-4 leading-relaxed text-desert-green-darker/85">{children}</p>
@@ -98,7 +137,7 @@ const CodeBlock = ({
 // Horizontal rule component
 const HorizontalRule = () => {
   return (
-    <hr className="my-10 border-0 h-px bg-gradient-to-r from-transparent via-desert-tan-lighter to-transparent" />
+    <hr className="my-10 border-0 h-px bg-linear-to-r from-transparent via-desert-tan-lighter to-transparent" />
   )
 }
 
@@ -129,22 +168,22 @@ const Callout = ({
 
 // Component mapping for Markdoc
 const components = {
-  Paragraph,
-  Image,
-  Link,
-  InlineCode,
-  CodeBlock,
-  HorizontalRule,
-  Callout,
-  Heading,
-  List,
-  ListItem,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableHeader,
-  TableCell,
+  Paragraph: withDebug('Paragraph', Paragraph),
+  Image: withDebug('Image', Image),
+  Link: withDebug('Link', Link),
+  InlineCode: withDebug('InlineCode', InlineCode),
+  CodeBlock: withDebug('CodeBlock', CodeBlock),
+  HorizontalRule: withDebug('HorizontalRule', HorizontalRule),
+  Callout: withDebug('Callout', Callout),
+  Heading: withDebug('Heading', Heading),
+  List: withDebug('List', List),
+  ListItem: withDebug('ListItem', ListItem),
+  Table: withDebug('Table', Table),
+  TableHead: withDebug('TableHead', TableHead),
+  TableBody: withDebug('TableBody', TableBody),
+  TableRow: withDebug('TableRow', TableRow),
+  TableHeader: withDebug('TableHeader', TableHeader),
+  TableCell: withDebug('TableCell', TableCell),
 }
 
 interface MarkdocRendererProps {
