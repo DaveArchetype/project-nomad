@@ -36,11 +36,16 @@ export default function SpeakButton({
 }: SpeakButtonProps) {
   const [state, setState] = useState<'idle' | 'loading' | 'playing'>('idle')
   const sourceRef = useRef<AudioBufferSourceNode | null>(null)
+  const playbackIdRef = useRef(0)
+  const isBusyRef = useRef(false)
   const { addNotification } = useNotifications()
   const { mute, unmute } = useVoice()
 
   useEffect(() => {
     return () => {
+      playbackIdRef.current++
+      const wasBusy = isBusyRef.current
+      isBusyRef.current = false
       if (sourceRef.current) {
         sourceRef.current.onended = null
         try {
@@ -48,12 +53,14 @@ export default function SpeakButton({
         } catch {}
         sourceRef.current.disconnect()
         sourceRef.current = null
-        unmute()
       }
+      if (wasBusy) unmute()
     }
   }, [unmute])
 
   const stop = () => {
+    playbackIdRef.current++
+    isBusyRef.current = false
     if (sourceRef.current) {
       sourceRef.current.onended = null
       try {
@@ -71,38 +78,52 @@ export default function SpeakButton({
       onStopAutoReading?.()
       return
     }
-    if (state === 'playing') {
+    if (isBusyRef.current) {
       stop()
       return
     }
+    const playbackId = ++playbackIdRef.current
+    isBusyRef.current = true
     setState('loading')
     mute()
     try {
       await unlockAudioPlayback()
+      if (playbackIdRef.current !== playbackId) return
       const spokenText = stripMarkdownForHighlighting(text)
       if (!spokenText) throw new Error('No readable text to speak')
 
       const blob = await api.synthesizeSpeech(spokenText, voice, undefined, engine, language)
+      if (playbackIdRef.current !== playbackId) return
       if (!blob || blob.size === 0) throw new Error('No audio returned')
 
       const { source } = await createSpeechSource(blob)
+      if (playbackIdRef.current !== playbackId) {
+        source.disconnect()
+        return
+      }
       sourceRef.current = source
       source.onended = () => {
         if (sourceRef.current !== source) return
         source.disconnect()
         sourceRef.current = null
+        isBusyRef.current = false
         setState('idle')
         unmute()
       }
       source.start()
       setState('playing')
     } catch (err) {
+      if (playbackIdRef.current !== playbackId) return
       console.error('[SpeakButton] Playback failed:', err)
       if (sourceRef.current) {
         sourceRef.current.onended = null
+        try {
+          sourceRef.current.stop()
+        } catch {}
         sourceRef.current.disconnect()
         sourceRef.current = null
       }
+      isBusyRef.current = false
       addNotification({
         message: `Failed to play audio: ${err instanceof Error ? err.message : 'unknown error'}`,
         type: 'error',

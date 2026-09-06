@@ -64,7 +64,9 @@ export default function Chat({
   const voice = useVoice()
   const { addNotification } = useNotifications()
   const voiceRef = useRef(voice)
+  const addNotificationRef = useRef(addNotification)
   voiceRef.current = voice
+  addNotificationRef.current = addNotification
   const lastAutoReadMessageIdRef = useRef<string | null>(null)
   const suppressAutoReadRef = useRef(false)
   const currentSourceRef = useRef<AudioBufferSourceNode | null>(null)
@@ -137,7 +139,10 @@ export default function Chat({
           return
         }
         if (!blob) {
-          addNotification({ message: 'Failed to generate speech for this reply.', type: 'error' })
+          addNotificationRef.current({
+            message: 'Failed to generate speech for this reply.',
+            type: 'error',
+          })
           stopSpeaking()
           return
         }
@@ -176,7 +181,7 @@ export default function Chat({
         source.start()
       } catch (error) {
         if (!isStoppedRef.current && playingMessageIdRef.current === messageId) {
-          addNotification({
+          addNotificationRef.current({
             message: `Failed to play speech: ${error instanceof Error ? error.message : 'unknown error'}`,
             type: 'error',
           })
@@ -184,7 +189,7 @@ export default function Chat({
         }
       }
     },
-    [addNotification, stopSpeaking]
+    [stopSpeaking]
   )
 
   useEffect(() => {
@@ -260,7 +265,10 @@ export default function Chat({
 
     const plainText = stripMarkdownForHighlighting(last.content)
     const allSentences = getSentencesWithOffsets(plainText)
-    const alreadyQueuedOrPlayed = playedSentenceCountRef.current + sentenceQueueRef.current.length
+    const alreadyQueuedOrPlayed =
+      playedSentenceCountRef.current +
+      sentenceQueueRef.current.length +
+      (isProcessingQueueRef.current ? 1 : 0)
     const newSentences = allSentences.slice(alreadyQueuedOrPlayed)
 
     if (newSentences.length === 0 && !last.isStreaming) {

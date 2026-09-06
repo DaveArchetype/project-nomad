@@ -11,7 +11,11 @@ export async function unlockAudioPlayback(): Promise<AudioContext> {
   if (!playbackAudioContext || playbackAudioContext.state === 'closed') {
     playbackAudioContext = new AudioContextConstructor()
   }
-  if (playbackAudioContext.state !== 'running') await playbackAudioContext.resume()
+  if (playbackAudioContext.state !== 'running') {
+    try {
+      await playbackAudioContext.resume()
+    } catch {}
+  }
   if (playbackAudioContext.state !== 'running') {
     throw new Error('Audio playback is blocked. Click or press a key, then try again.')
   }
