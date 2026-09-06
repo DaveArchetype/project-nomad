@@ -508,6 +508,20 @@ async function createContainer(
         appEnv.push(`SERVER_COUNTRIES=${vpnCountries}`)
       }
     }
+    if (service.service_name === SERVICE_NAMES.STREMIO) {
+      const baseDomain = await KVStore.getValue('ui.reverseProxyBaseDomain')
+      if (
+        baseDomain &&
+        typeof baseDomain === 'string' &&
+        baseDomain.trim() !== '' &&
+        service.ui_path
+      ) {
+        const slug = service.ui_path.replace(/^\/+/, '')
+        if (slug) {
+          appEnv.push(`SERVER_URL=https://${slug}.${baseDomain.trim()}/`)
+        }
+      }
+    }
     if (service.service_name === SERVICE_NAMES.N8N) {
       appEnv.push(`N8N_ENCRYPTION_KEY=${await ctx.resolveN8nEncryptionKey()}`)
       const tz = await KVStore.getValue('recap.timezone')
