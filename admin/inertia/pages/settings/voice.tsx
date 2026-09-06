@@ -870,6 +870,8 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
                               <SpeakButton
                                 text="Hello, this is a voice preview."
                                 voice={voice}
+                                engine="xtts"
+                                language={ttsXttsLanguage}
                                 className="text-text-muted hover:text-desert-green"
                               />
                               {!isSelected && (

@@ -7,6 +7,8 @@ import { useVoice } from '~/context/VoiceContext'
 interface SpeakButtonProps {
   text: string
   voice?: string
+  engine?: string
+  language?: string
   className?: string
   isAutoReading?: boolean
   onStopAutoReading?: () => void
@@ -25,6 +27,8 @@ interface SpeakButtonProps {
 export default function SpeakButton({
   text,
   voice,
+  engine,
+  language,
   className,
   isAutoReading = false,
   onStopAutoReading,
@@ -63,7 +67,7 @@ export default function SpeakButton({
     setState('loading')
     mute()
     try {
-      const blob = await api.synthesizeSpeech(text, voice)
+      const blob = await api.synthesizeSpeech(text, voice, undefined, engine, language)
       if (!blob) {
         throw new Error('No audio returned')
       }
