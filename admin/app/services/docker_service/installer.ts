@@ -600,7 +600,7 @@ async function createContainer(
         .where('installed', true)
         .first()
       if (vpnInstalled) {
-        const { PortBindings, ExposedPorts, ...restHost } = finalHostConfig
+        const { PortBindings, ExposedPorts, ExtraHosts, ...restHost } = finalHostConfig
         finalHostConfig = {
           ...restHost,
           NetworkMode: `container:${SERVICE_NAMES.VPN}`,
