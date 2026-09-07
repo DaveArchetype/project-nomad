@@ -151,37 +151,6 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
     updateBaseDomainMutation.mutate(trimmed)
   }
 
-  // Private registry credentials — used by the admin server to pull Voice Gateway / TTS images
-  // from the self-hosted Gitea container registry (registry.dasaroff.com). Falls back to anonymous
-  // pulls for every other curated app's public image; only these two apps need this configured.
-  const { data: giteaUsernameSetting } = useSystemSetting({ key: 'registry.giteaUsername' })
-  const { data: giteaPasswordSetting } = useSystemSetting({ key: 'registry.giteaPassword' })
-  const [giteaUsernameDraft, setGiteaUsernameDraft] = useState('')
-  const [giteaPasswordDraft, setGiteaPasswordDraft] = useState('')
-  useEffect(() => {
-    setGiteaUsernameDraft((giteaUsernameSetting?.value as string | null | undefined) ?? '')
-  }, [giteaUsernameSetting])
-  useEffect(() => {
-    setGiteaPasswordDraft((giteaPasswordSetting?.value as string | null | undefined) ?? '')
-  }, [giteaPasswordSetting])
-
-  const updateGiteaCredentialsMutation = useMutation({
-    mutationFn: async () => {
-      await api.updateSetting('registry.giteaUsername', giteaUsernameDraft.trim())
-      await api.updateSetting('registry.giteaPassword', giteaPasswordDraft)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['system-setting', 'registry.giteaUsername'] })
-      queryClient.invalidateQueries({ queryKey: ['system-setting', 'registry.giteaPassword'] })
-      addNotification({ message: 'Registry credentials updated.', type: 'success' })
-    },
-    onError: (error: any) => {
-      showError(error?.message || 'Failed to update registry credentials.')
-    },
-  })
-
-  const { data: vpnUserSetting } = useSystemSetting({ key: 'vpn.openvpnUser' })
-  const { data: vpnPasswordSetting } = useSystemSetting({ key: 'vpn.openvpnPassword' })
   const { data: vpnCountriesSetting } = useSystemSetting({ key: 'vpn.countries' })
   const { data: stremioVpnEnabledSetting } = useSystemSetting({ key: 'stremio.vpnEnabled' })
   const { data: vpnCountriesData, refetch: refetchVpnCountries } = useQuery({
@@ -190,32 +159,20 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
     staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
   })
-  const [vpnUserDraft, setVpnUserDraft] = useState('')
-  const [vpnPasswordDraft, setVpnPasswordDraft] = useState('')
   const [vpnCountriesDraft, setVpnCountriesDraft] = useState('')
-  useEffect(() => {
-    setVpnUserDraft((vpnUserSetting?.value as string | null | undefined) ?? '')
-  }, [vpnUserSetting])
-  useEffect(() => {
-    setVpnPasswordDraft((vpnPasswordSetting?.value as string | null | undefined) ?? '')
-  }, [vpnPasswordSetting])
   useEffect(() => {
     setVpnCountriesDraft((vpnCountriesSetting?.value as string | null | undefined) ?? '')
   }, [vpnCountriesSetting])
 
   const updateVpnSettingsMutation = useMutation({
     mutationFn: async () => {
-      await api.updateSetting('vpn.openvpnUser', vpnUserDraft.trim())
-      await api.updateSetting('vpn.openvpnPassword', vpnPasswordDraft)
       await api.updateSetting('vpn.countries', vpnCountriesDraft.trim())
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['system-setting', 'vpn.openvpnUser'] })
-      queryClient.invalidateQueries({ queryKey: ['system-setting', 'vpn.openvpnPassword'] })
       queryClient.invalidateQueries({ queryKey: ['system-setting', 'vpn.countries'] })
       addNotification({
         message:
-          'VPN settings saved. Reinstalling VPN container — running connection test in 15s...',
+          'VPN country saved. Reinstalling VPN container — running connection test in 15s...',
         type: 'success',
       })
       setVpnTestResult(null)
@@ -760,68 +717,35 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
 
                 <section>
                   <StyledSectionHeader title="Private Registry Credentials" className="mb-4" />
-                  <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
-                    <p className="text-sm text-text-secondary mb-4">
-                      Voice Gateway and Text-to-Speech are pulled from a private container registry.
-                      Set the credentials below before installing or updating either app — every
-                      other app in the catalog is public and doesn't need this.
+                  <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <p className="text-sm text-text-secondary">
+                      Private registry credentials are managed centrally and stored encrypted.
                     </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-                      <Input
-                        name="giteaUsername"
-                        label="Registry Username"
-                        placeholder="DaveArchetype"
-                        value={giteaUsernameDraft}
-                        onChange={(e) => setGiteaUsernameDraft(e.target.value)}
-                      />
-                      <Input
-                        name="giteaPassword"
-                        type="password"
-                        label="Registry Password"
-                        placeholder="Access token or password"
-                        value={giteaPasswordDraft}
-                        onChange={(e) => setGiteaPasswordDraft(e.target.value)}
-                      />
-                    </div>
-                    <div className="flex justify-end mt-3">
-                      <StyledButton
-                        variant="primary"
-                        onClick={() => updateGiteaCredentialsMutation.mutate()}
-                        loading={updateGiteaCredentialsMutation.isPending}
-                        disabled={updateGiteaCredentialsMutation.isPending}
-                      >
-                        Save
-                      </StyledButton>
-                    </div>
+                    <StyledButton
+                      variant="secondary"
+                      onClick={() => router.visit('/settings/secrets')}
+                    >
+                      Open Secrets
+                    </StyledButton>
                   </div>
                 </section>
 
                 <section>
                   <StyledSectionHeader title="VPN Settings" className="mb-4" />
                   <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
-                    <p className="text-sm text-text-secondary mb-4">
-                      Install the VPN Gateway from the catalog above, then set your Surfshark
-                      service credentials below (found at my.surfshark.com &gt; VPN &gt; Manual
-                      setup &gt; Router). Enable the toggle to route Stremio through the VPN.
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-                      <Input
-                        name="vpnUser"
-                        label="Surfshark Username"
-                        placeholder="Service username"
-                        value={vpnUserDraft}
-                        onChange={(e) => setVpnUserDraft(e.target.value)}
-                      />
-                      <Input
-                        name="vpnPassword"
-                        type="password"
-                        label="Surfshark Password"
-                        placeholder="Service password"
-                        value={vpnPasswordDraft}
-                        onChange={(e) => setVpnPasswordDraft(e.target.value)}
-                      />
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                      <p className="text-sm text-text-secondary">
+                        Configure Surfshark credentials in Secrets, then select the VPN server
+                        country here.
+                      </p>
+                      <StyledButton
+                        variant="secondary"
+                        onClick={() => router.visit('/settings/secrets')}
+                      >
+                        Open Secrets
+                      </StyledButton>
                     </div>
-                    <div className="mt-3">
+                    <div>
                       <Select
                         name="vpnCountries"
                         label="Server Country"

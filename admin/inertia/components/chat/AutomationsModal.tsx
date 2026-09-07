@@ -219,7 +219,7 @@ export default function AutomationsModal({ onClose }: AutomationsModalProps) {
             <div className="text-center py-12">
               <p className="text-text-muted mb-4">
                 n8n is installed but the API key isn't configured yet. Open n8n, create an API key
-                in Settings → API, then paste it in the Automations settings page.
+                in Settings → API, then save it in NOMAD's Secrets settings.
               </p>
               <div className="flex gap-3 justify-center">
                 <StyledButton
@@ -231,9 +231,9 @@ export default function AutomationsModal({ onClose }: AutomationsModalProps) {
                 </StyledButton>
                 <StyledButton
                   variant="outline"
-                  onClick={() => (window.location.href = '/automations')}
+                  onClick={() => (window.location.href = '/settings/secrets')}
                 >
-                  Open Automations Settings
+                  Open Secrets
                 </StyledButton>
               </div>
             </div>

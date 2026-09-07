@@ -43,6 +43,7 @@ services:
       - LOG_LEVEL=info
       # APP_KEY needs to be at least 16 chars or will fail validation and container won't start!
       - APP_KEY=${APP_KEY}
+      - HF_TOKEN=${HF_TOKEN}
       # # Leave HOST as is so the admin server listens all interfaces within the container - this doesn't affect how you access it from the host, it's just for internal container networking
       - HOST=0.0.0.0
       # URL should be set to the URL you will access the admin interface at (e.g. http://localhost:8080 or http://192.168.1.x:8080)
@@ -294,6 +295,7 @@ services:
   #     - /mnt/main2tb/project-nomad/storage/xtts:/data
   #   environment:
   #     - HF_HOME=/data/hf_cache
+  #     - HF_TOKEN=${HF_TOKEN}
   #     - DEFAULT_LANGUAGE=en
   #   healthcheck:
   #     test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8611/health')"]

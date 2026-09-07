@@ -490,6 +490,11 @@ async function createContainer(
     }
 
     const appEnv: string[] = []
+    if (service.service_name === SERVICE_NAMES.XTTS) {
+      const storedHfToken = await KVStore.getValue('secrets.huggingFaceToken')
+      const hfToken = storedHfToken?.trim() || process.env.HF_TOKEN?.trim()
+      if (hfToken) appEnv.push(`HF_TOKEN=${hfToken}`)
+    }
     if (service.service_name === SERVICE_NAMES.HOMEBOX) {
       appEnv.push(`HBOX_AUTH_API_KEY_PEPPER=${await ctx.resolveHomeboxPepper()}`)
     }

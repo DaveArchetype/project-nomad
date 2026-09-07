@@ -2,6 +2,22 @@ import { DateTime } from 'luxon'
 import { BaseModel, column, SnakeCaseNamingStrategy } from '@adonisjs/lucid/orm'
 import { KV_STORE_SCHEMA, type KVStoreKey, type KVStoreValue } from '../../types/kv_store.js'
 import { parseBoolean } from '../utils/misc.js'
+import encryption from '@adonisjs/core/services/encryption'
+import logger from '@adonisjs/core/services/logger'
+
+const ENCRYPTED_VALUE_PREFIX = 'encv1:'
+const SECRET_SETTING_KEYS = new Set<KVStoreKey>([
+  'apps.homebox.apiKeyPepper',
+  'secrets.huggingFaceToken',
+  'registry.giteaPassword',
+  'vpn.openvpnPassword',
+  'automation.n8nEncryptionKey',
+  'automation.n8nApiKey',
+])
+
+export function isSecretSettingKey(key: KVStoreKey): boolean {
+  return SECRET_SETTING_KEYS.has(key)
+}
 
 /**
  * Generic key-value store model for storing various settings
@@ -35,6 +51,19 @@ export default class KVStore extends BaseModel {
       return null
     }
     const raw = String(setting.value)
+    if (isSecretSettingKey(key)) {
+      if (raw.startsWith(ENCRYPTED_VALUE_PREFIX)) {
+        const decrypted = encryption.decrypt<string>(raw.slice(ENCRYPTED_VALUE_PREFIX.length))
+        if (decrypted === null) {
+          logger.warn(`[KVStore] Failed to decrypt secret setting: ${key}`)
+          return null
+        }
+        return decrypted as KVStoreValue<K>
+      }
+      setting.value = `${ENCRYPTED_VALUE_PREFIX}${encryption.encrypt(raw)}`
+      await setting.save()
+      return raw as KVStoreValue<K>
+    }
     return (KV_STORE_SCHEMA[key] === 'boolean' ? parseBoolean(raw) : raw) as KVStoreValue<K>
   }
 
@@ -43,12 +72,23 @@ export default class KVStore extends BaseModel {
    */
   static async setValue<K extends KVStoreKey>(key: K, value: KVStoreValue<K>): Promise<KVStore> {
     const serialized = String(value)
-    const setting = await this.firstOrCreate({ key }, { key, value: serialized })
-    if (setting.value !== serialized) {
-      setting.value = serialized
-      await setting.save()
+    const existing = await this.findBy('key', key)
+    if (existing) {
+      if (isSecretSettingKey(key)) {
+        const currentValue = await this.getValue(key)
+        if (currentValue === serialized) return existing
+        existing.value = `${ENCRYPTED_VALUE_PREFIX}${encryption.encrypt(serialized)}`
+      } else {
+        if (existing.value === serialized) return existing
+        existing.value = serialized
+      }
+      await existing.save()
+      return existing
     }
-    return setting
+    const storedValue = isSecretSettingKey(key)
+      ? `${ENCRYPTED_VALUE_PREFIX}${encryption.encrypt(serialized)}`
+      : serialized
+    return this.create({ key, value: storedValue })
   }
 
   /**

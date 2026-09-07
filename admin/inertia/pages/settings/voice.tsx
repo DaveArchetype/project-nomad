@@ -639,7 +639,8 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
                 </div>
                 {!xttsOnline && (
                   <p className="text-sm text-text-muted mt-2">
-                    Pocket Voice Cloning is unavailable. Install or start it from the Supply Depot.
+                    {status?.xtts?.message ||
+                      'Pocket Voice Cloning is unavailable. Install or start it from the Supply Depot.'}
                   </p>
                 )}
                 {ttsEngine === 'xtts' && (

@@ -33,8 +33,6 @@ export default function AutomationsPage(props: AutomationsPageProps) {
   const n8nUrl = getServiceLink('8540', undefined, '/n8n', reverseProxyBaseDomain)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [showApiKeyInput, setShowApiKeyInput] = useState(false)
-  const [apiKey, setApiKey] = useState('')
   const [formData, setFormData] = useState<CreateAutomationInput>({
     name: '',
     prompt: '',
@@ -126,23 +124,6 @@ export default function AutomationsPage(props: AutomationsPageProps) {
     onError: (err: any) =>
       addNotification({
         message: `Failed to run: ${err?.message ?? 'unknown error'}`,
-        type: 'error',
-        duration: 5000,
-      }),
-  })
-
-  const apiKeyMutation = useMutation({
-    mutationFn: (key: string) => api.saveN8nApiKey(key),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['automation-status'] })
-      queryClient.invalidateQueries({ queryKey: ['automations'] })
-      setShowApiKeyInput(false)
-      setApiKey('')
-      addNotification({ message: 'API key saved', type: 'success', duration: 3000 })
-    },
-    onError: (err: any) =>
-      addNotification({
-        message: `Failed to save key: ${err?.message ?? 'unknown error'}`,
         type: 'error',
         duration: 5000,
       }),
@@ -261,10 +242,10 @@ export default function AutomationsPage(props: AutomationsPageProps) {
             <IconKey size={48} className="mx-auto text-text-muted mb-4" />
             <h2 className="text-lg font-medium text-text-primary mb-2">Connect n8n to NOMAD</h2>
             <p className="text-text-muted mb-6 max-w-lg mx-auto">
-              n8n is installed. To let NOMAD manage workflows, create an API key in n8n (Settings →
-              API) and paste it here.
+              Create an API key in n8n Settings → API, then save it in NOMAD's centralized Secrets
+              settings.
             </p>
-            <div className="flex gap-3 justify-center mb-4">
+            <div className="flex gap-3 justify-center">
               <StyledButton
                 variant="primary"
                 icon="IconExternalLink"
@@ -272,46 +253,14 @@ export default function AutomationsPage(props: AutomationsPageProps) {
               >
                 Open n8n
               </StyledButton>
-            </div>
-            {showApiKeyInput ? (
-              <div className="max-w-md mx-auto space-y-3">
-                <input
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-border-subtle bg-surface-primary text-text-primary text-sm"
-                  placeholder="Paste n8n API key"
-                />
-                <div className="flex gap-2 justify-center">
-                  <StyledButton
-                    variant="primary"
-                    icon="IconKey"
-                    onClick={() => apiKeyMutation.mutate(apiKey)}
-                    loading={apiKeyMutation.isPending}
-                    disabled={!apiKey.trim()}
-                  >
-                    Save Key
-                  </StyledButton>
-                  <StyledButton
-                    variant="outline"
-                    onClick={() => {
-                      setShowApiKeyInput(false)
-                      setApiKey('')
-                    }}
-                  >
-                    Cancel
-                  </StyledButton>
-                </div>
-              </div>
-            ) : (
               <StyledButton
                 variant="outline"
                 icon="IconKey"
-                onClick={() => setShowApiKeyInput(true)}
+                onClick={() => (window.location.href = '/settings/secrets')}
               >
-                Enter API Key
+                Open Secrets
               </StyledButton>
-            )}
+            </div>
           </div>
         ) : showForm ? (
           <div className="rounded-lg border border-border-subtle p-6 space-y-4">

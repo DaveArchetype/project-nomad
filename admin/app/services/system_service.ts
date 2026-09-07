@@ -887,6 +887,26 @@ export class SystemService {
     if (key === 'stremio.vpnEnabled') {
       await this.coordinatedVpnStremioReinstall()
     }
+    if (key === 'secrets.huggingFaceToken') {
+      const voiceCloning = await Service.query().where('service_name', SERVICE_NAMES.XTTS).first()
+      if (voiceCloning?.installed) {
+        this.dockerService.forceReinstall(SERVICE_NAMES.XTTS).catch((error) => {
+          logger.warn(
+            `[SystemService] Auto-reinstall of Pocket Voice Cloning after token change failed: ${error instanceof Error ? error.message : String(error)}`
+          )
+        })
+      }
+    }
+    if (key === 'automation.n8nApiKey') {
+      const n8n = await Service.query().where('service_name', SERVICE_NAMES.N8N).first()
+      if (n8n?.installed) {
+        this.dockerService.forceReinstall(SERVICE_NAMES.N8N).catch((error) => {
+          logger.warn(
+            `[SystemService] Auto-reinstall of n8n after API key change failed: ${error instanceof Error ? error.message : String(error)}`
+          )
+        })
+      }
+    }
   }
 
   private async coordinatedVpnStremioReinstall(): Promise<void> {

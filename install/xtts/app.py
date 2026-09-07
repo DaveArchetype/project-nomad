@@ -41,6 +41,10 @@ SPEAKERS_DIR.mkdir(parents=True, exist_ok=True)
 
 DEFAULT_LANGUAGE = os.environ.get("DEFAULT_LANGUAGE", "en")
 MAX_TEXT_LENGTH = int(os.environ.get("MAX_TEXT_LENGTH", "5000"))
+VOICE_CLONING_ACCESS_MESSAGE = (
+    "Pocket TTS voice-cloning weights are unavailable. Accept the model terms at "
+    "https://huggingface.co/kyutai/pocket-tts, configure HF_TOKEN, and restart this service."
+)
 LANGUAGE_MODELS = {
     "en": "english",
     "fr": "french_24l",
@@ -112,6 +116,8 @@ def _get_model(language: str):
         model = TTSModel.load_model(language=model_name)
         _models[language] = model
         logger.info(f"Pocket TTS model '{model_name}' loaded successfully.")
+        if not model.has_voice_cloning:
+            logger.error(VOICE_CLONING_ACCESS_MESSAGE)
         return model
 
 
@@ -152,6 +158,8 @@ def _get_voice_state(model, voice: str, language: str, rebuild: bool = False):
 def _warm_default_model():
     language = _normalize_language(DEFAULT_LANGUAGE)
     model = _get_model(language)
+    if not model.has_voice_cloning:
+        return
     for voice in _list_speakers():
         try:
             _normalize_existing_voice(voice)
@@ -189,10 +197,14 @@ class SynthesizeRequest(BaseModel):
 @app.get("/health")
 async def health():
     default_language = _normalize_language(DEFAULT_LANGUAGE)
+    default_model = _models.get(default_language)
+    voice_cloning_available = bool(default_model and default_model.has_voice_cloning)
     return {
         "status": "ok",
         "engine": "pocket-tts",
-        "model_loaded": default_language in _models,
+        "model_loaded": default_model is not None,
+        "voice_cloning_available": voice_cloning_available,
+        "message": None if voice_cloning_available else VOICE_CLONING_ACCESS_MESSAGE,
         "loaded_languages": sorted(_models),
         "device": "cpu",
         "speakers": len(_list_speakers()),
@@ -266,12 +278,15 @@ async def clone_voice(name: str = Form(...), file: UploadFile = File(...)):
     extension = Path(file.filename or "").suffix.lower()
     if extension not in (".wav", ".mp3", ".flac", ".ogg", ".m4a"):
         raise HTTPException(status_code=400, detail="Audio must be WAV, MP3, FLAC, OGG, or M4A.")
+    language = _normalize_language(DEFAULT_LANGUAGE)
+    model = await asyncio.to_thread(_get_model, language)
+    if not model.has_voice_cloning:
+        raise HTTPException(status_code=503, detail=VOICE_CLONING_ACCESS_MESSAGE)
     audio_data = await file.read()
     if not audio_data:
         raise HTTPException(status_code=400, detail="Audio file is empty.")
 
     destination = _speaker_path(clean_name)
-    language = _normalize_language(DEFAULT_LANGUAGE)
     await _run_locked(
         _clone_and_prepare_voice,
         audio_data,
@@ -341,6 +356,8 @@ async def synthesize(req: SynthesizeRequest):
 
     language = _normalize_language(req.language)
     model = await asyncio.to_thread(_get_model, language)
+    if not model.has_voice_cloning:
+        raise HTTPException(status_code=503, detail=VOICE_CLONING_ACCESS_MESSAGE)
     try:
         audio_bytes = await _run_locked(_synthesize_audio, model, req.voice, language, text)
         return Response(content=audio_bytes, media_type="audio/wav")

@@ -117,7 +117,7 @@ export class AutomationsService {
     const apiKey = await KVStore.getValue('automation.n8nApiKey')
     if (!apiKey || typeof apiKey !== 'string' || apiKey.trim() === '') {
       throw new Error(
-        'n8n API key is not configured. Open n8n → Settings → API → create a key, then paste it into the Automations settings panel.'
+        'n8n API key is not configured. Open n8n → Settings → API, create a key, then save it in NOMAD Settings → Secrets.'
       )
     }
     const client = axios.create({

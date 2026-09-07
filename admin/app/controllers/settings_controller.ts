@@ -1,4 +1,4 @@
-import KVStore from '#models/kv_store'
+import KVStore, { isSecretSettingKey } from '#models/kv_store'
 import { MapService } from '#services/map_service'
 import { OllamaService } from '#services/ollama_service'
 import { SystemService } from '#services/system_service'
@@ -213,9 +213,42 @@ export default class SettingsController {
     return inertia.render('settings/appearance')
   }
 
+  async secrets({ inertia }: HttpContext) {
+    const [
+      huggingFaceToken,
+      registryUsername,
+      registryPassword,
+      vpnUsername,
+      vpnPassword,
+      n8nApiKey,
+    ] = await Promise.all([
+      KVStore.getValue('secrets.huggingFaceToken'),
+      KVStore.getValue('registry.giteaUsername'),
+      KVStore.getValue('registry.giteaPassword'),
+      KVStore.getValue('vpn.openvpnUser'),
+      KVStore.getValue('vpn.openvpnPassword'),
+      KVStore.getValue('automation.n8nApiKey'),
+    ])
+    const huggingFaceTokenEnvOverride = Boolean(env.get('HF_TOKEN')?.trim())
+    return inertia.render('settings/secrets', {
+      secrets: {
+        huggingFaceTokenConfigured: Boolean(huggingFaceToken || huggingFaceTokenEnvOverride),
+        huggingFaceTokenEnvOverride,
+        registryUsername: registryUsername || '',
+        registryPasswordConfigured: Boolean(registryPassword),
+        vpnUsername: vpnUsername || '',
+        vpnPasswordConfigured: Boolean(vpnPassword),
+        n8nApiKeyConfigured: Boolean(n8nApiKey),
+      },
+    })
+  }
+
   async getSetting({ request, response }: HttpContext) {
     const { key } = await getSettingSchema.validate({ key: request.qs().key })
     const value = await KVStore.getValue(key)
+    if (isSecretSettingKey(key)) {
+      return response.status(200).send({ key, value: null, configured: Boolean(value) })
+    }
     return response.status(200).send({ key, value })
   }
 

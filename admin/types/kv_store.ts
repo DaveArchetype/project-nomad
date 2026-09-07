@@ -86,6 +86,7 @@ export const KV_STORE_SCHEMA = {
   'ai.autoFixGpuPassthrough': 'boolean',
   'gpu.autoRemediatedAt': 'string',
   'apps.homebox.apiKeyPepper': 'string',
+  'secrets.huggingFaceToken': 'string',
   'registry.giteaUsername': 'string',
   'registry.giteaPassword': 'string',
   'vpn.openvpnUser': 'string',

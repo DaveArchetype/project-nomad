@@ -23,7 +23,16 @@ export class XttsService {
   async checkHealth(): Promise<{ online: boolean; message?: string }> {
     const url = await this.getUrl()
     try {
-      await axios.get(`${url}/health`, { timeout: 5000 })
+      const health = await axios.get<{
+        voice_cloning_available?: boolean
+        message?: string
+      }>(`${url}/health`, { timeout: 5000 })
+      if (health.data.voice_cloning_available === false) {
+        return {
+          online: false,
+          message: health.data.message || 'Pocket TTS voice-cloning weights are unavailable.',
+        }
+      }
       return { online: true }
     } catch {
       return {

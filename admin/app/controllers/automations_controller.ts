@@ -171,7 +171,7 @@ export default class AutomationsController {
 
   async saveApiKey({ request, response }: HttpContext) {
     const data = await request.validateUsing(saveN8nApiKeySchema)
-    await KVStore.setValue('automation.n8nApiKey', data.apiKey)
+    await this.systemService.updateSetting('automation.n8nApiKey', data.apiKey)
     return response.status(200).json({ success: true })
   }
 
