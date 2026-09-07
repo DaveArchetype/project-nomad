@@ -154,6 +154,7 @@ def _warm_default_model():
     model = _get_model(language)
     for voice in _list_speakers():
         try:
+            _normalize_existing_voice(voice)
             _get_voice_state(model, voice, language)
         except Exception as exc:
             logger.warning(f"Failed to prepare voice '{voice}': {exc}")
@@ -212,6 +213,20 @@ def _resample_to_wav(src_path: Path, dest_path: Path):
         waveform = torchaudio.transforms.Resample(sample_rate, 24000)(waveform)
     pcm = (waveform.clamp(-1.0, 1.0) * 32767.0).round().to(torch.int16)
     torchaudio.save(str(dest_path), pcm, 24000)
+
+
+def _normalize_existing_voice(voice: str):
+    source = _get_speaker_wav(voice)
+    metadata = torchaudio.info(str(source))
+    if metadata.sample_rate == 24000 and metadata.num_channels == 1 and metadata.bits_per_sample == 16:
+        return
+    with tempfile.NamedTemporaryFile(suffix=".wav", dir=source.parent, delete=False) as output:
+        output_path = Path(output.name)
+    try:
+        _resample_to_wav(source, output_path)
+        os.replace(output_path, source)
+    finally:
+        output_path.unlink(missing_ok=True)
 
 
 def _store_voice(audio_data: bytes, extension: str, destination: Path):
