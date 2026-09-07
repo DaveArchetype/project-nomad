@@ -524,6 +524,7 @@ async function createContainer(
         const slug = service.ui_path.replace(/^\/+/, '')
         if (slug) {
           const host = `${slug}.${baseDomain.trim()}`
+          appEnv.push(`SERVER_URL=https://${host}/`)
           gpuHostConfig = {
             ...gpuHostConfig,
             ExtraHosts: [...(gpuHostConfig.ExtraHosts || []), `127.0.0.1 ${host}`],
@@ -689,6 +690,86 @@ async function createContainer(
               'ffprobe-wrapper-done',
               `ffprobe/ffmpeg wrappers installed. Internal probes will use http://127.0.0.1:8080 instead of https://${host}`
             )
+
+            const stremioVpnEnabledPostStart = await KVStore.getValue('stremio.vpnEnabled')
+            if (stremioVpnEnabledPostStart === true) {
+              try {
+                const vpnContainers = await ctx.docker.listContainers({ all: true })
+                const vpnContainerInfo = vpnContainers.find((c) =>
+                  c.Names.includes(`/${SERVICE_NAMES.VPN}`)
+                )
+                if (vpnContainerInfo) {
+                  const vpnDockerContainer = ctx.docker.getContainer(vpnContainerInfo.Id)
+                  const hostsExec = await vpnDockerContainer.exec({
+                    Cmd: [
+                      'sh',
+                      '-c',
+                      `grep -q '${host}' /etc/hosts || echo '127.0.0.1 ${host}' >> /etc/hosts`,
+                    ],
+                    AttachStdout: true,
+                    AttachStderr: true,
+                  })
+                  const hostsStream = await hostsExec.start({})
+                  await new Promise<void>((resolve) => {
+                    hostsStream.on('end', () => resolve())
+                    hostsStream.on('error', () => resolve())
+                    setTimeout(() => {
+                      try {
+                        hostsStream.destroy()
+                      } catch {}
+                      resolve()
+                    }, 10000)
+                  })
+                  ctx.broadcast(
+                    service.service_name,
+                    'vpn-hosts-entry',
+                    `Added 127.0.0.1 ${host} to VPN container /etc/hosts for internal resolution`
+                  )
+                }
+              } catch (hostsErr) {
+                ctx.broadcast(
+                  service.service_name,
+                  'vpn-hosts-entry-failed',
+                  `Failed to add hosts entry to VPN container: ${hostsErr instanceof Error ? hostsErr.message : String(hostsErr)}`
+                )
+              }
+            }
+
+            try {
+              const nginxTimeoutExec = await container.exec({
+                Cmd: [
+                  'sh',
+                  '-c',
+                  `grep -q 'proxy_read_timeout 300s' /etc/nginx/http.d/default.conf || ` +
+                    `sed -i '/proxy_pass/i\\    proxy_read_timeout 300s;\\n    proxy_send_timeout 300s;' /etc/nginx/http.d/default.conf && ` +
+                    `nginx -s reload 2>/dev/null || true`,
+                ],
+                AttachStdout: true,
+                AttachStderr: true,
+              })
+              const nginxTimeoutStream = await nginxTimeoutExec.start({})
+              await new Promise<void>((resolve) => {
+                nginxTimeoutStream.on('end', () => resolve())
+                nginxTimeoutStream.on('error', () => resolve())
+                setTimeout(() => {
+                  try {
+                    nginxTimeoutStream.destroy()
+                  } catch {}
+                  resolve()
+                }, 10000)
+              })
+              ctx.broadcast(
+                service.service_name,
+                'nginx-timeout-patched',
+                `Increased nginx proxy_read_timeout to 300s for slow torrent peer discovery`
+              )
+            } catch (nginxErr) {
+              ctx.broadcast(
+                service.service_name,
+                'nginx-timeout-patch-failed',
+                `Failed to patch nginx timeout: ${nginxErr instanceof Error ? nginxErr.message : String(nginxErr)}`
+              )
+            }
           } catch (wrapperErr) {
             ctx.broadcast(
               service.service_name,
