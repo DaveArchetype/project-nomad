@@ -3,6 +3,7 @@ import logger from '@adonisjs/core/services/logger'
 import KVStore from '#models/kv_store'
 import { SERVICE_NAMES } from '../../../constants/service_names.js'
 import { resolveMemoryLimitBytes } from '../../../constants/container_watchdog.js'
+import type Docker from 'dockerode'
 import type { DockerCtx, OperationResult } from './types.js'
 import {
   runPreinstallActions__KiwixServe,
@@ -623,31 +624,84 @@ async function createContainer(
         const slug = service.ui_path.replace(/^\/+/, '')
         if (slug) {
           const host = `${slug}.${baseDomain.trim()}`
+
+          const runExec = async (
+            dockerContainer: Docker.Container,
+            cmd: string[],
+            timeoutMs = 30000
+          ): Promise<{ stdout: string; stderr: string; exitCode: number | null }> => {
+            const exec = await dockerContainer.exec({
+              Cmd: cmd,
+              AttachStdout: true,
+              AttachStderr: true,
+            })
+            const stream = await exec.start({})
+            return new Promise((resolve) => {
+              let stdout = ''
+              let stderr = ''
+              let settled = false
+              const done = (exitCode: number | null) => {
+                if (settled) return
+                settled = true
+                resolve({ stdout: stdout.trim(), stderr: stderr.trim(), exitCode })
+              }
+              dockerContainer.modem.demuxStream(
+                stream,
+                {
+                  write: (data: Buffer) => {
+                    stdout += data.toString('utf-8')
+                  },
+                },
+                {
+                  write: (data: Buffer) => {
+                    stderr += data.toString('utf-8')
+                  },
+                }
+              )
+              stream.on('end', () => {
+                exec
+                  .inspect()
+                  .then((i: any) => done(i.ExitCode))
+                  .catch(() => done(null))
+              })
+              stream.on('error', () => done(null))
+              setTimeout(() => {
+                if (!settled) {
+                  try {
+                    stream.destroy()
+                  } catch {}
+                  done(null)
+                }
+              }, timeoutMs)
+            })
+          }
+
           ctx.broadcast(
             service.service_name,
             'ffprobe-wrapper',
             `Creating ffprobe/ffmpeg URL rewrite wrappers for ${host}...`
           )
           try {
-            const createWrapperScript = (realName: string) => {
-              const script = [
+            const wrapperScript = (realName: string) => {
+              const lines = [
                 '#!/bin/sh',
                 `REAL="$(dirname "$0")/${realName}"`,
-                'newargs=""',
+                'n=$#',
                 'for arg in "$@"; do',
-                `  arg=$(echo "$arg" | sed 's|https://${host}|http://127.0.0.1:8080|g')`,
-                '  newargs="$newargs \\"$arg\\""',
+                `  arg=$(printf '%s' "$arg" | sed 's|https://${host}|http://127.0.0.1:8080|g')`,
+                '  set -- "$@" "$arg"',
                 'done',
-                'eval exec "$REAL" $newargs',
+                'shift $n',
+                'exec "$REAL" "$@"',
                 '',
-              ].join('\n')
-              return Buffer.from(script).toString('base64')
+              ]
+              return lines.join('\n')
             }
 
-            const ffprobeB64 = createWrapperScript('ffprobe-real')
-            const ffmpegB64 = createWrapperScript('ffmpeg-real')
+            const ffprobeScript = wrapperScript('ffprobe-real')
+            const ffmpegScript = wrapperScript('ffmpeg-real')
 
-            const wrapperCmd = [
+            const wrapperResult = await runExec(container, [
               'sh',
               '-c',
               [
@@ -657,39 +711,30 @@ async function createContainer(
                 'FFMPEG_DIR=$(dirname "$FFMPEG")',
                 `if [ -f "$FFPROBE" ] && [ ! -f "$FFPROBE_DIR/ffprobe-real" ]; then`,
                 `  mv "$FFPROBE" "$FFPROBE_DIR/ffprobe-real"`,
-                `  echo '${ffprobeB64}' | base64 -d > "$FFPROBE"`,
+                `  printf '%s' ${JSON.stringify(ffprobeScript)} > "$FFPROBE"`,
                 `  chmod +x "$FFPROBE"`,
                 `fi`,
                 `if [ -f "$FFMPEG" ] && [ ! -f "$FFMPEG_DIR/ffmpeg-real" ]; then`,
                 `  mv "$FFMPEG" "$FFMPEG_DIR/ffmpeg-real"`,
-                `  echo '${ffmpegB64}' | base64 -d > "$FFMPEG"`,
+                `  printf '%s' ${JSON.stringify(ffmpegScript)} > "$FFMPEG"`,
                 `  chmod +x "$FFMPEG"`,
                 `fi`,
               ].join(' && '),
-            ]
+            ])
 
-            const wrapperExec = await container.exec({
-              Cmd: wrapperCmd,
-              AttachStdout: true,
-              AttachStderr: true,
-            })
-            const wrapperStream = await wrapperExec.start({})
-            await new Promise<void>((resolve) => {
-              wrapperStream.on('end', () => resolve())
-              wrapperStream.on('error', () => resolve())
-              setTimeout(() => {
-                try {
-                  wrapperStream.destroy()
-                } catch {}
-                resolve()
-              }, 30000)
-            })
-
-            ctx.broadcast(
-              service.service_name,
-              'ffprobe-wrapper-done',
-              `ffprobe/ffmpeg wrappers installed. Internal probes will use http://127.0.0.1:8080 instead of https://${host}`
-            )
+            if (wrapperResult.exitCode === 0) {
+              ctx.broadcast(
+                service.service_name,
+                'ffprobe-wrapper-done',
+                `ffprobe/ffmpeg wrappers installed. Internal probes will use http://127.0.0.1:8080 instead of https://${host}`
+              )
+            } else {
+              ctx.broadcast(
+                service.service_name,
+                'ffprobe-wrapper-failed',
+                `Wrapper installation exited with code ${wrapperResult.exitCode}: ${wrapperResult.stderr}`
+              )
+            }
 
             const stremioVpnEnabledPostStart = await KVStore.getValue('stremio.vpnEnabled')
             if (stremioVpnEnabledPostStart === true) {
@@ -700,31 +745,28 @@ async function createContainer(
                 )
                 if (vpnContainerInfo) {
                   const vpnDockerContainer = ctx.docker.getContainer(vpnContainerInfo.Id)
-                  const hostsExec = await vpnDockerContainer.exec({
-                    Cmd: [
+                  const hostsResult = await runExec(
+                    vpnDockerContainer,
+                    [
                       'sh',
                       '-c',
                       `grep -q '${host}' /etc/hosts || echo '127.0.0.1 ${host}' >> /etc/hosts`,
                     ],
-                    AttachStdout: true,
-                    AttachStderr: true,
-                  })
-                  const hostsStream = await hostsExec.start({})
-                  await new Promise<void>((resolve) => {
-                    hostsStream.on('end', () => resolve())
-                    hostsStream.on('error', () => resolve())
-                    setTimeout(() => {
-                      try {
-                        hostsStream.destroy()
-                      } catch {}
-                      resolve()
-                    }, 10000)
-                  })
-                  ctx.broadcast(
-                    service.service_name,
-                    'vpn-hosts-entry',
-                    `Added 127.0.0.1 ${host} to VPN container /etc/hosts for internal resolution`
+                    10000
                   )
+                  if (hostsResult.exitCode === 0) {
+                    ctx.broadcast(
+                      service.service_name,
+                      'vpn-hosts-entry',
+                      `Added 127.0.0.1 ${host} to VPN container /etc/hosts for internal resolution`
+                    )
+                  } else {
+                    ctx.broadcast(
+                      service.service_name,
+                      'vpn-hosts-entry-failed',
+                      `Hosts entry exited with code ${hostsResult.exitCode}: ${hostsResult.stderr}`
+                    )
+                  }
                 }
               } catch (hostsErr) {
                 ctx.broadcast(
@@ -736,33 +778,30 @@ async function createContainer(
             }
 
             try {
-              const nginxTimeoutExec = await container.exec({
-                Cmd: [
+              const nginxResult = await runExec(
+                container,
+                [
                   'sh',
                   '-c',
                   `grep -q 'proxy_read_timeout 300s' /etc/nginx/http.d/default.conf || ` +
                     `sed -i '/proxy_pass/i\\    proxy_read_timeout 300s;\\n    proxy_send_timeout 300s;' /etc/nginx/http.d/default.conf && ` +
                     `nginx -s reload 2>/dev/null || true`,
                 ],
-                AttachStdout: true,
-                AttachStderr: true,
-              })
-              const nginxTimeoutStream = await nginxTimeoutExec.start({})
-              await new Promise<void>((resolve) => {
-                nginxTimeoutStream.on('end', () => resolve())
-                nginxTimeoutStream.on('error', () => resolve())
-                setTimeout(() => {
-                  try {
-                    nginxTimeoutStream.destroy()
-                  } catch {}
-                  resolve()
-                }, 10000)
-              })
-              ctx.broadcast(
-                service.service_name,
-                'nginx-timeout-patched',
-                `Increased nginx proxy_read_timeout to 300s for slow torrent peer discovery`
+                10000
               )
+              if (nginxResult.exitCode === 0) {
+                ctx.broadcast(
+                  service.service_name,
+                  'nginx-timeout-patched',
+                  `Increased nginx proxy_read_timeout to 300s for slow torrent peer discovery`
+                )
+              } else {
+                ctx.broadcast(
+                  service.service_name,
+                  'nginx-timeout-patch-failed',
+                  `Nginx timeout patch exited with code ${nginxResult.exitCode}: ${nginxResult.stderr}`
+                )
+              }
             } catch (nginxErr) {
               ctx.broadcast(
                 service.service_name,
