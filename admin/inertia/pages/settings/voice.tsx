@@ -41,24 +41,13 @@ interface VoiceSettings {
   recapModel: string
 }
 
-const XTTS_LANGUAGES = [
+const POCKET_TTS_LANGUAGES = [
   { code: 'en', label: 'English' },
   { code: 'es', label: 'Spanish' },
   { code: 'fr', label: 'French' },
   { code: 'de', label: 'German' },
   { code: 'it', label: 'Italian' },
   { code: 'pt', label: 'Portuguese' },
-  { code: 'pl', label: 'Polish' },
-  { code: 'tr', label: 'Turkish' },
-  { code: 'ru', label: 'Russian' },
-  { code: 'nl', label: 'Dutch' },
-  { code: 'cs', label: 'Czech' },
-  { code: 'ar', label: 'Arabic' },
-  { code: 'zh-cn', label: 'Chinese (Simplified)' },
-  { code: 'ja', label: 'Japanese' },
-  { code: 'ko', label: 'Korean' },
-  { code: 'hu', label: 'Hungarian' },
-  { code: 'hi', label: 'Hindi' },
 ]
 
 export default function VoiceSettingsPage(props: { voice: { settings: VoiceSettings } }) {
@@ -78,7 +67,11 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
   const [ttsVoice, setTtsVoice] = useState(s.ttsVoice)
   const [ttsAutoReadReplies, setTtsAutoReadReplies] = useState(s.ttsAutoReadReplies)
   const [ttsSpeechRate, setTtsSpeechRate] = useState(s.ttsSpeechRate)
-  const [ttsXttsLanguage, setTtsXttsLanguage] = useState(s.ttsXttsLanguage || 'en')
+  const [ttsXttsLanguage, setTtsXttsLanguage] = useState(
+    POCKET_TTS_LANGUAGES.some((language) => language.code === s.ttsXttsLanguage)
+      ? s.ttsXttsLanguage
+      : 'en'
+  )
   const [recapEnabled, setRecapEnabled] = useState(s.recapEnabled)
   const [recapScheduleTime, setRecapScheduleTime] = useState(s.recapScheduleTime)
   const [recapModel, setRecapModel] = useState(s.recapModel)
@@ -273,9 +266,9 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
         api.updateSetting('tts.enabled', ttsEnabled),
         api.updateSetting('tts.autoReadReplies', ttsAutoReadReplies),
       ])
-      addNotification({ message: 'XTTS settings saved.', type: 'success' })
+      addNotification({ message: 'Pocket TTS settings saved.', type: 'success' })
     } catch {
-      addNotification({ message: 'Failed to save XTTS settings.', type: 'error' })
+      addNotification({ message: 'Failed to save Pocket TTS settings.', type: 'error' })
     } finally {
       setForceSavingXtts(false)
     }
@@ -358,8 +351,8 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
           <div>
             <h1 className="text-4xl font-semibold mb-2">Voice Assistant</h1>
             <p className="text-text-secondary">
-              Ambient listening, wake-word detection, and text-to-speech. Piper and the optional
-              Voice Cloning TTS (XTTSv2) run on CPU so they do not compete with other GPU workloads.
+              Ambient listening, wake-word detection, and text-to-speech. Piper and Pocket TTS run
+              locally on CPU so they do not compete with other GPU workloads.
             </p>
           </div>
 
@@ -637,17 +630,16 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
                       className="sr-only"
                     />
                     <div className="text-sm font-medium text-text-primary">
-                      XTTSv2 Voice Cloning (CPU)
+                      Pocket TTS Voice Cloning (CPU)
                     </div>
                     <div className="text-xs text-text-muted mt-0.5">
-                      Clone any voice from a short audio sample without using the GPU.
+                      Fast, low-latency voice cloning optimized for CPU.
                     </div>
                   </label>
                 </div>
                 {!xttsOnline && (
                   <p className="text-sm text-text-muted mt-2">
-                    Voice Cloning TTS is not installed. Install it from the Supply Depot to create
-                    cloned voices locally on the CPU.
+                    Pocket Voice Cloning is unavailable. Install or start it from the Supply Depot.
                   </p>
                 )}
                 {ttsEngine === 'xtts' && (
@@ -663,7 +655,7 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
                       ) : (
                         <IconDeviceFloppy className="size-4" />
                       )}
-                      <span>{forceSavingXtts ? 'Saving…' : 'Save XTTS settings'}</span>
+                      <span>{forceSavingXtts ? 'Saving…' : 'Save Pocket TTS settings'}</span>
                     </button>
                   </div>
                 )}
@@ -689,7 +681,7 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
               {ttsEngine === 'xtts' && (
                 <div>
                   <label className="block text-base font-medium text-text-primary mb-1.5">
-                    XTTS Language
+                    Pocket TTS Language
                   </label>
                   <select
                     value={ttsXttsLanguage}
@@ -699,7 +691,7 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
                     }}
                     className="w-full sm:w-64 px-3 py-2 border border-border-default rounded-md bg-surface-primary text-sm"
                   >
-                    {XTTS_LANGUAGES.map((lang) => (
+                    {POCKET_TTS_LANGUAGES.map((lang) => (
                       <option key={lang.code} value={lang.code}>
                         {lang.label}
                       </option>
@@ -743,22 +735,24 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
                       : 'No cloned voices yet. Upload an audio sample below to create one.'}
                 </p>
               </div>
-              <div>
-                <label className="block text-base font-medium text-text-primary mb-1.5">
-                  Speech rate ({ttsSpeechRate}x)
-                </label>
-                <input
-                  type="range"
-                  min={0.5}
-                  max={2}
-                  step={0.1}
-                  value={ttsSpeechRate}
-                  onChange={(e) => setTtsSpeechRate(e.target.value)}
-                  onMouseUp={() => save('tts.speechRate', ttsSpeechRate)}
-                  onTouchEnd={() => save('tts.speechRate', ttsSpeechRate)}
-                  className="w-full sm:w-64"
-                />
-              </div>
+              {ttsEngine === 'piper' && (
+                <div>
+                  <label className="block text-base font-medium text-text-primary mb-1.5">
+                    Speech rate ({ttsSpeechRate}x)
+                  </label>
+                  <input
+                    type="range"
+                    min={0.5}
+                    max={2}
+                    step={0.1}
+                    value={ttsSpeechRate}
+                    onChange={(e) => setTtsSpeechRate(e.target.value)}
+                    onMouseUp={() => save('tts.speechRate', ttsSpeechRate)}
+                    onTouchEnd={() => save('tts.speechRate', ttsSpeechRate)}
+                    className="w-full sm:w-64"
+                  />
+                </div>
+              )}
 
               {ttsEngine === 'piper' ? (
                 <div className="border-t border-border-subtle pt-4">
@@ -885,12 +879,12 @@ export default function VoiceSettingsPage(props: { voice: { settings: VoiceSetti
               ) : (
                 <div className="border-t border-border-subtle pt-4">
                   <h3 className="text-sm font-semibold text-text-primary mb-2">
-                    Voice cloning (XTTSv2)
+                    Voice cloning (Pocket TTS)
                   </h3>
                   <Alert
                     type="info"
                     title="Audio sample best practices"
-                    message="For best results: 6-30 seconds of clean, flowing speech. Mono 22050Hz WAV is ideal. Avoid background music, long pauses, or breathy sounds at the start/end. The AI will pick up background noise, so clean audio is key."
+                    message="For best results: 3-15 seconds of clean, flowing speech. Mono WAV is ideal. Avoid background music, long pauses, or breathy sounds at the start/end. Pocket TTS reproduces the sample's audio quality, including background noise."
                   />
 
                   <div className="mt-4">

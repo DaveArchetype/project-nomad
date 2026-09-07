@@ -710,13 +710,13 @@ export default class ServiceSeeder extends BaseSeeder {
     },
     {
       service_name: SERVICE_NAMES.XTTS,
-      friendly_name: 'Voice Cloning TTS',
-      powered_by: 'XTTSv2 (Coqui)',
+      friendly_name: 'Pocket Voice Cloning',
+      powered_by: 'Pocket TTS (Kyutai)',
       display_order: 31,
       description:
-        'CPU-based voice cloning — create custom voices from short audio samples without consuming GPU resources. Optional add-on to the Piper TTS service.',
+        'Fast CPU-based voice cloning with low-latency speech generation from short audio samples. Optional add-on to Piper TTS.',
       icon: 'IconVoice',
-      container_image: 'registry.dasaroff.com/davearchetype/project-nomad-xtts:1.2.0',
+      container_image: 'registry.dasaroff.com/davearchetype/project-nomad-xtts:2.0.0',
       source_repo: 'https://github.com/DaveArchetype/project-nomad',
       container_command: null,
       container_config: JSON.stringify({
@@ -724,13 +724,7 @@ export default class ServiceSeeder extends BaseSeeder {
           RestartPolicy: { Name: 'unless-stopped' },
           Binds: [`${ServiceSeeder.NOMAD_STORAGE_ABS_PATH}/xtts:/data`],
         },
-        Env: [
-          'COQUI_TOS_AGREED=1',
-          'DEVICE=cpu',
-          'TTS_HOME=/data/models',
-          'HF_HOME=/data/hf_cache',
-          'DEFAULT_LANGUAGE=en',
-        ],
+        Env: ['HF_HOME=/data/hf_cache', 'DEFAULT_LANGUAGE=en'],
       }),
       ui_location: '/settings/voice',
       ui_path: null,
@@ -740,7 +734,7 @@ export default class ServiceSeeder extends BaseSeeder {
       is_custom: false,
       category: 'ai',
       depends_on: null,
-      metadata: JSON.stringify({ minMemoryMB: 8192, minDiskMB: 5120, requiresGPU: false }),
+      metadata: JSON.stringify({ minMemoryMB: 2048, minDiskMB: 2048, requiresGPU: false }),
     },
     {
       service_name: SERVICE_NAMES.SEARXNG,
@@ -882,6 +876,10 @@ export default class ServiceSeeder extends BaseSeeder {
         await Service.query()
           .where('service_name', service.service_name)
           .update({
+            friendly_name: service.friendly_name,
+            powered_by: service.powered_by,
+            description: service.description,
+            icon: service.icon,
             container_image: service.container_image,
             container_config: service.container_config,
             container_command: service.container_command ?? null,

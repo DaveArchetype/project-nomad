@@ -107,7 +107,7 @@ export default class VoiceController {
   async xttsVoices({ response }: HttpContext) {
     const voices = await this.xttsService.listVoices()
     if (!voices) {
-      return response.status(503).json({ error: 'Voice Cloning TTS service is not reachable.' })
+      return response.status(503).json({ error: 'Pocket Voice Cloning service is not reachable.' })
     }
     return response.status(200).json(voices)
   }
@@ -149,7 +149,7 @@ export default class VoiceController {
     if (engine === 'xtts') {
       const voice = data.voice || (await KVStore.getValue('tts.voice')) || undefined
       if (!voice) {
-        return response.status(400).json({ error: 'voice is required for XTTS engine.' })
+        return response.status(400).json({ error: 'voice is required for voice cloning.' })
       }
       const language = data.language || (await KVStore.getValue('tts.xttsLanguage')) || undefined
       result = await this.xttsService.synthesize(data.text, voice, language, data.speed)

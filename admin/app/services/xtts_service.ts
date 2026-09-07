@@ -6,10 +6,11 @@ import { SynthesizeResult } from '#services/tts_service'
 
 const XTTS_CONTAINER_NAME = 'nomad_xtts'
 const XTTS_PORT = '8611'
+const POCKET_TTS_LANGUAGES = new Set(['en', 'es', 'fr', 'de', 'it', 'pt'])
 
 /**
- * Thin proxy to the XTTSv2-based `nomad_xtts` container. OPTIONAL CPU-based
- * voice cloning service — installed from Supply Depot ("Voice Cloning TTS").
+ * Thin proxy to the Pocket TTS-based `nomad_xtts` compatibility container.
+ * CPU voice cloning service installed from Supply Depot ("Pocket Voice Cloning").
  * Complements the CPU-only Piper TTS service. Used when `tts.engine` = 'xtts'.
  */
 @inject()
@@ -27,7 +28,8 @@ export class XttsService {
     } catch {
       return {
         online: false,
-        message: 'Voice Cloning TTS service is not running. Install it from the Supply Depot.',
+        message:
+          'Pocket Voice Cloning service is not running. Install or start it from the Supply Depot.',
       }
     }
   }
@@ -91,10 +93,13 @@ export class XttsService {
     speed?: number
   ): Promise<SynthesizeResult> {
     const url = await this.getUrl()
+    const requestedLanguage = language?.toLowerCase()
+    const pocketLanguage =
+      requestedLanguage && POCKET_TTS_LANGUAGES.has(requestedLanguage) ? requestedLanguage : 'en'
     try {
       const response = await axios.post(
         `${url}/synthesize`,
-        { text, voice, language, speed },
+        { text, voice, language: pocketLanguage, speed },
         { responseType: 'arraybuffer', timeout: 60_000 }
       )
       return { success: true, audio: Buffer.from(response.data), contentType: 'audio/wav' }

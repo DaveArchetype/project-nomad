@@ -279,11 +279,11 @@ services:
   #     timeout: 10s
   #     retries: 3
   # xtts:
-  #   # Voice Assistant — OPTIONAL CPU-based voice cloning (XTTSv2). Installed as a
-  #   # Supply Depot app ("Voice Cloning TTS") via the admin UI's dynamic installer, which
-  #   # pulls versioned images from the private Gitea registry. This block is a manual
+  #   # Voice Assistant — OPTIONAL CPU-based voice cloning powered by Pocket TTS. Installed as
+  #   # a Supply Depot app ("Pocket Voice Cloning") via the admin UI's dynamic installer,
+  #   # which pulls versioned images from the private Gitea registry. This block is a manual
   #   # fallback for building from source — point the build URL at a repo/branch YOU control.
-  #   # The XTTSv2 model (~1.8GB) downloads and loads into memory during startup.
+  #   # The compact Pocket TTS model downloads and loads into memory during startup.
   #   build: https://github.com/DaveArchetype/project-nomad.git#main:install/xtts
   #   image: project-nomad-xtts
   #   container_name: nomad_xtts
@@ -293,9 +293,6 @@ services:
   #   volumes:
   #     - /mnt/main2tb/project-nomad/storage/xtts:/data
   #   environment:
-  #     - COQUI_TOS_AGREED=1
-  #     - DEVICE=cpu
-  #     - TTS_HOME=/data/models
   #     - HF_HOME=/data/hf_cache
   #     - DEFAULT_LANGUAGE=en
   #   healthcheck:

@@ -139,7 +139,7 @@ export async function synthesizeSpeech(
   engine?: string,
   language?: string,
   signal?: AbortSignal
-): Promise<Blob | undefined> {
+): Promise<Blob> {
   try {
     const response = await client.post(
       '/voice/tts/synthesize',
@@ -148,14 +148,36 @@ export async function synthesizeSpeech(
     )
     return response.data as Blob
   } catch (error) {
+    const requestError = error as {
+      name?: string
+      code?: string
+      message?: string
+      response?: { data?: unknown }
+    }
     if (
-      error?.name === 'CanceledError' ||
-      error?.name === 'AbortError' ||
-      error?.code === 'ERR_CANCELED'
+      requestError.name === 'CanceledError' ||
+      requestError.name === 'AbortError' ||
+      requestError.code === 'ERR_CANCELED'
     ) {
       throw error
     }
-    return undefined
+
+    const payload = requestError.response?.data
+    if (payload instanceof Blob) {
+      const body = await payload.text()
+      try {
+        const parsed = JSON.parse(body) as { error?: string; detail?: string }
+        throw new Error(
+          parsed.error || parsed.detail || requestError.message || 'Speech synthesis failed.'
+        )
+      } catch (parseError) {
+        if (parseError instanceof SyntaxError) {
+          throw new Error(body || requestError.message || 'Speech synthesis failed.')
+        }
+        throw parseError
+      }
+    }
+    throw error
   }
 }
 

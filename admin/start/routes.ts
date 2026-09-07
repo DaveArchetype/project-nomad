@@ -389,19 +389,19 @@ router
       tags: ['voice'],
     })
     documented(router.get('/tts/xtts/voices', [VoiceController, 'xttsVoices']), {
-      summary: 'List cloned XTTS voices',
+      summary: 'List cloned Pocket TTS voices',
       tags: ['voice'],
     })
     documented(router.post('/tts/xtts/voices/clone', [VoiceController, 'cloneXttsVoice']), {
-      summary: 'Clone a voice from an audio sample (XTTSv2)',
+      summary: 'Clone a voice from an audio sample (Pocket TTS)',
       tags: ['voice'],
     })
     documented(router.delete('/tts/xtts/voices/:voice', [VoiceController, 'deleteXttsVoice']), {
-      summary: 'Delete a cloned XTTS voice',
+      summary: 'Delete a cloned Pocket TTS voice',
       tags: ['voice'],
     })
     documented(router.post('/tts/synthesize', [VoiceController, 'synthesize']), {
-      summary: 'Synthesize speech from text via Piper',
+      summary: 'Synthesize speech from text via the selected engine',
       tags: ['voice'],
       request: synthesizeSchema,
     })
