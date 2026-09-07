@@ -137,13 +137,14 @@ export async function synthesizeSpeech(
   voice?: string,
   speed?: number,
   engine?: string,
-  language?: string
+  language?: string,
+  signal?: AbortSignal
 ): Promise<Blob | undefined> {
   try {
     const response = await client.post(
       '/voice/tts/synthesize',
       { text, voice, speed, engine, language },
-      { responseType: 'blob' }
+      { responseType: 'blob', signal }
     )
     return response.data as Blob
   } catch (error) {

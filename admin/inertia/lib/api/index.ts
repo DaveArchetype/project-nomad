@@ -272,8 +272,9 @@ class API {
     voiceName?: string,
     speed?: number,
     engine?: string,
-    language?: string
-  ) => voice.synthesizeSpeech(this.client, text, voiceName, speed, engine, language)
+    language?: string,
+    signal?: AbortSignal
+  ) => voice.synthesizeSpeech(this.client, text, voiceName, speed, engine, language, signal)
   listRecaps = (limit = 30) => voice.listRecaps(this.client, limit)
   generateRecap = (date?: string) => voice.generateRecap(this.client, date)
 

@@ -3,7 +3,12 @@ import { IconVolume, IconPlayerStop, IconLoader2 } from '@tabler/icons-react'
 import api from '~/lib/api'
 import { useNotifications } from '~/context/NotificationContext'
 import { useVoice } from '~/context/VoiceContext'
-import { createSpeechSource, stripMarkdownForHighlighting, unlockAudioPlayback } from '~/lib/voice'
+import {
+  createSpeechSource,
+  getSentencesWithOffsets,
+  stripMarkdownForHighlighting,
+  unlockAudioPlayback,
+} from '~/lib/voice'
 
 interface SpeakButtonProps {
   text: string
@@ -36,6 +41,8 @@ export default function SpeakButton({
 }: SpeakButtonProps) {
   const [state, setState] = useState<'idle' | 'loading' | 'playing'>('idle')
   const sourceRef = useRef<AudioBufferSourceNode | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
+  const finishPlaybackRef = useRef<(() => void) | null>(null)
   const playbackIdRef = useRef(0)
   const isBusyRef = useRef(false)
   const { addNotification } = useNotifications()
@@ -46,6 +53,10 @@ export default function SpeakButton({
       playbackIdRef.current++
       const wasBusy = isBusyRef.current
       isBusyRef.current = false
+      abortRef.current?.abort()
+      abortRef.current = null
+      const finishPlayback = finishPlaybackRef.current
+      finishPlaybackRef.current = null
       if (sourceRef.current) {
         sourceRef.current.onended = null
         try {
@@ -54,6 +65,7 @@ export default function SpeakButton({
         sourceRef.current.disconnect()
         sourceRef.current = null
       }
+      finishPlayback?.()
       if (wasBusy) unmute()
     }
   }, [unmute])
@@ -61,6 +73,10 @@ export default function SpeakButton({
   const stop = () => {
     playbackIdRef.current++
     isBusyRef.current = false
+    abortRef.current?.abort()
+    abortRef.current = null
+    const finishPlayback = finishPlaybackRef.current
+    finishPlaybackRef.current = null
     if (sourceRef.current) {
       sourceRef.current.onended = null
       try {
@@ -69,6 +85,7 @@ export default function SpeakButton({
       sourceRef.current.disconnect()
     }
     sourceRef.current = null
+    finishPlayback?.()
     setState('idle')
     unmute()
   }
@@ -83,6 +100,8 @@ export default function SpeakButton({
       return
     }
     const playbackId = ++playbackIdRef.current
+    const abortController = new AbortController()
+    abortRef.current = abortController
     isBusyRef.current = true
     setState('loading')
     mute()
@@ -90,31 +109,52 @@ export default function SpeakButton({
       await unlockAudioPlayback()
       if (playbackIdRef.current !== playbackId) return
       const spokenText = stripMarkdownForHighlighting(text)
-      if (!spokenText) throw new Error('No readable text to speak')
+      const chunks = getSentencesWithOffsets(spokenText)
+      if (chunks.length === 0) throw new Error('No readable text to speak')
 
-      const blob = await api.synthesizeSpeech(spokenText, voice, undefined, engine, language)
+      for (const chunk of chunks) {
+        if (playbackIdRef.current !== playbackId) return
+        setState('loading')
+        const blob = await api.synthesizeSpeech(
+          chunk.text,
+          voice,
+          undefined,
+          engine,
+          language,
+          abortController.signal
+        )
+        if (playbackIdRef.current !== playbackId) return
+        if (!blob || blob.size === 0) throw new Error('No audio returned')
+
+        const { source } = await createSpeechSource(blob)
+        if (playbackIdRef.current !== playbackId) {
+          source.disconnect()
+          return
+        }
+        await new Promise<void>((resolve) => {
+          finishPlaybackRef.current = resolve
+          sourceRef.current = source
+          source.onended = () => {
+            if (sourceRef.current === source) sourceRef.current = null
+            source.disconnect()
+            const finishPlayback = finishPlaybackRef.current
+            finishPlaybackRef.current = null
+            finishPlayback?.()
+          }
+          source.start()
+          setState('playing')
+        })
+      }
+
       if (playbackIdRef.current !== playbackId) return
-      if (!blob || blob.size === 0) throw new Error('No audio returned')
-
-      const { source } = await createSpeechSource(blob)
-      if (playbackIdRef.current !== playbackId) {
-        source.disconnect()
-        return
-      }
-      sourceRef.current = source
-      source.onended = () => {
-        if (sourceRef.current !== source) return
-        source.disconnect()
-        sourceRef.current = null
-        isBusyRef.current = false
-        setState('idle')
-        unmute()
-      }
-      source.start()
-      setState('playing')
+      abortRef.current = null
+      isBusyRef.current = false
+      setState('idle')
+      unmute()
     } catch (err) {
       if (playbackIdRef.current !== playbackId) return
       console.error('[SpeakButton] Playback failed:', err)
+      abortRef.current = null
       if (sourceRef.current) {
         sourceRef.current.onended = null
         try {
@@ -123,6 +163,7 @@ export default function SpeakButton({
         sourceRef.current.disconnect()
         sourceRef.current = null
       }
+      finishPlaybackRef.current = null
       isBusyRef.current = false
       addNotification({
         message: `Failed to play audio: ${err instanceof Error ? err.message : 'unknown error'}`,

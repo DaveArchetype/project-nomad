@@ -70,6 +70,7 @@ export default function Chat({
   const lastAutoReadMessageIdRef = useRef<string | null>(null)
   const suppressAutoReadRef = useRef(false)
   const currentSourceRef = useRef<AudioBufferSourceNode | null>(null)
+  const synthesisAbortRef = useRef<AbortController | null>(null)
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const playingMessageIdRef = useRef<string | null>(null)
   const sentenceQueueRef = useRef<SentenceChunk[]>([])
@@ -83,6 +84,8 @@ export default function Chat({
 
   const stopSpeaking = useCallback(() => {
     isStoppedRef.current = true
+    synthesisAbortRef.current?.abort()
+    synthesisAbortRef.current = null
     if (progressTimerRef.current) {
       clearInterval(progressTimerRef.current)
       progressTimerRef.current = null
@@ -123,16 +126,27 @@ export default function Chat({
 
       try {
         let blob: Blob | undefined
+        const abortController = new AbortController()
+        synthesisAbortRef.current = abortController
         for (let attempt = 0; attempt < 3; attempt++) {
           if (isStoppedRef.current || playingMessageIdRef.current !== messageId) break
           try {
-            blob = await api.synthesizeSpeech(next.text)
+            blob = await api.synthesizeSpeech(
+              next.text,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              abortController.signal
+            )
             if (blob) break
-          } catch {
+          } catch (error) {
+            if (abortController.signal.aborted) throw error
             // retry after delay
           }
           if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 800))
         }
+        if (synthesisAbortRef.current === abortController) synthesisAbortRef.current = null
 
         if (isStoppedRef.current || playingMessageIdRef.current !== messageId) {
           isProcessingQueueRef.current = false

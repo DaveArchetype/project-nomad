@@ -48,6 +48,7 @@ MAX_TEXT_LENGTH = int(os.environ.get("MAX_TEXT_LENGTH", "5000"))
 
 _loaded_model = None
 _model_loading = False
+_synthesis_lock = asyncio.Lock()
 
 
 def _get_model():
@@ -81,6 +82,40 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Project NOMAD XTTS Voice Cloning", lifespan=lifespan)
+
+
+def _synthesize_to_file(
+    model, text: str, output_path: str, speaker_wav: str, language: str, speed: float
+):
+    model.tts_to_file(
+        text=text,
+        file_path=output_path,
+        speaker_wav=speaker_wav,
+        language=language,
+        speed=speed,
+    )
+
+
+async def _run_synthesis(
+    model, text: str, output_path: str, speaker_wav: str, language: str, speed: float
+):
+    async with _synthesis_lock:
+        task = asyncio.create_task(
+            asyncio.to_thread(
+                _synthesize_to_file,
+                model,
+                text,
+                output_path,
+                speaker_wav,
+                language,
+                speed,
+            )
+        )
+        try:
+            await asyncio.shield(task)
+        except asyncio.CancelledError:
+            await task
+            raise
 
 
 def _sanitize_name(name: str) -> str:
@@ -245,19 +280,13 @@ async def synthesize(req: SynthesizeRequest):
     speed = req.speed or 1.0
     speed = max(0.5, min(2.0, speed))
 
-    model = _get_model()
+    model = await asyncio.to_thread(_get_model)
 
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
         output_path = tmp.name
 
     try:
-        model.tts_to_file(
-            text=text,
-            file_path=output_path,
-            speaker_wav=speaker_wav,
-            language=language,
-            speed=speed,
-        )
+        await _run_synthesis(model, text, output_path, speaker_wav, language, speed)
         with open(output_path, "rb") as f:
             audio_bytes = f.read()
         return Response(content=audio_bytes, media_type="audio/wav")
