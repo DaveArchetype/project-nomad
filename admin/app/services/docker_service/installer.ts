@@ -698,8 +698,8 @@ async function createContainer(
               return lines.join('\n')
             }
 
-            const ffprobeScript = wrapperScript('ffprobe-real')
-            const ffmpegScript = wrapperScript('ffmpeg-real')
+            const ffprobeB64 = Buffer.from(wrapperScript('ffprobe-real')).toString('base64')
+            const ffmpegB64 = Buffer.from(wrapperScript('ffmpeg-real')).toString('base64')
 
             const wrapperResult = await runExec(container, [
               'sh',
@@ -711,12 +711,12 @@ async function createContainer(
                 'FFMPEG_DIR=$(dirname "$FFMPEG")',
                 `if [ -f "$FFPROBE" ] && [ ! -f "$FFPROBE_DIR/ffprobe-real" ]; then`,
                 `  mv "$FFPROBE" "$FFPROBE_DIR/ffprobe-real"`,
-                `  printf '%s' ${JSON.stringify(ffprobeScript)} > "$FFPROBE"`,
+                `  echo '${ffprobeB64}' | base64 -d > "$FFPROBE"`,
                 `  chmod +x "$FFPROBE"`,
                 `fi`,
                 `if [ -f "$FFMPEG" ] && [ ! -f "$FFMPEG_DIR/ffmpeg-real" ]; then`,
                 `  mv "$FFMPEG" "$FFMPEG_DIR/ffmpeg-real"`,
-                `  printf '%s' ${JSON.stringify(ffmpegScript)} > "$FFMPEG"`,
+                `  echo '${ffmpegB64}' | base64 -d > "$FFMPEG"`,
                 `  chmod +x "$FFMPEG"`,
                 `fi`,
               ].join(' && '),
