@@ -733,7 +733,7 @@ async function createContainer(
                 `  echo '${ffmpegB64}' | base64 -d > "$FFMPEG"`,
                 `  chmod +x "$FFMPEG"`,
                 `fi`,
-              ].join(' && '),
+              ].join('; '),
             ])
 
             if (wrapperResult.exitCode === 0) {
