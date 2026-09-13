@@ -289,6 +289,7 @@ async function createContainer(
     let finalImage = service.container_image
     let gpuHostConfig = containerConfig?.HostConfig || {}
     let amdGpuConfigured = false
+    let healthcheck: any = containerConfig?.Healthcheck
 
     if (service.service_name === SERVICE_NAMES.OLLAMA) {
       const gpuResult = await ctx.detectGPUType()
@@ -515,6 +516,18 @@ async function createContainer(
       }
     }
     if (service.service_name === SERVICE_NAMES.STREMIO) {
+      appEnv.push('NODE_OPTIONS=--max-old-space-size=8192')
+      gpuHostConfig = {
+        ...gpuHostConfig,
+        RestartPolicy: { Name: 'unless-stopped' },
+      }
+      healthcheck = {
+        Test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:11470/settings || exit 1'],
+        Interval: 30000000000,
+        Timeout: 10000000000,
+        Retries: 3,
+        StartPeriod: 120000000000,
+      }
       const baseDomain = await KVStore.getValue('ui.reverseProxyBaseDomain')
       if (
         baseDomain &&
@@ -597,6 +610,7 @@ async function createContainer(
       ...(finalExposedPorts && { ExposedPorts: finalExposedPorts }),
       Env: [...(containerConfig?.Env ?? []), ...ollamaEnv, ...appEnv],
       ...(service.container_command ? { Cmd: service.container_command.split(' ') } : {}),
+      ...(healthcheck && { Healthcheck: healthcheck }),
       ...(process.env.NODE_ENV === 'production' && {
         NetworkingConfig: {
           EndpointsConfig: {

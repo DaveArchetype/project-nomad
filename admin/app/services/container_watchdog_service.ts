@@ -57,6 +57,14 @@ export class ContainerWatchdogService {
         err instanceof Error ? err.message : String(err)
       )
     }
+    try {
+      await this.restartUnhealthyContainers()
+    } catch (err: any) {
+      logger.warn(
+        '[ContainerWatchdog] restartUnhealthyContainers failed: %s',
+        err instanceof Error ? err.message : String(err)
+      )
+    }
   }
 
   private async listManagedContainers(): Promise<any[]> {
@@ -222,6 +230,79 @@ export class ContainerWatchdogService {
       } else {
         this.pressureTicks.delete(id)
       }
+    }
+  }
+
+  async restartUnhealthyContainers(): Promise<void> {
+    const containers = await this.listManagedContainers()
+    for (const info of containers) {
+      const id = info.Id
+      const name = info.Names[0]?.replace('/', '') ?? id
+      try {
+        const inspected = await this.docker.getContainer(id).inspect()
+        const healthStatus = inspected.State?.Health?.Status
+        if (healthStatus !== 'unhealthy') continue
+        await this.restartContainer(id, name)
+      } catch (err: any) {
+        logger.debug(
+          '[ContainerWatchdog] health inspect for %s failed: %s',
+          name,
+          err instanceof Error ? err.message : String(err)
+        )
+      }
+    }
+  }
+
+  private async restartContainer(id: string, name: string): Promise<void> {
+    const now = Date.now()
+    const lastKill = this.lastKillAt.get(id) ?? 0
+    if (now - lastKill < WATCHDOG_KILL_COOLDOWN_MS) {
+      logger.info(
+        `[ContainerWatchdog] ${name} unhealthy but within restart cooldown (${Math.round((now - lastKill) / 1000)}s) — skipping`
+      )
+      return
+    }
+
+    const history = (this.killHistory.get(id) ?? []).filter(
+      (t) => now - t < WATCHDOG_LOOP_BREAK_WINDOW_MS
+    )
+    history.push(now)
+    this.killHistory.set(id, history)
+
+    const container = this.docker.getContainer(id)
+    try {
+      if (history.length >= WATCHDOG_LOOP_BREAK_KILLS) {
+        logger.warn(
+          `[ContainerWatchdog] ${name} restarted ${history.length}x in ${Math.round(WATCHDOG_LOOP_BREAK_WINDOW_MS / 1000 / 60)} min — flipping restart policy to "no" to break the loop. Restart it manually from the UI once the workload is fixed.`
+        )
+        try {
+          await container.update({ RestartPolicy: { Name: 'no', MaximumRetryCount: 0 } })
+        } catch (err: any) {
+          logger.warn(
+            '[ContainerWatchdog] Failed to flip restart policy on %s: %s',
+            name,
+            err instanceof Error ? err.message : String(err)
+          )
+        }
+        this.killHistory.set(id, [])
+      }
+      await container.restart({ t: 10 })
+      this.lastKillAt.set(id, now)
+      logger.warn(
+        `[ContainerWatchdog] Restarted ${name} after health check failure (${history.length} restart(s) in last ${Math.round(WATCHDOG_LOOP_BREAK_WINDOW_MS / 1000 / 60)} min)`
+      )
+      transmit.broadcast(BROADCAST_CHANNELS.SERVICE_INSTALLATION, {
+        service_name: name,
+        timestamp: new Date().toISOString(),
+        status: 'watchdog-health-restart',
+        message: `Restarted by health watchdog after failing health checks.`,
+      })
+    } catch (err: any) {
+      logger.error(
+        '[ContainerWatchdog] Failed to restart %s: %s',
+        name,
+        err instanceof Error ? err.message : String(err)
+      )
     }
   }
 
