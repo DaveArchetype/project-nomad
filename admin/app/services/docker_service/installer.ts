@@ -523,10 +523,10 @@ async function createContainer(
       }
       healthcheck = {
         Test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:11470/settings || exit 1'],
-        Interval: 30000000000,
-        Timeout: 10000000000,
-        Retries: 3,
-        StartPeriod: 120000000000,
+        Interval: 5000000000,
+        Timeout: 5000000000,
+        Retries: 2,
+        StartPeriod: 30000000000,
       }
       const baseDomain = await KVStore.getValue('ui.reverseProxyBaseDomain')
       if (

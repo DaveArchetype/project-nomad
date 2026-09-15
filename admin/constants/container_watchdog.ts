@@ -1,6 +1,6 @@
 export const MANAGED_LABEL = 'io.project-nomad.managed'
 
-export const WATCHDOG_TICK_INTERVAL_MS = 30_000
+export const WATCHDOG_TICK_INTERVAL_MS = 5_000
 export const WATCHDOG_MEM_PRESSURE_THRESHOLD = 0.95
 export const WATCHDOG_SUSTAINED_TICKS = 4
 export const WATCHDOG_HOST_MEM_KILL_PERCENT = 90
