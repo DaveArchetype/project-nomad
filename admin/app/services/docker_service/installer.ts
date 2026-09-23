@@ -612,7 +612,8 @@ async function createContainer(
         .first()
       if (vpnInstalled) {
         if (service.service_name === SERVICE_NAMES.COMET) {
-          const vpnContainerInfo = (await ctx.docker.listContainers({ all: true })).find((c) =>
+          const vpnContainers = await ctx.docker.listContainers({ all: true })
+          const vpnContainerInfo = vpnContainers.find((c) =>
             c.Names.includes(`/${SERVICE_NAMES.VPN}`)
           )
           const vpnInspect = vpnContainerInfo
