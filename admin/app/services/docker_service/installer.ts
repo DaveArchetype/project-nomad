@@ -588,6 +588,7 @@ async function createContainer(
     const stremioVpnEnabled = await KVStore.getValue('stremio.vpnEnabled')
     let finalHostConfig = { ...gpuHostConfig }
     let finalExposedPorts = containerConfig?.ExposedPorts
+    let reattachStremio = false
 
     if (service.service_name === SERVICE_NAMES.VPN && stremioVpnEnabled === true) {
       finalHostConfig = {
@@ -610,15 +611,44 @@ async function createContainer(
         .where('installed', true)
         .first()
       if (vpnInstalled) {
+        if (service.service_name === SERVICE_NAMES.COMET) {
+          const vpnContainerInfo = (await ctx.docker.listContainers({ all: true })).find((c) =>
+            c.Names.includes(`/${SERVICE_NAMES.VPN}`)
+          )
+          const vpnInspect = vpnContainerInfo
+            ? await ctx.docker.getContainer(vpnContainerInfo.Id).inspect()
+            : null
+          if (vpnInspect && !vpnInspect.HostConfig?.PortBindings?.['8001/tcp']) {
+            ctx.broadcast(
+              service.service_name,
+              'vpn-upgrade',
+              'Recreating VPN container to expose the Comet port...'
+            )
+            const vpnContainer = ctx.docker.getContainer(vpnContainerInfo!.Id)
+            if (vpnInspect.State?.Running) {
+              await vpnContainer.stop({ t: 10 }).catch(() => {})
+            }
+            await vpnContainer.remove({ force: true }).catch(() => {})
+            ctx.activeInstallations.add(SERVICE_NAMES.VPN)
+            try {
+              await createContainer(
+                ctx,
+                vpnInstalled,
+                ctx.parseConfig(vpnInstalled.container_config)
+              )
+            } finally {
+              ctx.activeInstallations.delete(SERVICE_NAMES.VPN)
+            }
+            reattachStremio = true
+          }
+          appEnv.push('FASTAPI_PORT=8001')
+        }
         const { PortBindings, ExposedPorts, ExtraHosts, ...restHost } = finalHostConfig
         finalHostConfig = {
           ...restHost,
           NetworkMode: `container:${SERVICE_NAMES.VPN}`,
         }
         finalExposedPorts = undefined
-        if (service.service_name === SERVICE_NAMES.COMET) {
-          appEnv.push('FASTAPI_PORT=8001')
-        }
         ctx.broadcast(
           service.service_name,
           'vpn-attached',
@@ -657,6 +687,17 @@ async function createContainer(
       `Starting Docker container for service ${service.service_name}...`
     )
     await container.start()
+
+    if (reattachStremio) {
+      const stremio = await Service.query().where('service_name', SERVICE_NAMES.STREMIO).first()
+      if (stremio?.installed) {
+        forceReinstall(ctx, SERVICE_NAMES.STREMIO).catch((err) => {
+          logger.warn(
+            `[DockerService] Reattach of Stremio after VPN recreation failed: ${err instanceof Error ? err.message : String(err)}`
+          )
+        })
+      }
+    }
 
     if (service.service_name === SERVICE_NAMES.STREMIO) {
       const baseDomain = await KVStore.getValue('ui.reverseProxyBaseDomain')
