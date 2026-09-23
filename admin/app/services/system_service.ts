@@ -922,18 +922,21 @@ export class SystemService {
   private async coordinatedVpnStremioReinstall(): Promise<void> {
     try {
       const containers = await this.dockerService.docker.listContainers({ all: true })
-      const stremioContainer = containers.find((c) => c.Names.includes(`/${SERVICE_NAMES.STREMIO}`))
-      if (stremioContainer) {
-        const container = this.dockerService.docker.getContainer(stremioContainer.Id)
-        if (stremioContainer.State === 'running') {
+      const reinstalledServices: string[] = []
+      for (const serviceName of [SERVICE_NAMES.STREMIO, SERVICE_NAMES.COMET]) {
+        const attachedContainer = containers.find((c) => c.Names.includes(`/${serviceName}`))
+        if (!attachedContainer) continue
+        const container = this.dockerService.docker.getContainer(attachedContainer.Id)
+        if (attachedContainer.State === 'running') {
           await container.stop({ t: 5 }).catch(() => {})
         }
         await container.remove({ force: true }).catch(() => {})
-        const stremio = await Service.query().where('service_name', SERVICE_NAMES.STREMIO).first()
-        if (stremio) {
-          stremio.installed = false
-          stremio.installation_status = 'idle'
-          await stremio.save()
+        const record = await Service.query().where('service_name', serviceName).first()
+        if (record) {
+          record.installed = false
+          record.installation_status = 'idle'
+          await record.save()
+          reinstalledServices.push(serviceName)
         }
       }
       await new Promise((resolve) => setTimeout(resolve, 2000))
@@ -943,11 +946,10 @@ export class SystemService {
         )
       })
       await new Promise((resolve) => setTimeout(resolve, 5000))
-      const stremio = await Service.query().where('service_name', SERVICE_NAMES.STREMIO).first()
-      if (stremio?.installed === false) {
-        this.dockerService.forceReinstall(SERVICE_NAMES.STREMIO).catch((err) => {
+      for (const serviceName of reinstalledServices) {
+        this.dockerService.forceReinstall(serviceName).catch((err) => {
           logger.warn(
-            `[SystemService] Auto-reinstall of Stremio failed: ${err instanceof Error ? err.message : String(err)}`
+            `[SystemService] Auto-reinstall of ${serviceName} failed: ${err instanceof Error ? err.message : String(err)}`
           )
         })
       }

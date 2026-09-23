@@ -592,12 +592,19 @@ async function createContainer(
     if (service.service_name === SERVICE_NAMES.VPN && stremioVpnEnabled === true) {
       finalHostConfig = {
         ...finalHostConfig,
-        PortBindings: { '8080/tcp': [{ HostPort: '8530' }] },
+        PortBindings: {
+          '8080/tcp': [{ HostPort: '8530' }],
+          '8001/tcp': [{ HostPort: '8550' }],
+        },
       }
-      finalExposedPorts = { '8080/tcp': {} }
+      finalExposedPorts = { '8080/tcp': {}, '8001/tcp': {} }
     }
 
-    if (service.service_name === SERVICE_NAMES.STREMIO && stremioVpnEnabled === true) {
+    if (
+      (service.service_name === SERVICE_NAMES.STREMIO ||
+        service.service_name === SERVICE_NAMES.COMET) &&
+      stremioVpnEnabled === true
+    ) {
       const vpnInstalled = await Service.query()
         .where('service_name', SERVICE_NAMES.VPN)
         .where('installed', true)
@@ -609,10 +616,13 @@ async function createContainer(
           NetworkMode: `container:${SERVICE_NAMES.VPN}`,
         }
         finalExposedPorts = undefined
+        if (service.service_name === SERVICE_NAMES.COMET) {
+          appEnv.push('FASTAPI_PORT=8001')
+        }
         ctx.broadcast(
           service.service_name,
           'vpn-attached',
-          `Routing Stremio through VPN container ${SERVICE_NAMES.VPN}...`
+          `Routing ${service.service_name === SERVICE_NAMES.STREMIO ? 'Stremio' : 'Comet'} through VPN container ${SERVICE_NAMES.VPN}...`
         )
       }
     }

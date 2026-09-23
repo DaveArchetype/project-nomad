@@ -236,6 +236,8 @@ A self-hosted [Stremio](https://www.stremio.com) add-on that finds high-quality 
 
 If you use a reverse-proxy base domain, the add-on URL is `https://comet.<your-domain>` — Stremio requires HTTPS for add-ons outside your own machine, so the hosted URL is the one to use when installing on other devices.
 
+**VPN:** When Stremio's VPN mode is enabled in Settings, Comet automatically joins the same VPN tunnel — its scraping, debrid API calls, and proxied streams all exit through your VPN provider alongside Stremio. Toggling the VPN setting recreates Comet's container to match.
+
 **No key yet?** Comet still installs and runs in torrent-only mode, but results are limited — the debrid key is what makes it shine.
 
 **Your data:** Comet's database and cached stream info live in `storage/comet`.
