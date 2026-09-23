@@ -61,7 +61,8 @@ export class SystemService {
     // connectivity checks at a specific endpoint), then the UI-configurable value
     // stored in KVStore, and finally the built-in defaults.
     const envTestUrl = env.get('INTERNET_STATUS_TEST_URL')?.trim()
-    const kvTestUrl = (await KVStore.getValue('system.internetStatusTestUrl'))?.trim()
+    const storedTestUrl = await KVStore.getValue('system.internetStatusTestUrl')
+    const kvTestUrl = storedTestUrl?.trim()
     const customTestUrl = envTestUrl || kvTestUrl
 
     // If a custom test URL is provided and valid, use it exclusively.
@@ -142,7 +143,7 @@ export class SystemService {
       // is still recent.
       const inspect = await container.inspect()
       const startedAtRaw = inspect?.State?.StartedAt
-      const startedAtMs = startedAtRaw ? new Date(startedAtRaw).getTime() : NaN
+      const startedAtMs = startedAtRaw ? new Date(startedAtRaw).getTime() : Number.NaN
       const hasValidStartedAt = Number.isFinite(startedAtMs) && startedAtMs > 0
 
       const cache = SystemService.ollamaComputeCache
@@ -562,7 +563,8 @@ export class SystemService {
             | undefined
           if (!savedGpuType) {
             try {
-              savedGpuType = (await readFile('/app/storage/.nomad-gpu-type', 'utf8')).trim()
+              const gpuTypeFile = await readFile('/app/storage/.nomad-gpu-type', 'utf8')
+              savedGpuType = gpuTypeFile.trim()
             } catch {}
           }
           const amdEnabledRaw = await KVStore.getValue('ai.amdGpuAcceleration')

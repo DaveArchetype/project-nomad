@@ -557,7 +557,7 @@ export default class SettingsController {
         })
       }
 
-      const hasOwnPort = inspected.HostConfig?.PortBindings?.['8080/tcp'] != null
+      const hasOwnPort = inspected.HostConfig?.PortBindings?.['8080/tcp'] !== undefined
       checks.push({
         label: 'Stremio port ownership',
         passed: usingVpnNetwork ? !hasOwnPort : hasOwnPort,
@@ -598,7 +598,8 @@ export default class SettingsController {
           signal: AbortSignal.timeout(10000),
         })
         if (hostIpRes.ok) {
-          hostIp = (await hostIpRes.text()).trim()
+          const hostIpText = await hostIpRes.text()
+          hostIp = hostIpText.trim()
         }
       } catch {}
 
