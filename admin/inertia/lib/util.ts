@@ -18,7 +18,7 @@ export function formatBytes(bytes: number, decimals = 2): string {
   const dm = decimals < 0 ? 0 : decimals
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i]
+  return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i]
 }
 
 export function generateRandomString(length: number): string {
@@ -72,7 +72,7 @@ export const extractFileName = (path: string) => {
  */
 export function catchInternal<Fn extends (...args: any[]) => any>(
   fn: Fn
-): (...args: Parameters<Fn>) => Promise<ReturnType<Fn> | undefined> {
+): (...args: Parameters<Fn>) => Promise<Awaited<ReturnType<Fn>> | undefined> {
   return async (...args: any[]) => {
     try {
       return await fn(...args)

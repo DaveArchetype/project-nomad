@@ -2,7 +2,6 @@ import { Head, router } from '@inertiajs/react'
 import { useEffect, useRef, useState } from 'react'
 import {
   IconAlertTriangle,
-  IconArrowRight,
   IconArrowUp,
   IconBook,
   IconBox,
@@ -152,6 +151,7 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
   }
 
   const { data: vpnCountriesSetting } = useSystemSetting({ key: 'vpn.countries' })
+  const { data: vpnProtocolSetting } = useSystemSetting({ key: 'vpn.protocol' })
   const { data: stremioVpnEnabledSetting } = useSystemSetting({ key: 'stremio.vpnEnabled' })
   const { data: vpnCountriesData, refetch: refetchVpnCountries } = useQuery({
     queryKey: ['vpn-countries'],
@@ -160,19 +160,27 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
     refetchOnWindowFocus: true,
   })
   const [vpnCountriesDraft, setVpnCountriesDraft] = useState('')
+  const [vpnProtocolDraft, setVpnProtocolDraft] = useState('openvpn')
   useEffect(() => {
     setVpnCountriesDraft((vpnCountriesSetting?.value as string | null | undefined) ?? '')
   }, [vpnCountriesSetting])
+  useEffect(() => {
+    setVpnProtocolDraft((vpnProtocolSetting?.value as string | null | undefined) ?? 'openvpn')
+  }, [vpnProtocolSetting])
 
   const updateVpnSettingsMutation = useMutation({
     mutationFn: async () => {
+      const savedProtocol = (vpnProtocolSetting?.value as string | null | undefined) ?? 'openvpn'
+      if (vpnProtocolDraft !== savedProtocol) {
+        await api.updateSetting('vpn.protocol', vpnProtocolDraft)
+      }
       await api.updateSetting('vpn.countries', vpnCountriesDraft.trim())
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['system-setting', 'vpn.countries'] })
       addNotification({
         message:
-          'VPN country saved. Reinstalling VPN container — running connection test in 15s...',
+          'VPN settings saved. Reinstalling VPN container — running connection test in 15s...',
         type: 'success',
       })
       setVpnTestResult(null)
@@ -224,8 +232,8 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
   const testVpnMutation = useMutation({
     mutationFn: async () => await api.testVpn(),
     onSuccess: (data) => {
-      setVpnTestResult(data)
-      if (data.connected) {
+      setVpnTestResult(data ?? null)
+      if (data?.connected) {
         refetchVpnCountries()
       }
     },
@@ -237,7 +245,7 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
   const testStremioVpnMutation = useMutation({
     mutationFn: async () => await api.testStremioVpn(),
     onSuccess: (data) => {
-      setStremioVpnTestResult(data)
+      setStremioVpnTestResult(data ?? null)
     },
     onError: (error: any) => {
       showError(error?.message || 'Failed to test Stremio VPN routing.')
@@ -735,8 +743,8 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                   <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                       <p className="text-sm text-text-secondary">
-                        Configure Surfshark credentials in Secrets, then select the VPN server
-                        country here.
+                        Configure Surfshark credentials in Secrets, then select the protocol and
+                        server country here. WireGuard requires a key pair and address from Secrets.
                       </p>
                       <StyledButton
                         variant="secondary"
@@ -745,7 +753,17 @@ export default function SupplyDepotPage(props: { system: { services: ServiceSlim
                         Open Secrets
                       </StyledButton>
                     </div>
-                    <div>
+                    <div className="space-y-3">
+                      <Select
+                        name="vpnProtocol"
+                        label="Protocol"
+                        value={vpnProtocolDraft}
+                        onChange={(val) => setVpnProtocolDraft(val)}
+                        options={[
+                          { value: 'openvpn', label: 'OpenVPN' },
+                          { value: 'wireguard', label: 'WireGuard (faster)' },
+                        ]}
+                      />
                       <Select
                         name="vpnCountries"
                         label="Server Country"
