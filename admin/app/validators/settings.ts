@@ -242,10 +242,11 @@ export function validateSettingValue(key: KVStoreKey, value: unknown): string | 
       }
       return null
     }
-    case 'vpn.wireguardPrivateKey': {
+    case 'vpn.wireguardPrivateKey':
+    case 'vpn.wireguardPublicKey': {
       if (value === '' || value === undefined || value === null) return null
       if (typeof value !== 'string' || !/^[A-Za-z0-9+/]{43}=$/.test(value.trim())) {
-        return 'WireGuard private key must be a 32-byte base64 value (44 characters ending in "=").'
+        return 'WireGuard keys must be 32-byte base64 values (44 characters ending in "=").'
       }
       return null
     }

@@ -96,6 +96,7 @@ export const KV_STORE_SCHEMA = {
   'vpn.openvpnPassword': 'string',
   'vpn.protocol': 'string',
   'vpn.wireguardPrivateKey': 'string',
+  'vpn.wireguardPublicKey': 'string',
   'vpn.wireguardAddresses': 'string',
   'vpn.countries': 'string',
   'stremio.vpnEnabled': 'boolean',

@@ -44,6 +44,7 @@ export const SETTINGS_KEYS: KVStoreKey[] = [
   'vpn.openvpnPassword',
   'vpn.protocol',
   'vpn.wireguardPrivateKey',
+  'vpn.wireguardPublicKey',
   'vpn.wireguardAddresses',
   'vpn.countries',
   'stremio.vpnEnabled',

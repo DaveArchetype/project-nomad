@@ -21,6 +21,7 @@ interface SecretsProps {
     vpnPasswordConfigured: boolean
     vpnProtocol: string
     wireguardPrivateKeyConfigured: boolean
+    wireguardPublicKey: string
     wireguardAddresses: string
     n8nApiKeyConfigured: boolean
     debridApiKeyConfigured: boolean
@@ -70,6 +71,7 @@ export default function SecretsPage({ secrets }: SecretsProps) {
   const [vpnPassword, setVpnPassword] = useState('')
   const [vpnProtocol, setVpnProtocol] = useState(secrets.vpnProtocol)
   const [wireguardPrivateKey, setWireguardPrivateKey] = useState('')
+  const [wireguardPublicKey, setWireguardPublicKey] = useState(secrets.wireguardPublicKey)
   const [wireguardAddresses, setWireguardAddresses] = useState(secrets.wireguardAddresses)
   const [n8nApiKey, setN8nApiKey] = useState('')
   const [debridProvider, setDebridProvider] = useState(secrets.debridProvider)
@@ -281,6 +283,13 @@ export default function SecretsPage({ secrets }: SecretsProps) {
                     value={wireguardAddresses}
                     onChange={(event) => setWireguardAddresses(event.target.value)}
                   />
+                  <Input
+                    name="wireguardPublicKey"
+                    label="WireGuard Public Key"
+                    placeholder="Optional — stored for reference"
+                    value={wireguardPublicKey}
+                    onChange={(event) => setWireguardPublicKey(event.target.value)}
+                  />
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -321,6 +330,9 @@ export default function SecretsPage({ secrets }: SecretsProps) {
                     if (vpnPassword) updates.push(['vpn.openvpnPassword', vpnPassword])
                     if (wireguardPrivateKey) {
                       updates.push(['vpn.wireguardPrivateKey', wireguardPrivateKey])
+                    }
+                    if (wireguardPublicKey.trim() !== secrets.wireguardPublicKey) {
+                      updates.push(['vpn.wireguardPublicKey', wireguardPublicKey.trim()])
                     }
                     if (wireguardAddresses.trim() !== secrets.wireguardAddresses) {
                       updates.push(['vpn.wireguardAddresses', wireguardAddresses.trim()])
