@@ -238,6 +238,8 @@ If you use a reverse-proxy base domain, the add-on URL is `https://comet.<your-d
 
 **VPN:** When Stremio's VPN mode is enabled in Settings, Comet automatically joins the same VPN tunnel — its scraping, debrid API calls, and proxied streams all exit through your VPN provider alongside Stremio. Toggling the VPN setting recreates Comet's container to match.
 
+**Proxied vs direct playback:** The add-on URL on the Secrets page has a "Proxy streams through NOMAD" toggle. With it on (default), video bytes flow through NOMAD — one debrid connection shared by every device, all through the VPN. Turn it off for a direct-playback URL instead: Comet still resolves links through the tunnel, but the video itself downloads straight from your debrid provider's CDN to each device. That mode is much faster on slow VPN exits, at the cost of your API key being embedded in the (base64) add-on URL — don't share that link.
+
 **No key yet?** Comet still installs and runs in torrent-only mode, but results are limited — the debrid key is what makes it shine.
 
 **Your data:** Comet's database and cached stream info live in `storage/comet`.

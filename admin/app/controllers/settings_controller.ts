@@ -12,7 +12,10 @@ import env from '#start/env'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { ADMIN_STORAGE_DEST } from '#services/docker_service/host_storage'
-import { buildCometAddonConfig } from '#services/docker_service/secrets'
+import {
+  buildCometAddonConfig,
+  buildCometDirectAddonConfig,
+} from '#services/docker_service/secrets'
 
 @inject()
 export default class SettingsController {
@@ -264,6 +267,7 @@ export default class SettingsController {
         cometInstalled: Boolean(cometService?.installed),
         cometPort: cometService?.ui_location ?? null,
         cometAddonConfig: await buildCometAddonConfig(),
+        cometDirectAddonConfig: await buildCometDirectAddonConfig(),
       },
     })
   }

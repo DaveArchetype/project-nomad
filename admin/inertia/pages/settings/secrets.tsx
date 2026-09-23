@@ -7,6 +7,7 @@ import StyledSectionHeader from '~/components/StyledSectionHeader'
 import Alert from '~/components/Alert'
 import Input from '~/components/inputs/Input'
 import Select from '~/components/inputs/Select'
+import Switch from '~/components/inputs/Switch'
 import api from '~/lib/api'
 import { useNotifications } from '~/context/NotificationContext'
 import { useReverseProxyBaseDomain } from '~/hooks/useReverseProxyBaseDomain'
@@ -29,6 +30,7 @@ interface SecretsProps {
     cometInstalled: boolean
     cometPort: string | null
     cometAddonConfig: string | null
+    cometDirectAddonConfig: string | null
   }
 }
 
@@ -76,6 +78,7 @@ export default function SecretsPage({ secrets }: SecretsProps) {
   const [n8nApiKey, setN8nApiKey] = useState('')
   const [debridProvider, setDebridProvider] = useState(secrets.debridProvider)
   const [debridApiKey, setDebridApiKey] = useState('')
+  const [proxyStreams, setProxyStreams] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
   const reverseProxyBaseDomain = useReverseProxyBaseDomain()
 
@@ -109,10 +112,9 @@ export default function SecretsPage({ secrets }: SecretsProps) {
     const port = secrets.cometPort?.match(/(\d+)/)?.[1]
     return port ? `http://${window.location.hostname}:${port}` : null
   })()
+  const activeCometConfig = proxyStreams ? secrets.cometAddonConfig : secrets.cometDirectAddonConfig
   const cometManifestUrl =
-    cometBaseUrl && secrets.cometAddonConfig
-      ? `${cometBaseUrl}/${secrets.cometAddonConfig}/manifest.json`
-      : null
+    cometBaseUrl && activeCometConfig ? `${cometBaseUrl}/${activeCometConfig}/manifest.json` : null
   const cometConfigureUrl = cometManifestUrl?.replace(/manifest\.json$/, 'configure')
 
   return (
@@ -450,6 +452,14 @@ export default function SecretsPage({ secrets }: SecretsProps) {
                       Add this URL to Stremio (Settings → Add-ons → paste the manifest link), or
                       open the Comet setup page to adjust filters first.
                     </p>
+                    {secrets.cometDirectAddonConfig && (
+                      <Switch
+                        checked={proxyStreams}
+                        onChange={setProxyStreams}
+                        label="Proxy streams through NOMAD"
+                        description="On: playback flows through the VPN tunnel and every device shares one debrid IP. Off: clients are redirected to the debrid CDN directly — faster, but playback leaves the tunnel and the add-on URL embeds your API key."
+                      />
+                    )}
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                       <code className="flex-1 text-xs bg-surface-secondary rounded-md px-3 py-2 break-all">
                         {cometManifestUrl}

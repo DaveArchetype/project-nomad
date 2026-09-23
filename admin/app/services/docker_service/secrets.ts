@@ -52,3 +52,20 @@ export async function buildCometAddonConfig(): Promise<string | null> {
   )
   return !encoded.includes('+') && !encoded.includes('/') ? encoded : null
 }
+
+export async function buildCometDirectAddonConfig(): Promise<string | null> {
+  const storedApiKey = await KVStore.getValue('secrets.debridApiKey')
+  const apiKey = storedApiKey?.trim()
+  if (!apiKey) return null
+  const storedProvider = await KVStore.getValue('secrets.debridProvider')
+  const provider = storedProvider?.trim() || 'realdebrid'
+  const shapes = [
+    { debridServices: [{ service: provider, apiKey }] },
+    { debridService: provider, debridApiKey: apiKey },
+  ]
+  for (const shape of shapes) {
+    const encoded = Buffer.from(JSON.stringify(shape)).toString('base64')
+    if (!encoded.includes('/')) return encoded
+  }
+  return null
+}
