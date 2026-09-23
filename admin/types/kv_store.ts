@@ -94,6 +94,9 @@ export const KV_STORE_SCHEMA = {
   'registry.giteaPassword': 'string',
   'vpn.openvpnUser': 'string',
   'vpn.openvpnPassword': 'string',
+  'vpn.protocol': 'string',
+  'vpn.wireguardPrivateKey': 'string',
+  'vpn.wireguardAddresses': 'string',
   'vpn.countries': 'string',
   'stremio.vpnEnabled': 'boolean',
   // Drug Reference v1 — export_date of the last successfully completed

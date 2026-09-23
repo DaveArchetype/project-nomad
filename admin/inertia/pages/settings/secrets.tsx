@@ -19,6 +19,9 @@ interface SecretsProps {
     registryPasswordConfigured: boolean
     vpnUsername: string
     vpnPasswordConfigured: boolean
+    vpnProtocol: string
+    wireguardPrivateKeyConfigured: boolean
+    wireguardAddresses: string
     n8nApiKeyConfigured: boolean
     debridApiKeyConfigured: boolean
     debridProvider: string
@@ -27,6 +30,11 @@ interface SecretsProps {
     cometAddonConfig: string | null
   }
 }
+
+const VPN_PROTOCOLS = [
+  { value: 'openvpn', label: 'OpenVPN' },
+  { value: 'wireguard', label: 'WireGuard' },
+]
 
 const DEBRID_PROVIDERS = [
   { value: 'realdebrid', label: 'Real-Debrid' },
@@ -60,6 +68,9 @@ export default function SecretsPage({ secrets }: SecretsProps) {
   const [registryPassword, setRegistryPassword] = useState('')
   const [vpnUsername, setVpnUsername] = useState(secrets.vpnUsername)
   const [vpnPassword, setVpnPassword] = useState('')
+  const [vpnProtocol, setVpnProtocol] = useState(secrets.vpnProtocol)
+  const [wireguardPrivateKey, setWireguardPrivateKey] = useState('')
+  const [wireguardAddresses, setWireguardAddresses] = useState(secrets.wireguardAddresses)
   const [n8nApiKey, setN8nApiKey] = useState('')
   const [debridProvider, setDebridProvider] = useState(secrets.debridProvider)
   const [debridApiKey, setDebridApiKey] = useState('')
@@ -227,33 +238,73 @@ export default function SecretsPage({ secrets }: SecretsProps) {
           <section>
             <div className="flex items-center justify-between gap-3 mb-4">
               <StyledSectionHeader title="VPN Provider" />
-              <Status configured={secrets.vpnPasswordConfigured} />
+              <Status
+                configured={
+                  secrets.vpnProtocol === 'wireguard'
+                    ? secrets.wireguardPrivateKeyConfigured && Boolean(secrets.wireguardAddresses)
+                    : secrets.vpnPasswordConfigured
+                }
+              />
             </div>
             <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6 space-y-4">
               <p className="text-sm text-text-secondary">
-                Surfshark manual OpenVPN credentials used by the VPN Gateway.
+                Surfshark credentials used by the VPN Gateway. WireGuard is significantly faster
+                than OpenVPN — generate a key pair under Surfshark → VPN → Manual Setup → WireGuard,
+                then copy the IPv4 Address from the downloaded config file.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Input
-                  name="vpnUsername"
-                  label="Surfshark Username"
-                  value={vpnUsername}
-                  onChange={(event) => setVpnUsername(event.target.value)}
-                />
-                <Input
-                  name="vpnPassword"
-                  type="password"
-                  autoComplete="off"
-                  label="Surfshark Password"
-                  placeholder={
-                    secrets.vpnPasswordConfigured
-                      ? 'Configured — enter a replacement'
-                      : 'Service password'
-                  }
-                  value={vpnPassword}
-                  onChange={(event) => setVpnPassword(event.target.value)}
-                />
-              </div>
+              <Select
+                name="vpnProtocol"
+                label="VPN Protocol"
+                value={vpnProtocol}
+                onChange={setVpnProtocol}
+                options={VPN_PROTOCOLS}
+              />
+              {vpnProtocol === 'wireguard' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Input
+                    name="wireguardPrivateKey"
+                    type="password"
+                    autoComplete="off"
+                    label="WireGuard Private Key"
+                    placeholder={
+                      secrets.wireguardPrivateKeyConfigured
+                        ? 'Configured — enter a replacement'
+                        : 'Paste private key'
+                    }
+                    value={wireguardPrivateKey}
+                    onChange={(event) => setWireguardPrivateKey(event.target.value)}
+                  />
+                  <Input
+                    name="wireguardAddresses"
+                    label="WireGuard Address"
+                    placeholder="10.64.222.21/16"
+                    value={wireguardAddresses}
+                    onChange={(event) => setWireguardAddresses(event.target.value)}
+                  />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Input
+                    name="vpnUsername"
+                    label="Surfshark Username"
+                    value={vpnUsername}
+                    onChange={(event) => setVpnUsername(event.target.value)}
+                  />
+                  <Input
+                    name="vpnPassword"
+                    type="password"
+                    autoComplete="off"
+                    label="Surfshark Password"
+                    placeholder={
+                      secrets.vpnPasswordConfigured
+                        ? 'Configured — enter a replacement'
+                        : 'Service password'
+                    }
+                    value={vpnPassword}
+                    onChange={(event) => setVpnPassword(event.target.value)}
+                  />
+                </div>
+              )}
               <div className="flex justify-end">
                 <StyledButton
                   variant="primary"
@@ -261,11 +312,23 @@ export default function SecretsPage({ secrets }: SecretsProps) {
                   disabled={saving !== null}
                   onClick={() => {
                     const updates: Array<[string, string]> = []
+                    if (vpnProtocol !== secrets.vpnProtocol) {
+                      updates.push(['vpn.protocol', vpnProtocol])
+                    }
                     if (vpnUsername.trim() && vpnUsername.trim() !== secrets.vpnUsername) {
                       updates.push(['vpn.openvpnUser', vpnUsername.trim()])
                     }
                     if (vpnPassword) updates.push(['vpn.openvpnPassword', vpnPassword])
-                    void save('vpn', updates, () => setVpnPassword(''))
+                    if (wireguardPrivateKey) {
+                      updates.push(['vpn.wireguardPrivateKey', wireguardPrivateKey])
+                    }
+                    if (wireguardAddresses.trim() !== secrets.wireguardAddresses) {
+                      updates.push(['vpn.wireguardAddresses', wireguardAddresses.trim()])
+                    }
+                    void save('vpn', updates, () => {
+                      setVpnPassword('')
+                      setWireguardPrivateKey('')
+                    })
                   }}
                 >
                   Save VPN Credentials

@@ -871,7 +871,14 @@ export class SystemService {
         auto_update_disabled_reason: null,
       })
     }
-    if (key === 'vpn.openvpnUser' || key === 'vpn.openvpnPassword' || key === 'vpn.countries') {
+    if (
+      key === 'vpn.openvpnUser' ||
+      key === 'vpn.openvpnPassword' ||
+      key === 'vpn.countries' ||
+      key === 'vpn.protocol' ||
+      key === 'vpn.wireguardPrivateKey' ||
+      key === 'vpn.wireguardAddresses'
+    ) {
       const stremioVpnEnabled = await KVStore.getValue('stremio.vpnEnabled')
       if (stremioVpnEnabled === true) {
         await this.coordinatedVpnStremioReinstall()

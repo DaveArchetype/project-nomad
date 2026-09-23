@@ -236,6 +236,32 @@ export function validateSettingValue(key: KVStoreKey, value: unknown): string | 
       }
       return null
     }
+    case 'vpn.protocol': {
+      if (value !== 'openvpn' && value !== 'wireguard') {
+        return 'VPN protocol must be "openvpn" or "wireguard".'
+      }
+      return null
+    }
+    case 'vpn.wireguardPrivateKey': {
+      if (value === '' || value === undefined || value === null) return null
+      if (typeof value !== 'string' || !/^[A-Za-z0-9+/]{43}=$/.test(value.trim())) {
+        return 'WireGuard private key must be a 32-byte base64 value (44 characters ending in "=").'
+      }
+      return null
+    }
+    case 'vpn.wireguardAddresses': {
+      if (value === '' || value === undefined || value === null) return null
+      const parts = String(value)
+        .split(',')
+        .map((p) => p.trim())
+      const allValid = parts.every(
+        (p) => /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/.test(p) || /^[0-9a-fA-F:]+\/\d{1,3}$/.test(p)
+      )
+      if (!allValid) {
+        return 'WireGuard address must be in CIDR format (e.g. "10.64.222.21/16").'
+      }
+      return null
+    }
     case 'recap.scheduleTime': {
       if (typeof value !== 'string' || !HHMM_PATTERN.test(value)) {
         return 'Recap schedule time must be in 24-hour HH:MM format (e.g. "23:55").'

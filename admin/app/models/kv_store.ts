@@ -13,6 +13,7 @@ const SECRET_SETTING_KEYS = new Set<KVStoreKey>([
   'secrets.cometProxyPassword',
   'registry.giteaPassword',
   'vpn.openvpnPassword',
+  'vpn.wireguardPrivateKey',
   'automation.n8nEncryptionKey',
   'automation.n8nApiKey',
 ])

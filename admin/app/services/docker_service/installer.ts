@@ -502,13 +502,36 @@ async function createContainer(
     }
     if (service.service_name === SERVICE_NAMES.VPN) {
       appEnv.push('HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE={"auth":"none"}')
-      const openvpnUser = await KVStore.getValue('vpn.openvpnUser')
-      if (openvpnUser) {
-        appEnv.push(`OPENVPN_USER=${openvpnUser}`)
+      const vpnProtocol = await KVStore.getValue('vpn.protocol')
+      const wireguardPrivateKey = await KVStore.getValue('vpn.wireguardPrivateKey')
+      const wireguardAddresses = await KVStore.getValue('vpn.wireguardAddresses')
+      const useWireguard =
+        vpnProtocol === 'wireguard' && Boolean(wireguardPrivateKey && wireguardAddresses)
+      if (vpnProtocol === 'wireguard' && !useWireguard) {
+        ctx.broadcast(
+          service.service_name,
+          'wireguard-missing',
+          'WireGuard is selected but its private key/address are not configured — falling back to OpenVPN.'
+        )
       }
-      const openvpnPassword = await KVStore.getValue('vpn.openvpnPassword')
-      if (openvpnPassword) {
-        appEnv.push(`OPENVPN_PASSWORD=${openvpnPassword}`)
+      if (containerConfig?.Env) {
+        containerConfig.Env = containerConfig.Env.filter(
+          (entry: string) => !entry.startsWith('VPN_TYPE=')
+        )
+      }
+      appEnv.push(`VPN_TYPE=${useWireguard ? 'wireguard' : 'openvpn'}`)
+      if (useWireguard) {
+        appEnv.push(`WIREGUARD_PRIVATE_KEY=${wireguardPrivateKey}`)
+        appEnv.push(`WIREGUARD_ADDRESSES=${wireguardAddresses}`)
+      } else {
+        const openvpnUser = await KVStore.getValue('vpn.openvpnUser')
+        if (openvpnUser) {
+          appEnv.push(`OPENVPN_USER=${openvpnUser}`)
+        }
+        const openvpnPassword = await KVStore.getValue('vpn.openvpnPassword')
+        if (openvpnPassword) {
+          appEnv.push(`OPENVPN_PASSWORD=${openvpnPassword}`)
+        }
       }
       const vpnCountries = await KVStore.getValue('vpn.countries')
       if (vpnCountries) {
