@@ -36,6 +36,8 @@ export const SETTINGS_KEYS: KVStoreKey[] = [
   'contentAutoUpdate.maxBytesPerWindow',
   'apps.homebox.apiKeyPepper',
   'secrets.huggingFaceToken',
+  'secrets.debridApiKey',
+  'secrets.debridProvider',
   'registry.giteaUsername',
   'registry.giteaPassword',
   'vpn.openvpnUser',

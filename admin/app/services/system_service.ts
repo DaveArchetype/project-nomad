@@ -907,6 +907,16 @@ export class SystemService {
         })
       }
     }
+    if (key === 'secrets.debridApiKey' || key === 'secrets.debridProvider') {
+      const comet = await Service.query().where('service_name', SERVICE_NAMES.COMET).first()
+      if (comet?.installed) {
+        this.dockerService.forceReinstall(SERVICE_NAMES.COMET).catch((error) => {
+          logger.warn(
+            `[SystemService] Auto-reinstall of Comet after debrid credential change failed: ${error instanceof Error ? error.message : String(error)}`
+          )
+        })
+      }
+    }
   }
 
   private async coordinatedVpnStremioReinstall(): Promise<void> {

@@ -522,7 +522,10 @@ async function createContainer(
         RestartPolicy: { Name: 'unless-stopped' },
       }
       healthcheck = {
-        Test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:11470/settings || exit 1'],
+        Test: [
+          'CMD-SHELL',
+          'wget -q -O /dev/null http://127.0.0.1:11470/settings 2>/dev/null || curl -fsS -o /dev/null http://127.0.0.1:11470/settings || exit 1',
+        ],
         Interval: 5000000000,
         Timeout: 5000000000,
         Retries: 2,
@@ -544,6 +547,24 @@ async function createContainer(
             ExtraHosts: [...(gpuHostConfig.ExtraHosts || []), `127.0.0.1 ${host}`],
           }
         }
+      }
+    }
+    if (service.service_name === SERVICE_NAMES.COMET) {
+      const storedDebridApiKey = await KVStore.getValue('secrets.debridApiKey')
+      const debridApiKey = storedDebridApiKey?.trim()
+      if (debridApiKey) {
+        const storedDebridProvider = await KVStore.getValue('secrets.debridProvider')
+        const debridProvider = storedDebridProvider?.trim() || 'realdebrid'
+        appEnv.push('PROXY_DEBRID_STREAM=True')
+        appEnv.push(`PROXY_DEBRID_STREAM_DEBRID_DEFAULT_SERVICE=${debridProvider}`)
+        appEnv.push(`PROXY_DEBRID_STREAM_DEBRID_DEFAULT_APIKEY=${debridApiKey}`)
+        appEnv.push(`PROXY_DEBRID_STREAM_PASSWORD=${await ctx.resolveCometProxyPassword()}`)
+      } else {
+        ctx.broadcast(
+          service.service_name,
+          'debrid-missing',
+          'No debrid API key configured. Comet will run in torrent-only mode — add a key under Settings → Secrets and reinstall Comet to enable debrid streams.'
+        )
       }
     }
     if (service.service_name === SERVICE_NAMES.N8N) {

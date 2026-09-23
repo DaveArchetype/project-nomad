@@ -50,6 +50,7 @@ export interface DockerCtx {
   discoverAMDDevices(): Promise<DockerDevice[]>
   resolveHomeboxPepper(): Promise<string>
   resolveN8nEncryptionKey(): Promise<string>
+  resolveCometProxyPassword(): Promise<string>
   findContainerByName(serviceName: string): Promise<Docker.ContainerInfo | null>
   removeServiceContainer(serviceName: string): Promise<OperationResult>
   humanizeDockerError(error: any, serviceName: string): string

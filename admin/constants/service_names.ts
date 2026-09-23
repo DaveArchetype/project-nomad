@@ -19,6 +19,7 @@ export const SERVICE_NAMES = {
   VAULTWARDEN: 'nomad_vaultwarden',
   JELLYFIN: 'nomad_jellyfin',
   STREMIO: 'nomad_stremio',
+  COMET: 'nomad_comet',
   VPN: 'nomad_vpn',
   CODE_SERVER: 'nomad_code_server',
   // Voice Assistant — CPU-only ambient STT/wake-word/TTS pipeline

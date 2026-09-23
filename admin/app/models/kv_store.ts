@@ -9,6 +9,8 @@ const ENCRYPTED_VALUE_PREFIX = 'encv1:'
 const SECRET_SETTING_KEYS = new Set<KVStoreKey>([
   'apps.homebox.apiKeyPepper',
   'secrets.huggingFaceToken',
+  'secrets.debridApiKey',
+  'secrets.cometProxyPassword',
   'registry.giteaPassword',
   'vpn.openvpnPassword',
   'automation.n8nEncryptionKey',

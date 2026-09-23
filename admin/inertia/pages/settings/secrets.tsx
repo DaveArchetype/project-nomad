@@ -6,8 +6,10 @@ import StyledButton from '~/components/StyledButton'
 import StyledSectionHeader from '~/components/StyledSectionHeader'
 import Alert from '~/components/Alert'
 import Input from '~/components/inputs/Input'
+import Select from '~/components/inputs/Select'
 import api from '~/lib/api'
 import { useNotifications } from '~/context/NotificationContext'
+import { useReverseProxyBaseDomain } from '~/hooks/useReverseProxyBaseDomain'
 
 interface SecretsProps {
   secrets: {
@@ -18,8 +20,25 @@ interface SecretsProps {
     vpnUsername: string
     vpnPasswordConfigured: boolean
     n8nApiKeyConfigured: boolean
+    debridApiKeyConfigured: boolean
+    debridProvider: string
+    cometInstalled: boolean
+    cometPort: string | null
+    cometAddonConfig: string | null
   }
 }
+
+const DEBRID_PROVIDERS = [
+  { value: 'realdebrid', label: 'Real-Debrid' },
+  { value: 'alldebrid', label: 'AllDebrid' },
+  { value: 'premiumize', label: 'Premiumize' },
+  { value: 'torbox', label: 'Torbox' },
+  { value: 'debrider', label: 'Debrider' },
+  { value: 'easydebrid', label: 'EasyDebrid' },
+  { value: 'debridlink', label: 'Debrid-Link' },
+  { value: 'offcloud', label: 'Offcloud' },
+  { value: 'pikpak', label: 'PikPak' },
+]
 
 function Status({ configured }: { configured: boolean }) {
   return (
@@ -42,7 +61,10 @@ export default function SecretsPage({ secrets }: SecretsProps) {
   const [vpnUsername, setVpnUsername] = useState(secrets.vpnUsername)
   const [vpnPassword, setVpnPassword] = useState('')
   const [n8nApiKey, setN8nApiKey] = useState('')
+  const [debridProvider, setDebridProvider] = useState(secrets.debridProvider)
+  const [debridApiKey, setDebridApiKey] = useState('')
   const [saving, setSaving] = useState<string | null>(null)
+  const reverseProxyBaseDomain = useReverseProxyBaseDomain()
 
   async function save(group: string, updates: Array<[string, string]>, reset: () => void) {
     if (updates.length === 0) {
@@ -67,6 +89,18 @@ export default function SecretsPage({ secrets }: SecretsProps) {
       setSaving(null)
     }
   }
+
+  const cometBaseUrl = (() => {
+    if (!secrets.cometInstalled) return null
+    if (reverseProxyBaseDomain) return `https://comet.${reverseProxyBaseDomain}`
+    const port = secrets.cometPort?.match(/(\d+)/)?.[1]
+    return port ? `http://${window.location.hostname}:${port}` : null
+  })()
+  const cometManifestUrl =
+    cometBaseUrl && secrets.cometAddonConfig
+      ? `${cometBaseUrl}/${secrets.cometAddonConfig}/manifest.json`
+      : null
+  const cometConfigureUrl = cometManifestUrl?.replace(/manifest\.json$/, 'configure')
 
   return (
     <SettingsLayout>
@@ -279,6 +313,112 @@ export default function SecretsPage({ secrets }: SecretsProps) {
                   Save API Key
                 </StyledButton>
               </div>
+            </div>
+          </section>
+
+          <section>
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <StyledSectionHeader title="Debrid Service" />
+              <Status configured={secrets.debridApiKeyConfigured} />
+            </div>
+            <div className="bg-surface-primary rounded-lg border-2 border-border-subtle p-6 space-y-4">
+              <p className="text-sm text-text-secondary">
+                Credentials for your debrid provider, used by the Comet Stremio add-on. Streams are
+                proxied through NOMAD so every device shares one debrid connection. Saving a
+                replacement key automatically recreates the installed Comet container.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Select
+                  name="debridProvider"
+                  label="Debrid Provider"
+                  value={debridProvider}
+                  onChange={setDebridProvider}
+                  options={DEBRID_PROVIDERS}
+                />
+                <Input
+                  name="debridApiKey"
+                  type="password"
+                  autoComplete="off"
+                  label="Debrid API Key"
+                  placeholder={
+                    secrets.debridApiKeyConfigured
+                      ? 'Configured — enter a replacement'
+                      : 'Paste debrid API key'
+                  }
+                  value={debridApiKey}
+                  onChange={(event) => setDebridApiKey(event.target.value)}
+                />
+              </div>
+              <div className="flex justify-end">
+                <StyledButton
+                  variant="primary"
+                  loading={saving === 'debrid'}
+                  disabled={saving !== null}
+                  onClick={() => {
+                    const updates: Array<[string, string]> = []
+                    if (debridProvider !== secrets.debridProvider) {
+                      updates.push(['secrets.debridProvider', debridProvider])
+                    }
+                    if (debridApiKey.trim()) {
+                      updates.push(['secrets.debridApiKey', debridApiKey.trim()])
+                    }
+                    void save('debrid', updates, () => setDebridApiKey(''))
+                  }}
+                >
+                  Save Debrid Credentials
+                </StyledButton>
+              </div>
+              {secrets.debridApiKeyConfigured &&
+                (cometManifestUrl ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-text-secondary">
+                      Add this URL to Stremio (Settings → Add-ons → paste the manifest link), or
+                      open the Comet setup page to adjust filters first.
+                    </p>
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                      <code className="flex-1 text-xs bg-surface-secondary rounded-md px-3 py-2 break-all">
+                        {cometManifestUrl}
+                      </code>
+                      <div className="flex gap-2">
+                        <StyledButton
+                          variant="secondary"
+                          icon="IconCopy"
+                          onClick={() => {
+                            navigator.clipboard
+                              .writeText(cometManifestUrl)
+                              .then(() =>
+                                addNotification({
+                                  message: 'Comet add-on URL copied.',
+                                  type: 'success',
+                                })
+                              )
+                              .catch(() =>
+                                addNotification({
+                                  message: 'Failed to copy add-on URL.',
+                                  type: 'error',
+                                })
+                              )
+                          }}
+                        >
+                          Copy
+                        </StyledButton>
+                        <StyledButton
+                          variant="secondary"
+                          icon="IconExternalLink"
+                          onClick={() => window.open(cometConfigureUrl, '_blank')}
+                        >
+                          Open Setup
+                        </StyledButton>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <Alert
+                    type="info"
+                    title="Install Comet"
+                    message="Install Comet from the Supply Depot, then use the add-on link shown here to add it to Stremio."
+                  />
+                ))}
             </div>
           </section>
 

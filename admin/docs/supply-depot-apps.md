@@ -223,6 +223,23 @@ Your own media server. Point Jellyfin at a folder of movies, TV shows, music, an
 
 > **A note on playback performance:** Jellyfin plays most files effortlessly, but if a video's format isn't supported by your device, Jellyfin has to convert it on the fly ("transcoding"), which is heavy work for the processor. NOMAD doesn't set up graphics-card acceleration for this by default, so very large or high-resolution videos may stutter on a modest NOMAD. Playing files in a widely-supported format (like MP4/H.264) avoids transcoding and plays smoothest.
 
+## Comet {% #comet %}
+
+A self-hosted [Stremio](https://www.stremio.com) add-on that finds high-quality streams through your debrid service (Real-Debrid, Torbox, AllDebrid, and friends). Instead of Stremio downloading torrents directly, Comet resolves them on your debrid provider and hands Stremio a fast HTTPS link — and on NOMAD every stream is proxied through your device, so all your screens share a single debrid connection and your debrid account only ever sees one IP address.
+
+**Source:** [github.com/g0ldyy/comet](https://github.com/g0ldyy/comet)
+
+**Setup takes two steps:**
+
+1. **Save your debrid credentials** — open **Settings → Secrets → Debrid Service**, pick your provider, and paste your API key. If Comet is already installed, saving recreates its container automatically.
+2. **Install the add-on in Stremio** — once a key is saved and Comet is installed, the same Secrets section shows a ready-made add-on URL. Copy it into Stremio (**Settings → Add-ons → paste the manifest link**) or click **Open Setup** to land on Comet's own configuration page first and adjust filters (resolutions, languages, result limits) before installing.
+
+If you use a reverse-proxy base domain, the add-on URL is `https://comet.<your-domain>` — Stremio requires HTTPS for add-ons outside your own machine, so the hosted URL is the one to use when installing on other devices.
+
+**No key yet?** Comet still installs and runs in torrent-only mode, but results are limited — the debrid key is what makes it shine.
+
+**Your data:** Comet's database and cached stream info live in `storage/comet`.
+
 ## Meshtastic Web {% #meshtastic-web %}
 
 A browser-based control panel for [Meshtastic](https://meshtastic.org) devices. Meshtastic is off-grid, long-range radio messaging: small, inexpensive LoRa radios that form their own mesh network and send text messages and GPS locations for miles with no cell service, no internet, and no fees. This app is how you configure those radios and read and send messages from a full-size screen.

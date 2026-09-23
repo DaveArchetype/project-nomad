@@ -83,7 +83,7 @@ export class ContainerWatchdogService {
         const currentSwap = inspected.HostConfig?.MemorySwap ?? 0
         const desired = await resolveMemoryLimitBytes(name, async (k) => {
           const v = await KVStore.getValue(k as any)
-          return v == null ? null : String(v)
+          return v === null || v === undefined ? null : String(v)
         })
         const desiredSwap = desired > 0 ? desired : -1
         if (desired === currentMemory && (desired === 0 || desiredSwap === currentSwap)) {
@@ -163,17 +163,17 @@ export class ContainerWatchdogService {
   }> {
     const thresholdRaw = await KVStore.getValue('watchdog.memPressureThreshold')
     const memPressureThreshold =
-      thresholdRaw != null && thresholdRaw !== ''
+      thresholdRaw !== null && thresholdRaw !== ''
         ? Number.parseFloat(thresholdRaw)
         : WATCHDOG_MEM_PRESSURE_THRESHOLD
     const sustainedRaw = await KVStore.getValue('watchdog.sustainedTicks')
     const sustainedTicks =
-      sustainedRaw != null && sustainedRaw !== ''
+      sustainedRaw !== null && sustainedRaw !== ''
         ? Number.parseInt(sustainedRaw, 10)
         : WATCHDOG_SUSTAINED_TICKS
     const hostRaw = await KVStore.getValue('watchdog.hostMemKillPercent')
     const hostMemKillPercent =
-      hostRaw != null && hostRaw !== ''
+      hostRaw !== null && hostRaw !== ''
         ? Number.parseInt(hostRaw, 10)
         : WATCHDOG_HOST_MEM_KILL_PERCENT
     return {
@@ -205,7 +205,7 @@ export class ContainerWatchdogService {
         const memLimit = s.memory_stats?.limit ?? 0
         const configuredLimit = await resolveMemoryLimitBytes(name, async (k) => {
           const v = await KVStore.getValue(k as any)
-          return v == null ? null : String(v)
+          return v === null || v === undefined ? null : String(v)
         })
         if (configuredLimit > 0) {
           if (memUsage / configuredLimit >= memPressureThreshold) pressured = true
@@ -273,7 +273,7 @@ export class ContainerWatchdogService {
     try {
       if (history.length >= WATCHDOG_LOOP_BREAK_KILLS) {
         logger.warn(
-          `[ContainerWatchdog] ${name} restarted ${history.length}x in ${Math.round(WATCHDOG_LOOP_BREAK_WINDOW_MS / 1000 / 60)} min — flipping restart policy to "no" to break the loop. Restart it manually from the UI once the workload is fixed.`
+          `[ContainerWatchdog] ${name} restarted ${history.length}x in ${Math.round(WATCHDOG_LOOP_BREAK_WINDOW_MS / 1000 / 60)} min — flipping restart policy to "no" and stopping it to break the loop. Restart it manually from the UI once the workload is fixed.`
         )
         try {
           await container.update({ RestartPolicy: { Name: 'no', MaximumRetryCount: 0 } })
@@ -284,7 +284,16 @@ export class ContainerWatchdogService {
             err instanceof Error ? err.message : String(err)
           )
         }
+        await container.stop({ t: 10 })
         this.killHistory.set(id, [])
+        this.lastKillAt.set(id, now)
+        transmit.broadcast(BROADCAST_CHANNELS.SERVICE_INSTALLATION, {
+          service_name: name,
+          timestamp: new Date().toISOString(),
+          status: 'watchdog-loop-break',
+          message: `Stopped after ${history.length} failed health-check restarts — restart it manually once the workload is fixed.`,
+        })
+        return
       }
       await container.restart({ t: 10 })
       this.lastKillAt.set(id, now)

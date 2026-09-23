@@ -1,4 +1,5 @@
 import KVStore, { isSecretSettingKey } from '#models/kv_store'
+import Service from '#models/service'
 import { MapService } from '#services/map_service'
 import { OllamaService } from '#services/ollama_service'
 import { SystemService } from '#services/system_service'
@@ -11,6 +12,7 @@ import env from '#start/env'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { ADMIN_STORAGE_DEST } from '#services/docker_service/host_storage'
+import { buildCometAddonConfig } from '#services/docker_service/secrets'
 
 @inject()
 export default class SettingsController {
@@ -221,6 +223,9 @@ export default class SettingsController {
       vpnUsername,
       vpnPassword,
       n8nApiKey,
+      debridApiKey,
+      debridProvider,
+      cometService,
     ] = await Promise.all([
       KVStore.getValue('secrets.huggingFaceToken'),
       KVStore.getValue('registry.giteaUsername'),
@@ -228,6 +233,9 @@ export default class SettingsController {
       KVStore.getValue('vpn.openvpnUser'),
       KVStore.getValue('vpn.openvpnPassword'),
       KVStore.getValue('automation.n8nApiKey'),
+      KVStore.getValue('secrets.debridApiKey'),
+      KVStore.getValue('secrets.debridProvider'),
+      Service.query().where('service_name', SERVICE_NAMES.COMET).first(),
     ])
     const huggingFaceTokenEnvOverride = Boolean(env.get('HF_TOKEN')?.trim())
     return inertia.render('settings/secrets', {
@@ -239,6 +247,11 @@ export default class SettingsController {
         vpnUsername: vpnUsername || '',
         vpnPasswordConfigured: Boolean(vpnPassword),
         n8nApiKeyConfigured: Boolean(n8nApiKey),
+        debridApiKeyConfigured: Boolean(debridApiKey),
+        debridProvider: debridProvider || 'realdebrid',
+        cometInstalled: Boolean(cometService?.installed),
+        cometPort: cometService?.ui_location ?? null,
+        cometAddonConfig: await buildCometAddonConfig(),
       },
     })
   }

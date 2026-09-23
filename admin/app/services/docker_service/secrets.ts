@@ -23,3 +23,32 @@ export async function resolveN8nEncryptionKey(): Promise<string> {
   logger.info('[DockerService] Generated and persisted n8n encryption key')
   return key
 }
+
+export async function resolveCometProxyPassword(): Promise<string> {
+  const existing = await KVStore.getValue('secrets.cometProxyPassword')
+  if (typeof existing === 'string' && existing.length >= 16) {
+    return existing
+  }
+  let password = randomBytes(24).toString('base64url')
+  for (let attempt = 0; attempt < 25; attempt++) {
+    const encoded = Buffer.from(JSON.stringify({ debridStreamProxyPassword: password })).toString(
+      'base64'
+    )
+    if (!encoded.includes('+') && !encoded.includes('/')) break
+    password = randomBytes(24).toString('base64url')
+  }
+  await KVStore.setValue('secrets.cometProxyPassword', password)
+  logger.info('[DockerService] Generated and persisted Comet debrid stream proxy password')
+  return password
+}
+
+export async function buildCometAddonConfig(): Promise<string | null> {
+  const storedApiKey = await KVStore.getValue('secrets.debridApiKey')
+  const apiKey = storedApiKey?.trim()
+  if (!apiKey) return null
+  const password = await resolveCometProxyPassword()
+  const encoded = Buffer.from(JSON.stringify({ debridStreamProxyPassword: password })).toString(
+    'base64'
+  )
+  return !encoded.includes('+') && !encoded.includes('/') ? encoded : null
+}

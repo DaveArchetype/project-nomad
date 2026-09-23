@@ -219,6 +219,23 @@ export function validateSettingValue(key: KVStoreKey, value: unknown): string | 
       }
       return null
     }
+    case 'secrets.debridProvider': {
+      const allowed = [
+        'realdebrid',
+        'alldebrid',
+        'premiumize',
+        'torbox',
+        'debrider',
+        'easydebrid',
+        'debridlink',
+        'offcloud',
+        'pikpak',
+      ]
+      if (!allowed.includes(String(value))) {
+        return `Debrid provider must be one of: ${allowed.join(', ')}.`
+      }
+      return null
+    }
     case 'recap.scheduleTime': {
       if (typeof value !== 'string' || !HHMM_PATTERN.test(value)) {
         return 'Recap schedule time must be in 24-hour HH:MM format (e.g. "23:55").'

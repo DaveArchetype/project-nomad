@@ -16,6 +16,7 @@ export const SUPPLY_DEPOT_DOC_ANCHORS: Record<string, string> = {
   [SERVICE_NAMES.HOMEBOX]: 'homebox',
   [SERVICE_NAMES.VAULTWARDEN]: 'vaultwarden',
   [SERVICE_NAMES.JELLYFIN]: 'jellyfin',
+  [SERVICE_NAMES.COMET]: 'comet',
   [SERVICE_NAMES.CODE_SERVER]: 'code-server',
   [SERVICE_NAMES.VOICE_GATEWAY]: 'voice-gateway',
   [SERVICE_NAMES.TTS]: 'text-to-speech',
